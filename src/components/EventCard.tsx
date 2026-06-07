@@ -27,13 +27,13 @@ const EventCard = ({ event, onRegister }: EventCardProps) => {
   return (
     <Card className="overflow-hidden hover:shadow-lg transition-shadow duration-300">
       {event.imageUrl && (
-        <div className="h-48 overflow-hidden">
-          <img
-            src={event.imageUrl}
-            alt={event.title}
-            className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
-          />
-        </div>
+        <div className="aspect-[16/9] overflow-hidden">
+  <img
+    src={event.imageUrl}
+    alt={event.title}
+    className="w-full h-full object-cover"
+  />
+</div>
       )}
       <CardHeader>
         <div className="flex items-start justify-between gap-2 mb-2">

@@ -5,11 +5,15 @@ export interface Event {
   date: string;
   time: string;
   location: string;
-  category: 'Academic' | 'Sports' | 'Cultural' | 'Workshop' | 'Social';
+  category: string;
   capacity: number;
   registered: number;
-  status: 'Upcoming' | 'Ongoing' | 'Completed';
-  imageUrl?: string;
+  status: string;
+  imageUrl: string;
+
+  eventType?: string;
+  teamSize?: number;
+  registrationOpen?: boolean;
 }
 
 export interface Registration {

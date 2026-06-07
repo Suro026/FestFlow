@@ -3,8 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { GraduationCap, LogOut, History, Calendar, MapPin, Clock, Ticket, Download } from 'lucide-react';
-import { Registration } from '@/types/events';
-import { MOCK_EVENTS } from '@/data/mockEvents';
+import { Event, Registration } from '@/types/events';
+import { collection, getDocs, query, where } from "firebase/firestore";
+import { db } from "@/lib/firebase";
 import QRCode from 'react-qr-code';
 import { toast } from 'sonner';
 
@@ -12,17 +13,19 @@ const MyEvents = () => {
   const navigate = useNavigate();
   const [studentId, setStudentId] = useState('');
   const [registrations, setRegistrations] = useState<Registration[]>([]);
+  const [events, setEvents] = useState<Event[]>([]);
 
   useEffect(() => {
     // Check if user is logged in
     const isLoggedIn = sessionStorage.getItem('isLoggedIn');
     const storedStudentId = sessionStorage.getItem('studentId');
-    
-    if (!isLoggedIn || !storedStudentId) {
-      navigate('/student-login');
-      return;
-    }
-    
+
+if (!isLoggedIn || !storedStudentId) {
+  navigate('/student-login');
+  return;
+}
+
+setStudentId(storedStudentId);
     setStudentId(storedStudentId);
 
     // Load registrations from localStorage
@@ -31,6 +34,62 @@ const MyEvents = () => {
       setRegistrations(JSON.parse(stored));
     }
   }, [navigate]);
+  useEffect(() => {
+  const loadData = async () => {
+    try {
+      const student = sessionStorage.getItem("studentId");
+      if (!student) return;
+
+      // registrations
+      const regQuery = query(
+        collection(db, "eventRegistrations"),
+        where("studentId", "==", student)
+      );
+
+      const regSnapshot = await getDocs(regQuery);
+
+      const regs: any[] = regSnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+      }));
+
+      setRegistrations(regs);
+
+      // events
+      const eventSnapshot = await getDocs(
+        collection(db, "events")
+      );
+
+      const eventsData: Event[] = eventSnapshot.docs.map(doc => {
+        const data = doc.data();
+
+        return {
+          id: doc.id,
+          title: data.title || "",
+          description: data.description || "",
+          date: data.date || "",
+          time: data.time || "",
+          location: data.venue || "",
+          category: "Event",
+          capacity: Number(data.capacity) || 0,
+          registered: 0,
+          status: "Upcoming",
+          imageUrl: data.imageUrl || "",
+          eventType: data.eventType || "team",
+          teamSize: data.teamSize || 1,
+          registrationOpen: data.registrationOpen ?? true,
+        };
+      });
+
+      setEvents(eventsData);
+
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  loadData();
+}, []);
 
   const handleLogout = () => {
     sessionStorage.removeItem('isLoggedIn');
@@ -40,7 +99,7 @@ const MyEvents = () => {
   };
 
   const handleDownloadTicket = (registration: Registration) => {
-    const event = MOCK_EVENTS.find(e => e.id === registration.eventId);
+    const event = events.find(e => e.id === registration.eventId);
     if (!event) return;
 
     const qrElement = document.getElementById(`qr-${registration.ticketCode}`);
@@ -135,7 +194,7 @@ const MyEvents = () => {
         ) : (
           <div className="grid gap-6">
             {registrations.map((registration) => {
-              const event = MOCK_EVENTS.find(e => e.id === registration.eventId);
+              const event = events.find(e => e.id === registration.eventId);
               if (!event) return null;
 
               const qrData = JSON.stringify({

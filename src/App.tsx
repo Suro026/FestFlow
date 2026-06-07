@@ -14,6 +14,7 @@ import AttendanceScanner from "./pages/AttendanceScanner";
 import EventManagement from "./pages/EventManagement";
 import StudentRegister from "./pages/StudentRegister.tsx";
 import AdminRegister from "./pages/AdminRegister.tsx";
+import MyCertificates from "./pages/MyCertificates";
 
 const queryClient = new QueryClient();
 
@@ -30,6 +31,7 @@ const App = () => (
           <Route path="/student-register" element={<StudentRegister />} />
           <Route path="/student-dashboard" element={<StudentDashboard />} />
           <Route path="/my-events" element={<MyEvents />} />
+          <Route path="/my-certificates" element={<MyCertificates />} />
 
           
           {/* Admin Routes */}

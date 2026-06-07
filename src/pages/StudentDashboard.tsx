@@ -8,7 +8,12 @@ import DigitalTicket from '@/components/DigitalTicket';
 import RegistrationForm from '@/components/RegistrationForm';
 import { Event, Registration } from '@/types/events';
 import { toast } from 'sonner';
-import { collection, addDoc, serverTimestamp } from "firebase/firestore";
+import {
+  collection,
+  addDoc,
+  serverTimestamp,
+  getDocs
+} from "firebase/firestore";
 import { db } from "@/lib/firebase";
 
 const StudentDashboard = () => {
@@ -19,6 +24,7 @@ const StudentDashboard = () => {
   const [showTicket, setShowTicket] = useState(false);
   const [showRegistrationForm, setShowRegistrationForm] = useState(false);
   const [registrations, setRegistrations] = useState<Registration[]>([]);
+  const [events, setEvents] = useState<Event[]>([]);
 
   useEffect(() => {
     // Check if user is logged in
@@ -31,6 +37,41 @@ const StudentDashboard = () => {
     }
     
     setStudentId(storedStudentId);
+    const loadEvents = async () => {
+  try {
+    const snapshot = await getDocs(collection(db, "events"));
+
+    const eventsData: Event[] = snapshot.docs.map((doc) => {
+      console.log(doc.data());
+  const data = doc.data();
+
+  return {
+  id: doc.id,
+  title: data.title || "",
+  description: data.description || "",
+  date: data.date || "",
+  time: data.time || "",
+  location: data.venue || "",
+  category: data.category || "Event",
+  capacity: Number(data.capacity) || 0,
+  registered: 0,
+  status: "Upcoming",
+  imageUrl: data.imageUrl || "/default.jpg",
+
+  eventType: data.eventType || "solo",
+  teamSize: data.teamSize || 1,
+  registrationOpen: data.registrationOpen ?? true,
+};
+});
+
+    setEvents(eventsData);
+
+  } catch (error) {
+    console.error("Error loading events:", error);
+  }
+};
+
+loadEvents();
     
     // Load existing registrations
     const stored = localStorage.getItem(`registrations_${storedStudentId}`);
@@ -55,7 +96,7 @@ const StudentDashboard = () => {
 };
 
   const handleRegister = (eventId: string) => {
-    const event = MOCK_EVENTS.find(e => e.id === eventId);
+    const event = events.find(e => e.id === eventId);
     if (!event) return;
 
     if (event.registered >= event.capacity) {
@@ -142,6 +183,9 @@ const StudentDashboard = () => {
                 <History className="h-4 w-4 mr-2" />
                 My Events
               </Button>
+              <Button onClick={() => navigate("/my-certificates")}>
+  My Certificates
+</Button>
               <Button 
                 onClick={handleLogout} 
                 variant="secondary"
@@ -171,7 +215,7 @@ const StudentDashboard = () => {
 
         {/* Events Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {MOCK_EVENTS.map((event) => (
+          {events.map((event) => (
             <EventCard 
               key={event.id} 
               event={event} 
@@ -180,7 +224,7 @@ const StudentDashboard = () => {
           ))}
         </div>
 
-        {MOCK_EVENTS.length === 0 && (
+        {events.length === 0 && (
           <div className="text-center py-12">
             <p className="text-muted-foreground text-lg">No events available at the moment</p>
           </div>

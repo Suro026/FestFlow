@@ -4,13 +4,17 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Shield, LogOut, QrCode, Calendar, Users, TrendingUp } from 'lucide-react';
-import { MOCK_EVENTS } from '@/data/mockEvents';
+import { collection, getDocs } from "firebase/firestore";
+import { db } from "@/lib/firebase";
+import { Event } from "@/types/events";
 import { toast } from 'sonner';
 
 const AdminDashboard = () => {
   const navigate = useNavigate();
   const [adminId, setAdminId] = useState('');
   const [totalRegistrations, setTotalRegistrations] = useState(0);
+  const [events, setEvents] = useState<Event[]>([]);
+  const [allRegistrations, setAllRegistrations] = useState<any[]>([]);
 
   useEffect(() => {
     // Check if admin is logged in
@@ -23,17 +27,71 @@ const AdminDashboard = () => {
     }
     
     setAdminId(storedAdminId);
+    const loadEvents = async () => {
+  try {
+    const snapshot = await getDocs(collection(db, "events"));
+    const loadRegistrations = async () => {
+  try {
+    const snapshot = await getDocs(
+      collection(db, "eventRegistrations")
+    );
+
+    const data = snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    }));
+
+    setAllRegistrations(data);
+  } catch (error) {
+    console.error(error);
+  }
+};
+
+loadRegistrations();
+
+    const eventsData: Event[] = snapshot.docs.map((doc) => {
+      const data = doc.data();
+
+      return {
+        id: doc.id,
+        title: data.title || "",
+        description: data.description || "",
+        date: data.date || "",
+        time: data.time || "",
+        location: data.venue || "",
+        category: "Event",
+        capacity: Number(data.capacity) || 0,
+        registered: 0,
+        status: "Upcoming",
+        imageUrl: data.imageUrl || "",
+        eventType: data.eventType || "team",
+        teamSize: data.teamSize || 1,
+        registrationOpen: data.registrationOpen ?? true,
+      };
+    });
+
+    setEvents(eventsData);
+  } catch (error) {
+    console.error(error);
+  }
+};
+
+loadEvents();
 
     // Count total registrations from all students
-    let count = 0;
-    for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i);
-      if (key?.startsWith('registrations_')) {
-        const registrations = JSON.parse(localStorage.getItem(key) || '[]');
-        count += registrations.length;
-      }
-    }
-    setTotalRegistrations(count);
+    const loadRegistrations = async () => {
+  try {
+    const snapshot = await getDocs(
+      collection(db, "eventRegistrations")
+    );
+
+    setTotalRegistrations(snapshot.size);
+  } catch (error) {
+    console.error(error);
+  }
+};
+
+loadRegistrations();
   }, [navigate]);
 
   const handleLogout = () => {
@@ -46,7 +104,7 @@ const AdminDashboard = () => {
   const stats = [
     {
       title: 'Total Events',
-      value: MOCK_EVENTS.length,
+      value: events.length,
       icon: Calendar,
       color: 'text-primary',
       bgColor: 'bg-primary/10'
@@ -60,14 +118,14 @@ const AdminDashboard = () => {
     },
     {
       title: 'Upcoming Events',
-      value: MOCK_EVENTS.filter(e => e.status === 'Upcoming').length,
+      value: events.reduce((sum, e) => sum + e.capacity, 0),
       icon: TrendingUp,
       color: 'text-accent',
       bgColor: 'bg-accent/10'
     },
     {
       title: 'Total Capacity',
-      value: MOCK_EVENTS.reduce((sum, e) => sum + e.capacity, 0),
+      value: events.reduce((sum, e) => sum + e.capacity, 0),
       icon: Users,
       color: 'text-muted-foreground',
       bgColor: 'bg-muted'
@@ -162,7 +220,13 @@ const AdminDashboard = () => {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {MOCK_EVENTS.map((event) => (
+              {events.map((event) => {
+
+  const registrationCount = allRegistrations.filter(
+    (reg) => reg.eventId === event.id
+  ).length;
+
+  return (
                 <div key={event.id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors">
                   <div className="flex-1">
                     <div className="flex items-center gap-3 mb-1">
@@ -177,12 +241,13 @@ const AdminDashboard = () => {
                   </div>
                   <div className="text-right">
                     <p className="text-sm font-medium">
-                      {event.registered} / {event.capacity}
+                      {registrationCount} / {event.capacity}
                     </p>
                     <p className="text-xs text-muted-foreground">Registered</p>
                   </div>
                 </div>
-              ))}
+              );
+})}
             </div>
           </CardContent>
         </Card>

@@ -2,12 +2,18 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { GraduationCap, LogOut, Sparkles, History } from 'lucide-react';
-import { MOCK_EVENTS } from '@/data/mockEvents';
 import EventCard from '@/components/EventCard';
 import DigitalTicket from '@/components/DigitalTicket';
 import RegistrationForm from '@/components/RegistrationForm';
 import { Event, Registration } from '@/types/events';
 import { toast } from 'sonner';
+import {
+  collection,
+  getDocs,
+  addDoc,
+  serverTimestamp
+} from "firebase/firestore";
+import { db } from "@/lib/firebase";
 
 const StudentDashboard = () => {
   const navigate = useNavigate();
@@ -17,6 +23,7 @@ const StudentDashboard = () => {
   const [showTicket, setShowTicket] = useState(false);
   const [showRegistrationForm, setShowRegistrationForm] = useState(false);
   const [registrations, setRegistrations] = useState<Registration[]>([]);
+  const [events, setEvents] = useState<Event[]>([]);
 
   useEffect(() => {
     // Check if user is logged in
@@ -29,6 +36,39 @@ const StudentDashboard = () => {
     }
     
     setStudentId(storedStudentId);
+    const loadEvents = async () => {
+  try {
+    const snapshot = await getDocs(collection(db, "events"));
+
+    const eventsData: Event[] = snapshot.docs.map((doc) => {
+      const data = doc.data();
+
+      return {
+        id: doc.id,
+        title: data.title || "",
+        description: data.description || "",
+        date: data.date || "",
+        time: data.time || "",
+        location: data.venue || "",
+        category: "Event",
+        capacity: Number(data.capacity) || 0,
+        registered: 0,
+        status: "Upcoming",
+        imageUrl: data.imageUrl || "",
+
+        eventType: data.eventType || "team",
+        teamSize: data.teamSize || 1,
+        registrationOpen: data.registrationOpen ?? true,
+      };
+    });
+
+    setEvents(eventsData);
+  } catch (error) {
+    console.error(error);
+  }
+};
+
+loadEvents();
     
     // Load existing registrations
     const stored = localStorage.getItem(`registrations_${storedStudentId}`);
@@ -50,7 +90,7 @@ const StudentDashboard = () => {
   };
 
   const handleRegister = (eventId: string) => {
-    const event = MOCK_EVENTS.find(e => e.id === eventId);
+    const event = events.find(e => e.id === eventId);
     if (!event) return;
 
     if (event.registered >= event.capacity) {
@@ -149,16 +189,16 @@ const StudentDashboard = () => {
 
         {/* Events Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {MOCK_EVENTS.map((event) => (
-            <EventCard 
-              key={event.id} 
-              event={event} 
-              onRegister={handleRegister}
-            />
-          ))}
+          {events.map((event) => (
+  <EventCard
+    key={event.id}
+    event={event}
+    onRegister={handleRegister}
+  />
+))}
         </div>
 
-        {MOCK_EVENTS.length === 0 && (
+        {events.length === 0 && (
           <div className="text-center py-12">
             <p className="text-muted-foreground text-lg">No events available at the moment</p>
           </div>

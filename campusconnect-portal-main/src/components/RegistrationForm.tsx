@@ -51,7 +51,7 @@ const RegistrationForm = ({ open, onOpenChange, event, onSubmit }: RegistrationF
     e.preventDefault();
 
     // Validation
-    if (!teamName.trim()) {
+    if (!isSolo && !teamName.trim()) {
       toast.error('Please enter a team name');
       return;
     }
@@ -78,6 +78,7 @@ const RegistrationForm = ({ open, onOpenChange, event, onSubmit }: RegistrationF
   };
 
   if (!event) return null;
+  const isSolo = event.eventType === "solo";
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -94,52 +95,62 @@ const RegistrationForm = ({ open, onOpenChange, event, onSubmit }: RegistrationF
 
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* Team Name */}
-          <div className="space-y-2">
-            <Label htmlFor="teamName">Team/Group Name *</Label>
-            <Input
-              id="teamName"
-              placeholder="e.g., Tech Enthusiasts or Your Name (for individual)"
-              value={teamName}
-              onChange={(e) => setTeamName(e.target.value)}
-              required
-            />
-            <p className="text-xs text-muted-foreground">
-              Enter your name if registering individually, or a team name for group registration
-            </p>
-          </div>
+          {!isSolo && (
+  <div className="space-y-2">
+    <Label htmlFor="teamName">Team Name *</Label>
+    <Input
+      id="teamName"
+      placeholder="Enter Team Name"
+      value={teamName}
+      onChange={(e) => setTeamName(e.target.value)}
+      required
+    />
+  </div>
+)}
 
           {/* Team Members */}
           <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <Label>Team Members *</Label>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={addMember}
-                disabled={members.length >= 5}
-              >
-                <Plus className="h-4 w-4 mr-1" />
-                Add Member
-              </Button>
-            </div>
+  <div className="flex items-center justify-between">
+    <Label>
+      {isSolo ? "Participant Details" : "Team Members *"}
+    </Label>
 
-            <div className="space-y-4">
-              {members.map((member, index) => (
-                <div key={member.id} className="p-4 border rounded-lg space-y-3 bg-muted/20">
-                  <div className="flex items-center justify-between">
-                    <h4 className="font-medium text-sm">Member {index + 1}</h4>
-                    {members.length > 1 && (
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => removeMember(member.id)}
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
-                    )}
-                  </div>
+    {!isSolo && (
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        onClick={addMember}
+        disabled={members.length >= (event.teamSize || 5)}
+      >
+        <Plus className="h-4 w-4 mr-1" />
+        Add Member
+      </Button>
+    )}
+  </div>
+
+  <div className="space-y-4">
+    {members.map((member, index) => (
+      <div
+        key={member.id}
+        className="p-4 border rounded-lg space-y-3 bg-muted/20"
+      >
+        <div className="flex items-center justify-between">
+          <h4 className="font-medium text-sm">
+            {isSolo ? "Participant" : `Member ${index + 1}`}
+          </h4>
+
+          {!isSolo && members.length > 1 && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => removeMember(member.id)}
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          )}
+        </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                     <div className="space-y-1">
