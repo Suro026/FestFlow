@@ -6,40 +6,70 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Shield, LogIn } from 'lucide-react';
 import { toast } from 'sonner';
+import { signInWithEmailAndPassword } from "firebase/auth";
+import { doc, getDoc } from "firebase/firestore";
+import { auth, db } from "@/lib/firebase";
 
 const AdminLogin = () => {
   const navigate = useNavigate();
-  const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
-  const handleLogin = (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    // Validation
-    if (!username.trim()) {
-      toast.error('Please enter your username');
-      return;
-    }
-    
-    if (!password.trim()) {
-      toast.error('Please enter your password');
+  const handleLogin = async (e: React.FormEvent) => {
+  e.preventDefault();
+
+  if (!email.trim()) {
+    toast.error("Please enter email");
+    return;
+  }
+
+  if (!password.trim()) {
+    toast.error("Please enter password");
+    return;
+  }
+
+  setIsLoading(true);
+
+  try {
+    const userCredential = await signInWithEmailAndPassword(
+      auth,
+      email,
+      password
+    );
+
+    const user = userCredential.user;
+
+    // Super Admin
+    if (user.email === "superadmin@festflow.com") {
+      sessionStorage.setItem("isSuperAdmin", "true");
+      sessionStorage.setItem("adminId", user.email || "");
+      toast.success("Super Admin Login Successful");
+      navigate("/super-admin-dashboard");
       return;
     }
 
-    setIsLoading(true);
-    
-    // Simulate login process
-    setTimeout(() => {
-      // Store admin info in sessionStorage
-      sessionStorage.setItem('adminId', username);
-      sessionStorage.setItem('isAdminLoggedIn', 'true');
-      
-      toast.success('Admin login successful!');
-      navigate('/admin-dashboard');
-      setIsLoading(false);
-    }, 800);
-  };
+    // Normal Admin
+    const adminRef = doc(db, "organizers", user.uid);
+    const adminSnap = await getDoc(adminRef);
+
+    if (!adminSnap.exists()) {
+      toast.error("Admin account not found");
+      return;
+    }
+
+    sessionStorage.setItem("isAdminLoggedIn", "true");
+    sessionStorage.setItem("adminId", user.email || "");
+
+    toast.success("Admin Login Successful");
+    navigate("/admin-dashboard");
+
+  } catch (error: any) {
+    toast.error(error.message);
+  } finally {
+    setIsLoading(false);
+  }
+};
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary-lighter via-background to-secondary p-4">
@@ -59,15 +89,17 @@ const AdminLogin = () => {
         <form onSubmit={handleLogin}>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="username">Username</Label>
-              <Input
-                id="username"
-                placeholder="Enter admin username"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                disabled={isLoading}
-              />
-            </div>
+  <Label htmlFor="email">Email</Label>
+
+  <Input
+    id="email"
+    type="email"
+    placeholder="Enter email"
+    value={email}
+    onChange={(e) => setEmail(e.target.value)}
+    disabled={isLoading}
+  />
+</div>
             
             <div className="space-y-2">
               <Label htmlFor="password">Password</Label>
@@ -89,19 +121,8 @@ const AdminLogin = () => {
             </Button>
             
             <div className="text-center space-y-2">
-              <p className="text-sm text-muted-foreground">
-                Demo: Use any username and password
-              </p>
               <div>
                 <p className="text-sm text-muted-foreground">Don't have an account?</p>
-                <Button
-                  type="button"
-                  variant="link"
-                  size="sm"
-                  onClick={() => navigate('/admin-register')}
-                >
-                  Register as Admin →
-                </Button>
                 <Button
                   type="button"
                   variant="link"

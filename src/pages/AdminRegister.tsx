@@ -80,7 +80,7 @@ try {
   });
 
   toast.success("Organizer account created successfully!");
-  navigate("/admin-login");
+  navigate("/fest-registration");
 
 } catch (error: any) {
   switch (error.code) {

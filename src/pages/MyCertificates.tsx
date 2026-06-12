@@ -38,26 +38,39 @@ const MyCertificates = () => {
     loadCertificates();
   }, [studentId]);
 
-  const downloadCertificate = async (id: string) => {
-  const element = document.getElementById(`cert-${id}`);
+  const downloadCertificate = async (
+  certificateId: string
+) => {
+  const element = document.getElementById(
+    `cert-${certificateId}`
+  );
 
   if (!element) return;
-
   const canvas = await html2canvas(element, {
-    scale: 4,
-    useCORS: true,
-    backgroundColor: "#ffffff",
-    logging: false,
-  });
+  scale: 4,
+  useCORS: true,
+  backgroundColor: "#ffffff",
+});
 
   const link = document.createElement("a");
-  const cert = certificates.find(c => c.id === id);
 
-const studentName =
-  cert?.members?.[0]?.name?.replace(/\s+/g, "_") || "Student";
+const certificateElement =
+  certificates
+    .flatMap((c) =>
+      c.members.map((m: any) => ({
+        cert: c,
+        member: m,
+      }))
+    )
+    .find(
+      (_, idx) =>
+        `${_.cert.id}-${idx}` === certificateId
+    );
 
 const eventName =
-  cert?.eventTitle?.replace(/\s+/g, "_") || "Event";
+  certificateElement?.cert.eventTitle?.replace(/\s+/g, "_") || "Event";
+
+const studentName = certificateElement?.member.name || "Student";
 
 link.download = `${eventName}_${studentName}_Certificate.png`;
   link.href = canvas.toDataURL("image/png", 1.0);
@@ -81,11 +94,13 @@ link.download = `${eventName}_${studentName}_Certificate.png`;
         </Card>
       ) : (
         <div className="space-y-12">
-          {certificates.map((cert: any) => (
-  <div key={cert.id}>
+          {certificates.flatMap((cert: any) =>
+  cert.members.map((member: any, index: number) => {
+    return (
+  <div key={`${cert.id}-${index}`}>
 
     <div
-      id={`cert-${cert.id}`}
+      id={`cert-${cert.id}-${index}`}
       className="relative mx-auto bg-white"
       style={{
         width: "1400px",
@@ -113,8 +128,7 @@ link.download = `${eventName}_${studentName}_Certificate.png`;
   textAlign: "center",
 }}
 >
-  {cert.members?.[0]?.name || "Participant"}
-</div>
+{member.name}</div>
 
                 {/* Event Name */}
                 <div
@@ -134,14 +148,17 @@ link.download = `${eventName}_${studentName}_Certificate.png`;
 
               <div className="mt-4 flex justify-center">
                 <Button
-                  onClick={() => downloadCertificate(cert.id)}
-                >
+                  onClick={() =>
+  downloadCertificate(`${cert.id}-${index}`)
+}>
                   <Download className="h-4 w-4 mr-2" />
                   Download Certificate
                 </Button>
               </div>
             </div>
-          ))}
+          );
+})
+)}
         </div>
       )}
     </div>

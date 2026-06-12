@@ -15,6 +15,11 @@ import EventManagement from "./pages/EventManagement";
 import StudentRegister from "./pages/StudentRegister.tsx";
 import AdminRegister from "./pages/AdminRegister.tsx";
 import MyCertificates from "./pages/MyCertificates";
+import SuperAdminDashboard from "./pages/SuperAdminDashboard";
+import CreateAdmin from "./pages/CreateAdmin";
+import ManageAdmins from "./pages/ManageAdmins";
+import FestRegistration from "./pages/FestRegistration";
+import Fests from "./pages/Fests";
 
 const queryClient = new QueryClient();
 
@@ -32,11 +37,17 @@ const App = () => (
           <Route path="/student-dashboard" element={<StudentDashboard />} />
           <Route path="/my-events" element={<MyEvents />} />
           <Route path="/my-certificates" element={<MyCertificates />} />
-
+          <Route path="/admin-register" element={<AdminRegister />} />
+          <Route path="/super-admin-dashboard" element={<SuperAdminDashboard />} />
+          <Route path="/create-admin" element={<CreateAdmin />}/>
+          <Route path="/manage-admins" element={<ManageAdmins />} />
+          <Route path="/fest-registration" element={<FestRegistration />} />
+          <Route path="/fests" element={<Fests />} />
+ 
           
           {/* Admin Routes */}
            <Route path="/admin-login" element={<AdminLogin />} />
-            <Route path="/admin-register" element={<AdminRegister />} />
+            {/* <Route path="/admin-register" element={<AdminRegister />} /> */}
             <Route path="/admin-dashboard" element={<AdminDashboard />} />
             <Route path="/attendance-scanner" element={<AttendanceScanner />} />
             <Route path="/event-management" element={<EventManagement />} />

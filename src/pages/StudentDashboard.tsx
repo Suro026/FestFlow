@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { GraduationCap, LogOut, Sparkles, History } from 'lucide-react';
-import { MOCK_EVENTS } from '@/data/mockEvents';
 import EventCard from '@/components/EventCard';
 import DigitalTicket from '@/components/DigitalTicket';
 import RegistrationForm from '@/components/RegistrationForm';
@@ -64,7 +63,11 @@ const StudentDashboard = () => {
 };
 });
 
-    setEvents(eventsData);
+    setEvents(
+  eventsData.filter(
+    (event) => event.registrationOpen === true
+  )
+);
 
   } catch (error) {
     console.error("Error loading events:", error);
@@ -135,7 +138,10 @@ loadEvents();
     studentId,
     ticketCode: newTicketCode,
     teamName: data.teamName,
-    members: data.members,
+    members: data.members.map((member) => ({
+  ...member,
+  foodCollected: false,
+})),
     attendance: false,
     registeredAt: serverTimestamp(),
   });
@@ -164,13 +170,23 @@ loadEvents();
         <div className="container mx-auto px-4 py-5">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <div className="h-12 w-12 rounded-full bg-white/20 flex items-center justify-center border-2 border-white/30">
-                <GraduationCap className="h-7 w-7 text-white" />
-              </div>
-              <div>
-                <h1 className="text-2xl font-bold tracking-tight">TechSpire Events Portal</h1>
-                <p className="text-sm text-blue-100">Student ID: {studentId}</p>
-              </div>
+              <div className="flex items-center gap-4">
+  <img
+    src="/logo.png"
+    alt="FestFlow"
+    className="h-14 w-auto object-contain"
+  />
+
+  <div>
+    <h1 className="text-2xl font-bold tracking-tight">
+      FestFlow
+    </h1>
+
+    <p className="text-sm text-blue-100">
+      Logged in as: {studentId}
+    </p>
+  </div>
+</div>
             </div>
             
             <div className="flex gap-2">
@@ -183,7 +199,12 @@ loadEvents();
                 <History className="h-4 w-4 mr-2" />
                 My Events
               </Button>
-              <Button onClick={() => navigate("/my-certificates")}>
+              <Button
+  onClick={() => navigate("/my-certificates")}
+  variant="secondary"
+  size="sm"
+  className="bg-white/20 hover:bg-white/30 text-white border-0"
+>
   My Certificates
 </Button>
               <Button 
@@ -208,6 +229,9 @@ loadEvents();
             <Sparkles className="h-8 w-8" />
             <h2 className="text-4xl font-bold">Upcoming Campus Events</h2>
           </div>
+          <p className="text-sm text-blue-100 mb-2">
+  {events.length} events currently available
+</p>
           <p className="text-lg text-blue-50">
             Discover, register, and participate in exciting events happening on campus. Build your skills and connect with peers.
           </p>
@@ -226,7 +250,7 @@ loadEvents();
 
         {events.length === 0 && (
           <div className="text-center py-12">
-            <p className="text-muted-foreground text-lg">No events available at the moment</p>
+            <p className="text-muted-foreground text-lg">No events have been published yet</p>
           </div>
         )}
       </main>

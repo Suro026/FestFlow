@@ -36,7 +36,7 @@ const StudentLogin = () => {
       sessionStorage.setItem('isLoggedIn', 'true');
       
       toast.success('Login successful!');
-      navigate('/student-dashboard');
+      navigate('/fests');
       setIsLoading(false);
     }, 800);
   };

@@ -33,8 +33,11 @@ const AttendanceScanner = () => {
   const [manualCode, setManualCode] = useState('');
   const [scannedTickets, setScannedTickets] = useState<ScannedTicket[]>([]);
   const [scannerOpen, setScannerOpen] = useState(false);
+  const [mode, setMode] = useState<"attendance" | "food">("attendance");
 
   const scannerRef = useRef<Html5QrcodeScanner | null>(null);
+  const [foodRegistration, setFoodRegistration] = useState<any>(null);
+const [foodDocId, setFoodDocId] = useState("");
 
   useEffect(() => {
     // Check if admin is logged in
@@ -61,7 +64,32 @@ const AttendanceScanner = () => {
     toast.success('Logged out successfully');
     navigate('/admin-login');
   };
+const verifyFood = async (ticketCode: string) => {
+  try {
+    const q = query(
+      collection(db, "eventRegistrations"),
+      where("ticketCode", "==", ticketCode)
+    );
 
+    const querySnapshot = await getDocs(q);
+
+    if (querySnapshot.empty) {
+      toast.error("Invalid ticket code");
+      return;
+    }
+
+    const registrationDoc = querySnapshot.docs[0];
+
+    setFoodDocId(registrationDoc.id);
+    setFoodRegistration(registrationDoc.data());
+
+    toast.success("Registration Found");
+
+  } catch (error) {
+    console.error(error);
+    toast.error("Food lookup failed");
+  }
+};
   const verifyTicket = async (ticketCode: string) => {
   try {
     const q = query(
@@ -120,7 +148,11 @@ const AttendanceScanner = () => {
       toast.error('Please enter a ticket code');
       return;
     }
-    await verifyTicket(manualCode.trim());
+    if (mode === "attendance") {
+  await verifyTicket(manualCode.trim());
+} else {
+  await verifyFood(manualCode.trim());
+}
   };
 
   // Simulate QR scanner (in real app, use device camera)
@@ -144,7 +176,11 @@ const AttendanceScanner = () => {
         const qrData = JSON.parse(decodedText);
 
         if (qrData.ticketCode) {
-          await verifyTicket(qrData.ticketCode);
+          if (mode === "attendance") {
+  await verifyTicket(qrData.ticketCode);
+} else {
+  await verifyFood(qrData.ticketCode);
+}
 
           scannerRef.current?.clear();
           scannerRef.current = null;
@@ -157,7 +193,31 @@ const AttendanceScanner = () => {
     () => {}
   );
 };
+const collectFood = async (memberIndex: number) => {
+  try {
+    const updatedMembers = [...foodRegistration.members];
 
+    updatedMembers[memberIndex].foodCollected = true;
+
+    await updateDoc(
+      doc(db, "eventRegistrations", foodDocId),
+      {
+        members: updatedMembers,
+      }
+    );
+
+    setFoodRegistration({
+      ...foodRegistration,
+      members: updatedMembers,
+    });
+
+    toast.success("Food Collected Successfully");
+
+  } catch (error) {
+    console.error(error);
+    toast.error("Failed to update food status");
+  }
+};
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
@@ -169,7 +229,11 @@ const AttendanceScanner = () => {
                 <Shield className="h-6 w-6" />
               </div>
               <div>
-                <h1 className="text-xl font-bold">Attendance Scanner</h1>
+                <h1 className="text-xl font-bold">
+  {mode === "attendance"
+    ? "Attendance Scanner"
+    : "Food Distribution"}
+</h1>
                 <p className="text-sm text-destructive-foreground/80">Admin: {adminId}</p>
               </div>
             </div>
@@ -211,6 +275,21 @@ const AttendanceScanner = () => {
           </CardHeader>
           <CardContent className="space-y-6">
             {/* QR Scanner Button */}
+            <div className="flex gap-3">
+  <Button
+    variant={mode === "attendance" ? "default" : "outline"}
+    onClick={() => setMode("attendance")}
+  >
+    Attendance
+  </Button>
+
+  <Button
+    variant={mode === "food" ? "default" : "outline"}
+    onClick={() => setMode("food")}
+  >
+    Food Distribution
+  </Button>
+</div>
             <div className="flex justify-center">
               <Button 
                 onClick={handleQRScan} 
@@ -280,6 +359,59 @@ const AttendanceScanner = () => {
         </div>
 
         {/* Recent Check-ins */}
+        {mode === "food" && foodRegistration && (
+  <Card className="mb-8">
+    <CardHeader>
+      <CardTitle>
+        Food Distribution
+      </CardTitle>
+
+      <CardDescription>
+        {foodRegistration.teamName || "Solo Participant"}
+      </CardDescription>
+    </CardHeader>
+
+    <CardContent>
+
+      <div className="space-y-3">
+
+        {foodRegistration.members?.map(
+          (member: any, index: number) => (
+            <div
+              key={index}
+              className="flex justify-between items-center border p-3 rounded"
+            >
+              <div>
+                <p className="font-medium">
+                  {member.name}
+                </p>
+
+                <p className="text-sm text-gray-500">
+                  {member.studentId}
+                </p>
+              </div>
+
+              {member.foodCollected ? (
+                <Badge>
+                  Collected
+                </Badge>
+              ) : (
+                <Button
+  onClick={() => collectFood(index)}
+>
+  Collect Food
+</Button>
+              )}
+
+            </div>
+          )
+        )}
+
+      </div>
+
+    </CardContent>
+  </Card>
+)}
         <Card>
           <CardHeader>
             <CardTitle>Recent Check-ins</CardTitle>

@@ -42,6 +42,7 @@ const AdminDashboard = () => {
     }));
 
     setAllRegistrations(data);
+    setTotalRegistrations(data.length);
   } catch (error) {
     console.error(error);
   }
@@ -78,21 +79,7 @@ loadRegistrations();
 
 loadEvents();
 
-    // Count total registrations from all students
-    const loadRegistrations = async () => {
-  try {
-    const snapshot = await getDocs(
-      collection(db, "eventRegistrations")
-    );
-
-    setTotalRegistrations(snapshot.size);
-  } catch (error) {
-    console.error(error);
-  }
-};
-
-loadRegistrations();
-  }, [navigate]);
+}, [navigate]);
 
   const handleLogout = () => {
     sessionStorage.removeItem('isAdminLoggedIn');
@@ -100,6 +87,13 @@ loadRegistrations();
     toast.success('Logged out successfully');
     navigate('/admin-login');
   };
+  const totalCapacity = events.reduce(
+  (sum, e) => sum + e.capacity,
+  0
+);
+const totalAttendance = allRegistrations.filter(
+  (r) => r.attendance === true
+).length;
 
   const stats = [
     {
@@ -117,15 +111,15 @@ loadRegistrations();
       bgColor: 'bg-success/10'
     },
     {
-      title: 'Upcoming Events',
-      value: events.reduce((sum, e) => sum + e.capacity, 0),
-      icon: TrendingUp,
-      color: 'text-accent',
-      bgColor: 'bg-accent/10'
-    },
+  title: 'Attendance Marked',
+  value: totalAttendance,
+  icon: TrendingUp,
+  color: 'text-accent',
+  bgColor: 'bg-accent/10'
+},
     {
       title: 'Total Capacity',
-      value: events.reduce((sum, e) => sum + e.capacity, 0),
+      value: totalCapacity,
       icon: Users,
       color: 'text-muted-foreground',
       bgColor: 'bg-muted'
@@ -135,24 +129,25 @@ loadRegistrations();
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
-      <header className="bg-destructive text-destructive-foreground shadow-md sticky top-0 z-10">
+      <header className="bg-gradient-to-r from-blue-600 to-blue-800 text-white shadow-lg sticky top-0 z-10">
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-full bg-destructive-foreground/10 flex items-center justify-center">
+              <div className="h-12 w-12 rounded-full bg-white/20 flex items-center justify-center border-2 border-white/30">
                 <Shield className="h-6 w-6" />
               </div>
               <div>
-                <h1 className="text-xl font-bold">Admin Dashboard</h1>
-                <p className="text-sm text-destructive-foreground/80">Welcome, {adminId}</p>
+                <h1 className="text-2xl font-bold tracking-tight">Admin Dashboard</h1>
+                <p className="text-sm text-blue-100">Welcome, {adminId}</p>
               </div>
             </div>
             
-            <Button 
-              onClick={handleLogout} 
-              variant="secondary"
-              size="sm"
-            >
+           <Button
+  onClick={handleLogout}
+  variant="secondary"
+  size="sm"
+  className="bg-white/20 hover:bg-white/30 text-white border-0"
+>
               <LogOut className="h-4 w-4 mr-2" />
               Logout
             </Button>
@@ -162,6 +157,16 @@ loadRegistrations();
 
       {/* Main Content */}
       <main className="container mx-auto px-4 py-8">
+        <div className="bg-gradient-to-r from-blue-500 via-blue-600 to-blue-700 rounded-2xl p-8 mb-10 text-white shadow-xl">
+  <h2 className="text-4xl font-bold mb-4">
+    Event Management Dashboard
+  </h2>
+
+  <p className="text-lg text-blue-50">
+    Manage registrations, attendance, food distribution,
+    certificates and event operations.
+  </p>
+</div>
         {/* Stats Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           {stats.map((stat) => (
@@ -253,7 +258,7 @@ loadRegistrations();
         </Card>
       </main>
     </div>
-  );
+    );
 };
 
 export default AdminDashboard;
