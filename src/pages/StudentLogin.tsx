@@ -50,7 +50,7 @@ const StudentLogin = () => {
               <GraduationCap className="h-10 w-10 text-primary-foreground" />
             </div>
           </div>
-          <CardTitle className="text-3xl font-bold">Student Portal</CardTitle>
+          <CardTitle className="text-3xl font-bold">FestFlow</CardTitle>
           <CardDescription className="text-base">
             Sign in to access campus events and activities
           </CardDescription>

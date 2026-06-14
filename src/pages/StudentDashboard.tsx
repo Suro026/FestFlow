@@ -172,7 +172,7 @@ loadEvents();
             <div className="flex items-center gap-4">
               <div className="flex items-center gap-4">
   <img
-    src="/logo.png"
+    src="/logo-re.png"
     alt="FestFlow"
     className="h-14 w-auto object-contain"
   />

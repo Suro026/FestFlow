@@ -163,7 +163,7 @@ console.log("isSolo =", isSolo);
             </Label>
             <Input
               id={`name-${member.id}`}
-              placeholder="John Doe"
+              placeholder="Surajit Sadhukhan"
               value={member.name}
               onChange={(e) =>
                 updateMember(member.id, "name", e.target.value)
@@ -179,7 +179,7 @@ console.log("isSolo =", isSolo);
             <Input
               id={`email-${member.id}`}
               type="email"
-              placeholder="john@example.com"
+              placeholder="festflow@example.com"
               value={member.email}
               onChange={(e) =>
                 updateMember(member.id, "email", e.target.value)
