@@ -1,73 +1,512 @@
-# Welcome to your Lovable project
+# 🎉 FestFlow – Smart Multi-Fest Event Management Platform
 
-## Project info
+<p align="center">
+  <img src="public/logo-re.png" alt="FestFlow Logo" width="180"/>
+</p>
 
-**URL**: https://lovable.dev/projects/30e67a8c-f3d1-4b04-8de1-912cdf709486
+<p align="center">
+  <b>Celebrate • Connect • Experience</b>
+</p>
 
-## How can I edit this code?
+---
 
-There are several ways of editing your application.
+## 📖 Overview
 
-**Use Lovable**
+FestFlow is a comprehensive web-based platform designed to digitize and simplify the complete lifecycle of college fests, hackathons, workshops, competitions, seminars, and campus events.
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/30e67a8c-f3d1-4b04-8de1-912cdf709486) and start prompting.
+The platform enables organizers to create and manage entire festivals while providing participants with a seamless registration experience, QR-based event verification, automated attendance tracking, food distribution management, digital certificates, and centralized event administration.
 
-Changes made via Lovable will be committed automatically to this repo.
+Unlike traditional event registration systems, FestFlow integrates every stage of event management into a single ecosystem.
 
-**Use your preferred IDE**
+---
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+# 🚀 Key Features
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+## 🎪 Multi-Fest Management
 
-Follow these steps:
+- Create and manage multiple college fests
+- Fest Marketplace
+- Publish or unpublish fests
+- Fest details management
+- Organization information
+- Date & venue management
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+---
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+## 👨‍💼 Super Admin Panel
 
-# Step 3: Install the necessary dependencies.
-npm i
+- Register a new fest
+- Create and manage Admins
+- Manage all events
+- View analytics
+- Publish fest
+- Monitor registrations
+- Certificate management
+- Attendance overview
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
+---
+
+## 🛠 Admin Dashboard
+
+- Create events
+- Edit/Delete events
+- Registration management
+- QR Attendance Scanner
+- Food Distribution Scanner
+- View participant details
+- Generate reports
+- Manage certificates
+
+---
+
+## 👨‍🎓 Student Portal
+
+- Student Registration
+- Student Login
+- Browse Available Fests
+- Explore Events
+- Register for Events
+- View Digital Tickets
+- Download Certificates
+- View Registration History
+
+---
+
+## 👥 Team Event Management
+
+Supports both
+
+- Solo Events
+- Team Events
+
+Team Features
+
+- Team Name
+- Multiple Members
+- Individual Student Details
+- Individual Food Collection
+- Individual Certificates
+
+---
+
+## 🎟 QR Ticket System
+
+Each successful registration automatically generates
+
+- Unique QR Code
+- Unique Ticket ID
+- Digital Event Ticket
+
+QR Ticket is used for
+
+- Attendance Verification
+- Food Collection Verification
+
+---
+
+## ✅ Attendance System
+
+Admin scans QR code
+
+↓
+
+Attendance marked
+
+↓
+
+Duplicate attendance prevented
+
+↓
+
+Attendance stored in Firestore
+
+---
+
+## 🍱 Food Distribution System
+
+Separate QR verification
+
+Supports
+
+### Solo Event
+
+- One participant
+- One food collection
+
+### Team Event
+
+Every member has
+
+```json
+{
+  "name": "Surajit Sadhukhan",
+  "foodCollected": false
+}
 ```
 
-**Edit a file directly in GitHub**
+Each member can collect food independently.
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+Duplicate food collection is automatically prevented.
 
-**Use GitHub Codespaces**
+---
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+## 🏆 Certificate Generation
 
-## What technologies are used for this project?
+Certificates become available only after
 
-This project is built with:
+- Attendance = True
 
-- Vite
-- TypeScript
+Features
+
+- Personalized certificate
+- Automatic name insertion
+- Event name insertion
+- PNG Download
+- Separate certificate for every team member
+
+---
+
+# 🏗 System Architecture
+
+```
+                     React + TypeScript
+                             │
+                             │
+                     Tailwind CSS + ShadCN UI
+                             │
+                             ▼
+                     Django REST Backend
+                             │
+             ┌───────────────┼───────────────┐
+             ▼               ▼               ▼
+Firebase Authentication   Firestore      QR Engine
+             │               │
+             ▼               ▼
+     User Management   Event Database
+                             │
+                             ▼
+                  Certificate Generator
+```
+
+---
+
+# ⚙ Tech Stack
+
+## Frontend
+
 - React
-- shadcn-ui
+- TypeScript
 - Tailwind CSS
+- ShadCN UI
+- React Router
+- Lucide Icons
+- HTML5
+- CSS3
 
-## How can I deploy this project?
+---
 
-Simply open [Lovable](https://lovable.dev/projects/30e67a8c-f3d1-4b04-8de1-912cdf709486) and click on Share -> Publish.
+## Backend
 
-## Can I connect a custom domain to my Lovable project?
+- Django
+- Django REST Framework
 
-Yes, you can!
+---
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+## Authentication
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+- Firebase Authentication
+
+---
+
+## Database
+
+- Firebase Firestore
+
+---
+
+## Hosting
+
+Frontend
+
+- Vercel
+
+Backend
+
+- Render
+
+---
+
+## QR Generation
+
+- QRCode Library
+
+---
+
+## Certificate Generation
+
+- HTML2Canvas
+
+---
+
+## Notifications
+
+- Sonner Toast
+
+---
+
+# 📂 Project Structure
+
+```
+FestFlow
+│
+├── public
+│   ├── logo-re.png
+│   ├── certificate-template.jpg
+│
+├── src
+│   ├── components
+│   ├── pages
+│   ├── hooks
+│   ├── lib
+│   ├── types
+│   ├── utils
+│   ├── App.tsx
+│   └── main.tsx
+│
+├── django-backend
+│
+└── README.md
+```
+
+---
+
+# 🔥 Firebase Collections
+
+## organizers
+
+```
+organizers
+    uid
+        festName
+        organizationName
+        role
+        contactEmail
+        startDate
+        endDate
+```
+
+---
+
+## events
+
+```
+events
+    title
+    description
+    date
+    venue
+    capacity
+    eventType
+    teamSize
+    registrationOpen
+```
+
+---
+
+## eventRegistrations
+
+```
+eventId
+studentId
+ticketCode
+attendance
+teamName
+
+members[]
+
+registeredAt
+```
+
+Example
+
+```json
+members: [
+  {
+    "name": "Surajit Sadhukhan",
+    "studentId": "12130824021",
+    "email": "abc@gmail.com",
+    "foodCollected": false
+  }
+]
+```
+
+---
+
+# 🔄 Workflow
+
+## Organizer Workflow
+
+```
+Organizer Register
+
+↓
+
+Fest Registration
+
+↓
+
+Become Super Admin
+
+↓
+
+Create Admin
+
+↓
+
+Create Events
+
+↓
+
+Manage Participants
+
+↓
+
+Monitor Analytics
+```
+
+---
+
+## Student Workflow
+
+```
+Student Register
+
+↓
+
+Browse Fest Marketplace
+
+↓
+
+Choose Fest
+
+↓
+
+Browse Events
+
+↓
+
+Register
+
+↓
+
+Receive QR Ticket
+
+↓
+
+Attend Event
+
+↓
+
+Food Collection
+
+↓
+
+Download Certificate
+```
+
+---
+
+## QR Workflow
+
+```
+Registration
+
+↓
+
+QR Generated
+
+↓
+
+Attendance Scan
+
+↓
+
+Attendance Updated
+
+↓
+
+Food Collection Scan
+
+↓
+
+Food Status Updated
+
+↓
+
+Certificate Unlocked
+```
+
+---
+
+# 🎯 Core Modules
+
+- Multi-Fest Management
+- Event Management
+- Student Portal
+- Admin Dashboard
+- Super Admin Dashboard
+- QR Attendance
+- QR Food Distribution
+- Certificate Generator
+- Analytics
+- Team Management
+- Authentication
+
+---
+
+# 💡 Why FestFlow?
+
+Traditional event management relies heavily on manual registration, attendance sheets, spreadsheets, and paper-based certificates.
+
+FestFlow digitizes the complete event lifecycle by integrating registration, event management, attendance tracking, food distribution, team management, and certificate generation into one secure platform.
+
+---
+
+# 📈 Future Enhancements
+
+- AI Event Recommendation
+- Mobile Application
+- Payment Gateway
+- Volunteer Management
+- Sponsor Management
+- Email Notifications
+- SMS Notifications
+- Face Recognition Attendance
+- NFC Based Check-In
+- Live Event Analytics
+- Leaderboards
+- Event Feedback System
+
+---
+
+# 👨‍💻 Team NovaX
+
+**Project Name**
+
+FestFlow
+
+**Team Name**
+
+NovaX
+
+**Team Members**
+
+- Surajit Sadhukhan (Team Leader)
+- Arnisha Mondal
+- Banashree Roy
+- Samrin Ankhi
+- Ankit Das
+
+---
+
+## ⭐ If you like this project, don't forget to star the repository!
