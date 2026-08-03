@@ -11,7 +11,24 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import { GraduationCap, UserPlus } from 'lucide-react';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  GraduationCap,
+  UserPlus,
+  User,
+  Mail,
+  Phone,
+  Badge,
+  Building2,
+  Calendar,
+  Lock,
+} from "lucide-react";
 import { toast } from 'sonner';
 
 import { createUserWithEmailAndPassword } from 'firebase/auth';
@@ -116,8 +133,133 @@ try {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary-lighter via-background to-secondary p-4">
-     <Card className="w-full max-w-2xl shadow-xl">
+
+    <div className="min-h-screen bg-gradient-to-br from-pink-50 via-white to-indigo-50">
+      <header className="sticky top-0 bg-white/80 backdrop-blur border-b">
+  <div className="max-w-7xl mx-auto flex items-center justify-between px-6 h-20">
+
+    <div className="flex items-center gap-3">
+
+      <img
+        src="/logo-re.png"
+        className="h-12"
+      />
+
+      <h1 className="text-3xl font-bold bg-gradient-to-r from-pink-600 via-purple-600 to-indigo-600 bg-clip-text text-transparent">
+        FestFlow
+      </h1>
+
+    </div>
+
+    <Button
+      variant="ghost"
+      onClick={() => navigate("/student-login")}
+    >
+      Login
+    </Button>
+
+  </div>
+</header>
+     <div className="max-w-7xl mx-auto px-6 py-14">
+      <div className="grid lg:grid-cols-2 gap-14 items-center">
+        <div className="hidden lg:block">
+
+<div className="space-y-8">
+  <div className="inline-flex items-center gap-2 rounded-full bg-indigo-100 text-indigo-700 px-4 py-2 font-semibold">
+Student Registration
+
+</div>
+
+<h1 className="text-5xl font-black leading-tight">
+
+Start Your
+
+<span className="block bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-500 bg-clip-text text-transparent">
+
+FestFlow Journey
+
+</span>
+
+</h1>
+
+<p className="text-lg text-gray-600">
+Join thousands of students participating in
+college festivals, hackathons, technical events,
+competitions and workshops through one smart
+platform.
+</p>
+
+<div className="space-y-4 mt-8">
+
+<div className="space-y-5 mt-10">
+
+<div className="flex items-center gap-4 bg-white rounded-2xl p-5 shadow border">
+
+<div>
+
+<h4 className="font-bold">
+
+Discover Events
+
+</h4>
+
+<p className="text-gray-500 text-sm">
+
+Find hackathons, fests and competitions.
+
+</p>
+
+</div>
+
+</div>
+
+<div className="flex items-center gap-4 bg-white rounded-2xl p-5 shadow border">
+
+<div>
+
+<h4 className="font-bold">
+
+Digital QR Ticket
+
+</h4>
+
+<p className="text-gray-500 text-sm">
+
+Secure event entry with instant QR generation.
+
+</p>
+
+</div>
+
+</div>
+
+<div className="flex items-center gap-4 bg-white rounded-2xl p-5 shadow border">
+
+<div>
+
+<h4 className="font-bold">
+
+Earn Certificates
+
+</h4>
+
+<p className="text-gray-500 text-sm">
+
+Automatically receive verified certificates.
+
+</p>
+
+</div>
+
+</div>
+
+</div>
+
+</div>
+
+</div>
+      </div>
+      <Card className="rounded-[32px] border border-slate-200 shadow-xl bg-white/90 backdrop-blur">
         <CardHeader className="space-y-3 text-center">
           <div className="flex justify-center">
             <div className="h-16 w-16 rounded-full bg-primary flex items-center justify-center">
@@ -126,16 +268,16 @@ try {
           </div>
 
           <CardTitle className="text-3xl font-bold">
-            Student Registration
+            Create Your Account
           </CardTitle>
 
           <CardDescription className="text-base">
-            Create your account to access campus events and activities
+            Register once and explore every campus event from a single platform.
           </CardDescription>
         </CardHeader>
 
         <form onSubmit={handleRegister}>
-          <CardContent className="space-y-4">
+          <CardContent className="grid md:grid-cols-2 gap-5">
             <div className="space-y-2">
               <Label htmlFor="fullName">Full Name</Label>
               <Input
@@ -231,7 +373,7 @@ try {
           <CardFooter className="flex flex-col gap-3">
             <Button
               type="submit"
-              className="w-full"
+              className="w-full h-12 rounded-xl bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-500 hover:opacity-90 transition"
               size="lg"
               disabled={isLoading}
             >
@@ -249,8 +391,15 @@ try {
             </Button>
           </CardFooter>
         </form>
-      </Card>
-    </div>
+
+    </Card>
+
+</div> 
+
+</div> 
+
+</div>
+
   );
 };
 
