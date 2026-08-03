@@ -24,7 +24,7 @@ className="flex items-center gap-3 cursor-pointer">
 <img
 src="/logo-re.png"
 alt="FestFlow"
- className="h-22 lg:h-24 w-auto transition-transform duration-300 hover:scale-105"
+ className="h-18 lg:h-20 w-auto transition-transform duration-300 hover:scale-105"
 />
 
 <div>
