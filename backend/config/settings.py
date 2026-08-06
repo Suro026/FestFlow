@@ -29,7 +29,7 @@ ALLOWED_HOSTS = [
     "event-website-backend-sunw.onrender.com",
 ]
 CSRF_TRUSTED_ORIGINS = [
-    "https://festflow26.vercel.app/",
+    "https://festflow26.vercel.app",
 ]
 # Application definition
 
