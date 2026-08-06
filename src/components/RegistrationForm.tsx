@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -84,41 +84,153 @@ console.log("isSolo =", isSolo);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Users className="h-5 w-5 text-primary" />
-            Event Registration
-          </DialogTitle>
-          <DialogDescription>
-            Register for <span className="font-semibold text-foreground">{event.title}</span>
-          </DialogDescription>
-        </DialogHeader>
+      <DialogContent className="max-w-5xl p-0 overflow-hidden border-0 bg-transparent shadow-none">
+        <div className="flex flex-col overflow-hidden rounded-3xl bg-white md:flex-row">
 
-        <form onSubmit={handleSubmit} className="space-y-6">
+  {/* LEFT PANEL */}
+
+  <div className="relative flex flex-col justify-between bg-indigo-950 p-8 text-white md:w-2/5">
+
+    <div className="absolute -right-16 -top-16 h-64 w-64 rounded-full bg-indigo-800/40 blur-3xl" />
+
+    <div className="absolute -bottom-16 -left-16 h-64 w-64 rounded-full bg-indigo-700/30 blur-3xl" />
+
+    <div className="relative z-10">
+
+      <div className="mb-3 flex items-center gap-3">
+
+        <Users className="h-8 w-8 text-pink-400" />
+
+        <h2 className="text-3xl font-bold">
+
+          Event Registration
+
+        </h2>
+
+      </div>
+
+      <p className="text-indigo-200">
+
+        Register for
+
+        <span className="ml-1 font-semibold text-white">
+
+          {event.title}
+
+        </span>
+
+      </p>
+
+    </div>
+
+    <div className="relative mt-10 rounded-2xl border border-indigo-700/40 bg-indigo-900/60 p-6 backdrop-blur">
+
+      <h3 className="mb-5 text-sm font-bold uppercase tracking-wider">
+
+        Event Details
+
+      </h3>
+
+      <div className="space-y-4 text-sm">
+
+        <div>
+
+          📅{" "}
+
+          {new Date(event.date).toLocaleDateString("en-US", {
+            weekday: "long",
+            month: "long",
+            day: "numeric",
+            year: "numeric",
+          })}
+
+        </div>
+
+        <div>
+
+          🕐 {event.time}
+
+        </div>
+
+        <div>
+
+          📍 {event.location}
+
+        </div>
+
+        <div className="pt-4">
+
+          <span className="rounded-full bg-emerald-500/10 px-3 py-2 text-emerald-400">
+
+            {event.capacity - event.registered} seats available
+
+          </span>
+
+        </div>
+
+      </div>
+
+    </div>
+
+  </div>
+
+  {/* RIGHT PANEL */}
+
+  <div className="flex flex-1 flex-col bg-white">
+
+        <div className="flex flex-col h-full">
+
+  {/* Header */}
+
+  <div className="flex items-center justify-end border-b border-slate-100 p-6">
+
+    <button
+      type="button"
+      onClick={() => onOpenChange(false)}
+      className="rounded-full bg-slate-100 p-2 transition hover:bg-slate-200"
+    >
+      <X className="h-5 w-5 text-slate-500" />
+    </button>
+
+  </div>
+
+  {/* Scrollable Form */}
+
+  <div className="flex-1 overflow-y-auto p-8">
+
+    <form onSubmit={handleSubmit} className="space-y-8">
 
           {/* Team Members */}
           {/* Team Name */}
 {!isSolo && (
-  <div className="space-y-2">
-    <Label htmlFor="teamName">Team Name *</Label>
+  <div>
+
+    <Label
+      htmlFor="teamName"
+      className="mb-2 block text-sm font-semibold text-slate-700"
+    >
+      Team Name *
+    </Label>
+
     <Input
       id="teamName"
       placeholder="Enter Team Name"
       value={teamName}
       onChange={(e) => setTeamName(e.target.value)}
       required
+      className="h-12 rounded-xl border-slate-200 focus-visible:ring-indigo-500"
     />
+
   </div>
 )}
 
 {/* Members Section */}
 <div className="space-y-4">
   <div className="flex items-center justify-between">
-    <Label>
-      {isSolo ? "Participant Details" : "Team Members *"}
-    </Label>
 
+  <h3 className="text-base font-bold text-slate-900">
+    {isSolo ? "Participant Details" : "Team Members *"}
+  </h3>
     {!isSolo && (
       <Button
         type="button"
@@ -222,23 +334,32 @@ console.log("isSolo =", isSolo);
           </div>
 
           {/* Submit */}
-          <div className="flex gap-3 pt-2">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => onOpenChange(false)}
-              className="flex-1"
-            >
-              Cancel
-            </Button>
-            <Button type="submit" className="flex-1">
-              Complete Registration
-            </Button>
-          </div>
-        </form>
-      </DialogContent>
-    </Dialog>
-  );
+<div className="flex gap-3 pt-2">
+  <Button
+    type="button"
+    variant="outline"
+    onClick={() => onOpenChange(false)}
+    className="flex-1"
+  >
+    Cancel
+  </Button>
+
+  <Button type="submit" className="flex-1">
+    Complete Registration
+  </Button>
+</div>
+
+    </form>
+
+  </div>
+
+</div>
+
+</div>
+</div>
+    </DialogContent>
+  </Dialog>
+);
 };
 
 export default RegistrationForm;
