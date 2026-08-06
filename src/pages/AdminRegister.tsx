@@ -101,23 +101,132 @@ try {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary-lighter via-background to-secondary p-4">
-      <Card className="w-full max-w-md shadow-xl">
-        <CardHeader className="space-y-3 text-center">
-          <div className="flex justify-center">
-            <div className="h-16 w-16 rounded-full bg-destructive flex items-center justify-center">
-              <Shield className="h-10 w-10 text-destructive-foreground" />
-            </div>
-          </div>
+    <div className="relative min-h-screen overflow-hidden bg-[#f9f9ff]">
+      <>
+  {/* Background Blur Shapes */}
+  <div className="absolute -left-24 -top-24 h-96 w-96 rounded-full bg-pink-500/20 blur-[100px]" />
+  <div className="absolute -right-24 bottom-0 h-96 w-96 rounded-full bg-indigo-500/20 blur-[100px]" />
 
-          <CardTitle className="text-3xl font-bold">
-            Admin Registration
-          </CardTitle>
+  {/* Top Navigation */}
+  <header className="fixed top-0 z-50 flex h-16 w-full items-center justify-between border-b border-slate-200/40 bg-white/80 px-6 backdrop-blur-md">
+    <div className="flex items-center gap-2">
+      <Shield className="h-8 w-8 text-pink-600" />
+      <span className="text-2xl font-extrabold tracking-tight text-pink-600">
+        FestFlow
+      </span>
+    </div>
 
-          <CardDescription className="text-base">
-            Create an administrator account for event management
-          </CardDescription>
-        </CardHeader>
+    <div className="hidden items-center gap-8 md:flex">
+      <button
+        type="button"
+        className="text-sm font-medium text-slate-500 transition hover:text-pink-600"
+      >
+        Documentation
+      </button>
+
+      <button
+        type="button"
+        className="text-sm font-medium text-slate-500 transition hover:text-pink-600"
+      >
+        Support
+      </button>
+
+      <div className="h-6 w-px bg-slate-300" />
+
+      <button
+        type="button"
+        onClick={() => navigate("/admin-login")}
+        className="text-sm font-semibold text-pink-600"
+      >
+        Sign In
+      </button>
+    </div>
+  </header>
+</>
+      <main className="relative z-10 mx-auto mt-24 mb-16 flex w-full max-w-7xl flex-col gap-12 px-6 lg:flex-row lg:items-start">
+
+  {/* Left Panel */}
+  {/* Left Panel */}
+<section className="w-full pt-8 lg:w-5/12">
+  <div className="mb-8">
+    <span className="inline-block rounded-full bg-pink-100 px-4 py-1.5 text-sm font-semibold text-pink-600">
+      ADMIN PORTAL
+    </span>
+
+    <h1 className="mt-5 text-5xl font-extrabold leading-tight tracking-tight text-slate-900">
+      Empower your event
+      <br />
+      <span className="italic text-pink-600">
+        management team.
+      </span>
+    </h1>
+
+    <p className="mt-5 max-w-md text-lg leading-8 text-slate-500">
+      Join the ecosystem where efficiency meets creativity.
+      Register as an administrator to start orchestrating
+      unforgettable campus experiences.
+    </p>
+  </div>
+
+  <div className="space-y-4">
+    <div className="rounded-2xl border border-white/40 bg-white/80 p-6 shadow-lg backdrop-blur-xl">
+      <div className="flex items-center gap-4">
+        <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-pink-100">
+          <Shield className="h-6 w-6 text-pink-600" />
+        </div>
+
+        <div>
+          <h3 className="font-semibold text-slate-900">
+            Live Analytics
+          </h3>
+
+          <p className="text-sm text-slate-500">
+            Real-time tracking of registration metrics.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <div className="rounded-2xl border border-white/40 bg-white/80 p-6 shadow-lg backdrop-blur-xl">
+      <div className="flex items-center gap-4">
+        <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-indigo-100">
+          <Shield className="h-6 w-6 text-indigo-600" />
+        </div>
+
+        <div>
+          <h3 className="font-semibold text-slate-900">
+            Secure Infrastructure
+          </h3>
+
+          <p className="text-sm text-slate-500">
+            Enterprise-grade data protection.
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+  {/* Right Panel */}
+  <section className="w-full lg:w-7/12">
+    <Card className="overflow-hidden rounded-[2rem] border border-white/40 bg-white/80 shadow-2xl backdrop-blur-xl">
+        <CardHeader className="relative space-y-6 border-b border-slate-200/50 px-10 pt-10 pb-8">
+          <div className="flex items-center justify-between">
+  <div>
+    <h2 className="text-3xl font-bold tracking-tight text-slate-900">
+      Create Admin Account
+    </h2>
+
+    <p className="mt-2 text-sm text-slate-500">
+      Step 1 of 3: Organization Details
+    </p>
+  </div>
+
+  <div className="flex h-14 w-14 items-center justify-center rounded-full bg-pink-100">
+    <Shield className="h-7 w-7 text-pink-600" />
+  </div>
+</div>
+</CardHeader>
 
         <form onSubmit={handleRegister}>
           <CardContent className="space-y-4">
@@ -215,6 +324,8 @@ try {
           </CardFooter>
         </form>
       </Card>
+      </section>
+      </main>
     </div>
   );
 };

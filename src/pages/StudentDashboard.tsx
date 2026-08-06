@@ -1,8 +1,14 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Button } from '@/components/ui/button';
-import { GraduationCap, LogOut, Sparkles, History } from 'lucide-react';
-import EventCard from '@/components/EventCard';
+import {
+  LogOut,
+  History,
+  Calendar,
+  Clock,
+  MapPin,
+  Users,
+  ArrowRight,
+} from "lucide-react";
 import DigitalTicket from '@/components/DigitalTicket';
 import RegistrationForm from '@/components/RegistrationForm';
 import { Event, Registration } from '@/types/events';
@@ -164,114 +170,249 @@ loadEvents();
   };
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="bg-gradient-to-r from-blue-600 to-blue-800 text-white shadow-lg sticky top-0 z-10">
-        <div className="container mx-auto px-4 py-5">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-4">
-  <img
-    src="/logo-re.png"
-    alt="FestFlow"
-    className="h-14 w-auto object-contain"
-  />
+  <div className="min-h-screen bg-[#f8fafc]">
 
-  <div>
-    <h1 className="text-2xl font-bold tracking-tight">
-      FestFlow
-    </h1>
+    {/* NAVBAR */}
 
-    <p className="text-sm text-blue-100">
-      Logged in as: {studentId}
-    </p>
-  </div>
-</div>
-            </div>
-            
-            <div className="flex gap-2">
-              <Button 
-                onClick={() => navigate('/my-events')} 
-                variant="secondary"
-                size="sm"
-                className="bg-white/20 hover:bg-white/30 text-white border-0"
-              >
-                <History className="h-4 w-4 mr-2" />
-                My Events
-              </Button>
-              <Button
-  onClick={() => navigate("/my-certificates")}
-  variant="secondary"
-  size="sm"
-  className="bg-white/20 hover:bg-white/30 text-white border-0"
->
-  My Certificates
-</Button>
-              <Button 
-                onClick={handleLogout} 
-                variant="secondary"
-                size="sm"
-                className="bg-white/20 hover:bg-white/30 text-white border-0"
-              >
-                <LogOut className="h-4 w-4 mr-2" />
-                Logout
-              </Button>
-            </div>
+    <header className="sticky top-0 z-50 border-b border-slate-200 bg-white/80 backdrop-blur-xl">
+
+      <div className="mx-auto flex h-20 max-w-7xl items-center justify-between px-6">
+
+        <div className="flex items-center gap-4">
+
+          <img
+            src="/logo-re.png"
+            alt="FestFlow"
+            className="h-14 w-auto"
+          />
+
+          <div>
+
+            <h1 className="text-2xl font-extrabold text-slate-900">
+
+              FestFlow
+
+            </h1>
+
+            <p className="text-sm text-slate-500">
+
+              Welcome, {studentId}
+
+            </p>
+
           </div>
+
         </div>
-      </header>
 
-      {/* Main Content */}
-      <main className="container mx-auto px-4 py-8">
-        {/* Welcome Banner */}
-        <div className="bg-gradient-to-r from-blue-500 via-blue-600 to-blue-700 rounded-2xl p-8 mb-10 text-white shadow-xl">
-          <div className="flex items-center gap-3 mb-4">
-            <Sparkles className="h-8 w-8" />
-            <h2 className="text-4xl font-bold">Upcoming Campus Events</h2>
+        <div className="flex items-center gap-3">
+
+          <button
+            onClick={() => navigate("/my-events")}
+            className="rounded-xl border border-slate-200 px-4 py-2 font-semibold transition hover:bg-slate-100"
+          >
+            <History className="mr-2 inline h-4 w-4" />
+            My Events
+          </button>
+
+          <button
+            onClick={() => navigate("/my-certificates")}
+            className="rounded-xl border border-slate-200 px-4 py-2 font-semibold transition hover:bg-slate-100"
+          >
+            Certificates
+          </button>
+
+          <button
+            onClick={handleLogout}
+            className="rounded-xl bg-red-600 px-5 py-2 font-semibold text-white transition hover:bg-red-700"
+          >
+            <LogOut className="mr-2 inline h-4 w-4" />
+            Logout
+          </button>
+
+        </div>
+
+      </div>
+
+    </header>
+
+    {/* HERO */}
+
+    <section className="relative overflow-hidden bg-gradient-to-br from-indigo-700 via-purple-700 to-pink-600">
+
+      <div className="absolute inset-0 bg-black/10" />
+
+      <div className="relative mx-auto max-w-7xl px-6 py-20">
+
+        <div className="max-w-3xl">
+
+          <span className="rounded-full bg-white/20 px-4 py-2 text-sm font-semibold backdrop-blur">
+
+            Student Dashboard
+
+          </span>
+
+          <h2 className="mt-8 text-6xl font-black leading-tight text-white">
+
+            Explore
+
+            <br />
+
+            Upcoming Events
+
+          </h2>
+
+          <p className="mt-8 text-xl leading-9 text-white/90">
+
+            Register for workshops,
+
+            hackathons,
+
+            technical competitions,
+
+            seminars,
+
+            and campus activities.
+
+          </p>
+
+          <div className="mt-12 flex flex-wrap gap-4">
+
+            <div className="rounded-2xl bg-white/15 px-6 py-5 backdrop-blur-xl">
+
+              <p className="text-sm text-white/70">
+
+                Published Events
+
+              </p>
+
+              <h3 className="mt-2 text-3xl font-bold text-white">
+
+                {events.length}
+
+              </h3>
+
+            </div>
+
+            <div className="rounded-2xl bg-white/15 px-6 py-5 backdrop-blur-xl">
+
+              <p className="text-sm text-white/70">
+
+                Registered
+
+              </p>
+
+              <h3 className="mt-2 text-3xl font-bold text-white">
+
+                {registrations.length}
+
+              </h3>
+
+            </div>
+
           </div>
-          <p className="text-sm text-blue-100 mb-2">
-  {events.length} events currently available
-</p>
-          <p className="text-lg text-blue-50">
-            Discover, register, and participate in exciting events happening on campus. Build your skills and connect with peers.
+
+        </div>
+
+      </div>
+
+    </section>
+
+    {/* EVENTS */}
+
+    <main className="mx-auto -mt-10 max-w-7xl px-6 pb-20">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {events.map((event) => (
+          <div
+            key={event.id}
+            className="overflow-hidden rounded-3xl border border-white/40 bg-white shadow-xl transition-all duration-300 hover:-translate-y-2 hover:shadow-2xl"
+          >
+            <div className="relative h-52 overflow-hidden">
+              <img
+                src={event.imageUrl}
+                alt={event.title}
+                className="h-full w-full object-cover transition duration-500 hover:scale-105"
+              />
+              <div className="absolute right-4 top-4 rounded-full bg-emerald-500 px-3 py-1 text-xs font-bold text-white">
+                Registration Open
+              </div>
+            </div>
+
+            <div className="space-y-5 p-6">
+              <div>
+                <h3 className="text-2xl font-bold text-slate-900">{event.title}</h3>
+                <p className="mt-2 line-clamp-2 text-sm leading-6 text-slate-500">
+                  {event.description}
+                </p>
+              </div>
+
+              <div className="space-y-3 text-sm text-slate-600">
+                <div className="flex items-center gap-3">
+                  <Calendar className="h-4 w-4 text-pink-600" />
+                  {event.date}
+                </div>
+                <div className="flex items-center gap-3">
+                  <Clock className="h-4 w-4 text-indigo-600" />
+                  {event.time}
+                </div>
+                <div className="flex items-center gap-3">
+                  <MapPin className="h-4 w-4 text-red-500" />
+                  {event.location}
+                </div>
+                <div className="flex items-center gap-3">
+                  <Users className="h-4 w-4 text-emerald-600" />
+                  {event.registered} / {event.capacity} Registered
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between">
+                <span className="rounded-full bg-indigo-100 px-3 py-1 text-xs font-bold text-indigo-700">
+                  {event.category}
+                </span>
+                <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+                  {event.eventType === "team" ? `${event.teamSize} Members` : "Solo"}
+                </span>
+              </div>
+
+              <button
+                onClick={() => handleRegister(event.id)}
+                className="group flex h-12 w-full items-center justify-center rounded-xl bg-gradient-to-r from-pink-600 to-indigo-600 font-bold text-white transition hover:opacity-90"
+              >
+                Register Now
+                <ArrowRight className="ml-2 h-4 w-4 transition group-hover:translate-x-1" />
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {events.length === 0 && (
+        <div className="col-span-full rounded-3xl border border-dashed border-slate-300 bg-white py-20 text-center shadow-sm">
+          <h3 className="text-2xl font-bold text-slate-700">No Events Available</h3>
+          <p className="mt-3 text-slate-500">
+            Organizers haven't published any events yet.
           </p>
         </div>
+      )}
+    </main>
 
-        {/* Events Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {events.map((event) => (
-            <EventCard 
-              key={event.id} 
-              event={event} 
-              onRegister={handleRegister}
-            />
-          ))}
-        </div>
+    {/* Registration Form Modal */}
+    <RegistrationForm
+      open={showRegistrationForm}
+      onOpenChange={setShowRegistrationForm}
+      event={selectedEvent}
+      onSubmit={handleRegistrationSubmit}
+    />
 
-        {events.length === 0 && (
-          <div className="text-center py-12">
-            <p className="text-muted-foreground text-lg">No events have been published yet</p>
-          </div>
-        )}
-      </main>
+    {/* Digital Ticket Modal */}
+    <DigitalTicket
+      open={showTicket}
+      onOpenChange={setShowTicket}
+      event={selectedEvent}
+      ticketCode={ticketCode}
+      studentId={studentId}
+    />
 
-      {/* Registration Form Modal */}
-      <RegistrationForm
-        open={showRegistrationForm}
-        onOpenChange={setShowRegistrationForm}
-        event={selectedEvent}
-        onSubmit={handleRegistrationSubmit}
-      />
-
-      {/* Digital Ticket Modal */}
-      <DigitalTicket
-        open={showTicket}
-        onOpenChange={setShowTicket}
-        event={selectedEvent}
-        ticketCode={ticketCode}
-        studentId={studentId}
-      />
-    </div>
+  </div>
   );
 };
 

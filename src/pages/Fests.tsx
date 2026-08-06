@@ -5,6 +5,8 @@ import {
   Calendar,
   MapPin,
   ArrowRight,
+  Moon,
+  Sun,
 } from "lucide-react";
 
 const mockFests = [
@@ -64,94 +66,214 @@ const Fests = () => {
   return (
     <div className="min-h-screen bg-slate-50">
 
-      {/* Hero */}
-      <section className="bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 text-white">
-        <div className="max-w-7xl mx-auto px-6 py-20">
+      {/* Navigation */}
 
-          <h1 className="text-5xl md:text-6xl font-bold mb-6">
-            Explore Fests
-          </h1>
+<nav className="sticky top-0 z-50 border-b border-white/20 bg-white/40 backdrop-blur-xl">
 
-          <p className="text-xl text-blue-100 max-w-3xl">
-            Discover technical fests, hackathons,
-            workshops and competitions happening across campuses.
-          </p>
+  <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-6">
 
-          <div className="mt-8 bg-white rounded-xl flex items-center px-4 py-3 max-w-xl">
-            <Search className="h-5 w-5 text-gray-400" />
+    <div className="flex items-center gap-3">
 
-            <input
-              type="text"
-              placeholder="Search fests..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="flex-1 outline-none px-3 text-black"
-            />
+      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-r from-pink-600 to-indigo-600 shadow-lg">
+
+        <span className="text-lg font-bold text-white">
+          F
+        </span>
+
+      </div>
+
+      <div>
+
+        <h2 className="text-xl font-extrabold">
+          FestFlow
+        </h2>
+
+        <p className="text-xs text-slate-500">
+          Explore Campus Fests
+        </p>
+
+      </div>
+
+    </div>
+
+    <button className="rounded-full p-2 hover:bg-slate-100">
+
+      <Moon className="h-5 w-5" />
+
+    </button>
+
+  </div>
+
+</nav>
+
+{/* Hero */}
+
+<section className="relative overflow-hidden bg-gradient-to-br from-pink-700 via-indigo-600 to-purple-700 py-24 text-white">
+
+  <div className="absolute inset-0 bg-black/10" />
+
+  <div className="relative mx-auto max-w-7xl px-6">
+
+    <div className="max-w-3xl">
+
+      <p className="mb-4 font-semibold uppercase tracking-[0.3em] text-pink-200">
+
+        Welcome Back
+
+      </p>
+
+      <h1 className="text-6xl font-black leading-tight">
+
+        Find Your Next
+
+        <br />
+
+        Great Experience
+
+      </h1>
+
+      <p className="mt-8 text-xl leading-9 text-white/90">
+
+        Connect with clubs,
+
+        join hackathons,
+
+        workshops,
+
+        technical fests,
+
+        and never miss a campus opportunity.
+
+      </p>
+
+      <div className="relative mt-10 max-w-xl">
+
+        <Search className="absolute left-5 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-500" />
+
+        <input
+          type="text"
+          placeholder="Search fests, colleges or cities..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="h-16 w-full rounded-2xl border border-white/30 bg-white/90 pl-14 pr-5 text-slate-900 shadow-2xl outline-none backdrop-blur-xl focus:ring-4 focus:ring-pink-300"
+        />
+
+      </div>
+
+      <div className="mt-8 flex flex-wrap gap-3">
+
+        {["Hackathons", "Workshops", "Tech Fest", "Cultural"].map((item) => (
+
+          <button
+            key={item}
+            className="rounded-full border border-white/30 bg-white/20 px-5 py-2 text-sm font-semibold backdrop-blur-xl transition hover:bg-white/30"
+          >
+            {item}
+          </button>
+
+        ))}
+
+      </div>
+
+    </div>
+
+  </div>
+
+</section>
+
+      <section className="relative -mt-12 z-20 max-w-7xl mx-auto px-6 pb-20">
+
+  <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3">
+
+    {filteredFests.map((fest) => (
+
+      <div
+        key={fest.id}
+        className="overflow-hidden rounded-3xl border border-white/40 bg-white/50 backdrop-blur-2xl shadow-xl transition-all duration-300 hover:-translate-y-2 hover:shadow-2xl"
+      >
+
+        <div className="relative h-56">
+
+          <img
+            src={fest.image}
+            alt={fest.name}
+            className="h-full w-full object-cover"
+          />
+
+          <div className="absolute right-4 top-4 rounded-full bg-white/90 px-4 py-1 text-xs font-bold text-pink-600 shadow">
+
+            Registration Open
+
           </div>
 
         </div>
-      </section>
 
-      {/* Fest Cards */}
-      <section className="max-w-7xl mx-auto px-6 py-12">
+        <div className="p-6">
 
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+          <h2 className="text-2xl font-extrabold text-slate-900">
 
-          {filteredFests.map((fest) => (
-            <div
-              key={fest.id}
-              className="bg-white rounded-3xl overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-300"
-            >
+            {fest.name}
 
-              <img
-                src={fest.image}
-                alt={fest.name}
-                className="h-56 w-full object-cover"
-              />
+          </h2>
 
-              <div className="p-6">
+          <p className="mt-1 font-medium text-slate-500">
 
-                <h2 className="text-2xl font-bold mb-2">
-                  {fest.name}
-                </h2>
+            {fest.college}
 
-                <p className="text-gray-600 font-medium">
-                  {fest.college}
-                </p>
+          </p>
 
-                <div className="flex items-center gap-2 text-gray-500 mt-3">
-                  <MapPin className="h-4 w-4" />
-                  {fest.location}
-                </div>
+          <div className="mt-5 space-y-2">
 
-                <div className="flex items-center gap-2 text-gray-500 mt-2">
-                  <Calendar className="h-4 w-4" />
-                  {fest.date}
-                </div>
+            <div className="flex items-center gap-2 text-slate-500">
 
-                <div className="mt-3 inline-block bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-sm font-semibold">
-                  {fest.events} Events Available
-                </div>
+              <MapPin className="h-4 w-4" />
 
-                <p className="text-gray-600 mt-4 line-clamp-3">
-                  {fest.description}
-                </p>
+              <span>{fest.location}</span>
 
-                <button
-                  onClick={() => enterFest(fest.id)}
-                  className="w-full mt-6 bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-xl font-semibold flex items-center justify-center gap-2"
-                >
-                  Enter Fest
-                  <ArrowRight className="h-4 w-4" />
-                </button>
-
-              </div>
             </div>
-          ))}
+
+            <div className="flex items-center gap-2 text-slate-500">
+
+              <Calendar className="h-4 w-4" />
+
+              <span>{fest.date}</span>
+
+            </div>
+
+          </div>
+
+          <span className="mt-5 inline-block rounded-lg bg-pink-100 px-3 py-1 text-xs font-bold text-pink-700">
+
+            {fest.events} Events Available
+
+          </span>
+
+          <p className="mt-5 line-clamp-2 text-sm leading-7 text-slate-600">
+
+            {fest.description}
+
+          </p>
+
+          <button
+            onClick={() => enterFest(fest.id)}
+            className="group mt-7 flex h-12 w-full items-center justify-center rounded-xl bg-gradient-to-r from-pink-600 to-indigo-600 font-bold text-white transition hover:opacity-90"
+          >
+
+            Enter Fest
+
+            <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
+
+          </button>
 
         </div>
 
-      </section>
+      </div>
+
+    ))}
+
+  </div>
+
+</section>
     </div>
   );
 };
