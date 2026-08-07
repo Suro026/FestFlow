@@ -1,9 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Shield, LogOut, QrCode, Calendar, Users, TrendingUp } from 'lucide-react';
+import { Shield, QrCode, Calendar, Users, TrendingUp } from 'lucide-react';
 import { collection, getDocs } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { Event } from "@/types/events";
@@ -88,175 +86,368 @@ loadEvents();
     navigate('/admin-login');
   };
   const totalCapacity = events.reduce(
-  (sum, e) => sum + e.capacity,
-  0
-);
-const totalAttendance = allRegistrations.filter(
-  (r) => r.attendance === true
-).length;
+    (sum, e) => sum + e.capacity,
+    0
+  );
 
-  const stats = [
-    {
-      title: 'Total Events',
-      value: events.length,
-      icon: Calendar,
-      color: 'text-primary',
-      bgColor: 'bg-primary/10'
-    },
-    {
-      title: 'Total Registrations',
-      value: totalRegistrations,
-      icon: Users,
-      color: 'text-success',
-      bgColor: 'bg-success/10'
-    },
-    {
-  title: 'Attendance Marked',
-  value: totalAttendance,
-  icon: TrendingUp,
-  color: 'text-accent',
-  bgColor: 'bg-accent/10'
-},
-    {
-      title: 'Total Capacity',
-      value: totalCapacity,
-      icon: Users,
-      color: 'text-muted-foreground',
-      bgColor: 'bg-muted'
-    }
-  ];
+  const totalAttendance = allRegistrations.filter(
+    (r) => r.attendance === true
+  ).length;
 
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
-      <header className="bg-gradient-to-r from-blue-600 to-blue-800 text-white shadow-lg sticky top-0 z-10">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="h-12 w-12 rounded-full bg-white/20 flex items-center justify-center border-2 border-white/30">
-                <Shield className="h-6 w-6" />
-              </div>
-              <div>
-                <h1 className="text-2xl font-bold tracking-tight">Admin Dashboard</h1>
-                <p className="text-sm text-blue-100">Welcome, {adminId}</p>
-              </div>
-            </div>
-            
-           <Button
-  onClick={handleLogout}
-  variant="secondary"
-  size="sm"
-  className="bg-white/20 hover:bg-white/30 text-white border-0"
->
-              <LogOut className="h-4 w-4 mr-2" />
-              Logout
-            </Button>
-          </div>
-        </div>
-      </header>
+      <div className="flex min-h-screen bg-slate-50">
+
+  {/* Sidebar */}
+
+  <aside className="fixed left-0 top-0 flex h-screen w-64 flex-col border-r bg-white p-6 shadow-sm">
+
+    <div>
+
+      <h1 className="text-3xl font-black bg-gradient-to-r from-pink-600 to-indigo-600 bg-clip-text text-transparent">
+        FestFlow
+      </h1>
+
+      <p className="mt-1 text-sm text-slate-500">
+        University Admin
+      </p>
+
+    </div>
+
+    <nav className="mt-10 space-y-2">
+
+      <Button
+        variant="ghost"
+        className="w-full justify-start"
+      >
+        Dashboard
+      </Button>
+
+      <Button
+        variant="ghost"
+        className="w-full justify-start"
+        onClick={() => navigate("/event-management")}
+      >
+        Events
+      </Button>
+
+      <Button
+        variant="ghost"
+        className="w-full justify-start"
+        onClick={() => navigate("/attendance-scanner")}
+      >
+        Attendance
+      </Button>
+
+    </nav>
+
+    <Button
+      onClick={handleLogout}
+      className="mt-auto"
+      variant="destructive"
+    >
+      Logout
+    </Button>
+
+  </aside>
+
+  {/* Main */}
+
+  <div className="ml-64 flex-1">
 
       {/* Main Content */}
-      <main className="container mx-auto px-4 py-8">
-        <div className="bg-gradient-to-r from-blue-500 via-blue-600 to-blue-700 rounded-2xl p-8 mb-10 text-white shadow-xl">
-  <h2 className="text-4xl font-bold mb-4">
-    Event Management Dashboard
-  </h2>
+      <main className="mx-auto max-w-7xl px-8 py-8">
+        <section className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-pink-600 via-indigo-600 to-purple-700 p-10 text-white shadow-2xl">
 
-  <p className="text-lg text-blue-50">
-    Manage registrations, attendance, food distribution,
-    certificates and event operations.
-  </p>
+  <div className="absolute right-0 top-0 h-72 w-72 rounded-full bg-white/10 blur-3xl" />
+
+  <div className="relative z-10">
+
+    <h1 className="text-4xl font-black">
+      Event Management Dashboard
+    </h1>
+
+    <p className="mt-3 max-w-3xl text-lg text-white/90">
+      Manage registrations, attendance, food collection, certificates and campus
+      events from one centralized dashboard.
+    </p>
+
+    <div className="mt-10 grid gap-5 md:grid-cols-3">
+
+  <div className="rounded-2xl border border-white/20 bg-white/10 p-6 backdrop-blur-xl">
+
+    <p className="text-sm uppercase tracking-wider text-white/70">
+      Active Events
+    </p>
+
+    <h2 className="mt-3 text-4xl font-black">
+      {events.length}
+    </h2>
+
+    <p className="mt-2 text-sm text-white/80">
+      Currently published events
+    </p>
+
+  </div>
+
+  <div className="rounded-2xl border border-white/20 bg-white/10 p-6 backdrop-blur-xl">
+
+    <p className="text-sm uppercase tracking-wider text-white/70">
+      Registrations
+    </p>
+
+    <h2 className="mt-3 text-4xl font-black">
+      {totalRegistrations}
+    </h2>
+
+    <p className="mt-2 text-sm text-white/80">
+      Student registrations received
+    </p>
+
+  </div>
+
+  <div className="rounded-2xl border border-white/20 bg-white/10 p-6 backdrop-blur-xl">
+
+    <p className="text-sm uppercase tracking-wider text-white/70">
+      Attendance
+    </p>
+
+    <h2 className="mt-3 text-4xl font-black">
+      {totalAttendance}
+    </h2>
+
+    <p className="mt-2 text-sm text-white/80">
+      Students checked in
+    </p>
+
+  </div>
+
 </div>
-        {/* Stats Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          {stats.map((stat) => (
-            <Card key={stat.title}>
-              <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">
-                  {stat.title}
-                </CardTitle>
-                <div className={`h-10 w-10 rounded-full ${stat.bgColor} flex items-center justify-center`}>
-                  <stat.icon className={`h-5 w-5 ${stat.color}`} />
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="text-3xl font-bold">{stat.value}</div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+
+  </div>
+
+</section>
 
         {/* Quick Actions */}
-        <div className="grid md:grid-cols-2 gap-6 mb-8">
-          <Card className="hover:shadow-lg transition-shadow cursor-pointer" onClick={() => navigate('/attendance-scanner')}>
-            <CardHeader>
-              <div className="flex items-center gap-3">
-                <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
-                  <QrCode className="h-6 w-6 text-primary" />
-                </div>
-                <div>
-                  <CardTitle>Attendance Scanner</CardTitle>
-                  <CardDescription>Scan student QR codes for event check-in</CardDescription>
-                </div>
-              </div>
-            </CardHeader>
-          </Card>
 
-          <Card className="hover:shadow-lg transition-shadow cursor-pointer" onClick={() => navigate('/event-management')}>
-            <CardHeader>
-              <div className="flex items-center gap-3">
-                <div className="h-12 w-12 rounded-full bg-success/10 flex items-center justify-center">
-                  <Calendar className="h-6 w-6 text-success" />
-                </div>
-                <div>
-                  <CardTitle>Event Management</CardTitle>
-                  <CardDescription>View and manage all campus events</CardDescription>
-                </div>
-              </div>
-            </CardHeader>
-          </Card>
-        </div>
+<div className="mt-10 grid gap-6 lg:grid-cols-2">
 
-        {/* Events Overview */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Events Overview</CardTitle>
-            <CardDescription>Quick view of all campus events</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {events.map((event) => {
+  {/* Attendance */}
 
-  const registrationCount = allRegistrations.filter(
-    (reg) => reg.eventId === event.id
-  ).length;
+  <div
+    onClick={() => navigate("/attendance-scanner")}
+    className="group cursor-pointer overflow-hidden rounded-3xl bg-gradient-to-br from-indigo-600 to-purple-700 p-8 text-white shadow-xl transition hover:-translate-y-2"
+  >
 
-  return (
-                <div key={event.id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-3 mb-1">
-                      <h3 className="font-semibold">{event.title}</h3>
-                      <Badge variant={event.status === 'Upcoming' ? 'default' : 'secondary'}>
-                        {event.status}
-                      </Badge>
-                    </div>
-                    <p className="text-sm text-muted-foreground">
-                      {new Date(event.date).toLocaleDateString()} • {event.location}
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-sm font-medium">
-                      {registrationCount} / {event.capacity}
-                    </p>
-                    <p className="text-xs text-muted-foreground">Registered</p>
-                  </div>
-                </div>
-              );
-})}
+    <QrCode className="h-12 w-12" />
+
+    <h2 className="mt-6 text-3xl font-black">
+      Attendance Scanner
+    </h2>
+
+    <p className="mt-3 text-white/80">
+      Scan QR codes, verify registrations and mark attendance instantly.
+    </p>
+
+    <Button
+      className="mt-8 bg-white text-indigo-700 hover:bg-white"
+    >
+      Open Scanner
+    </Button>
+
+  </div>
+
+  {/* Event Management */}
+
+  <div
+    onClick={() => navigate("/event-management")}
+    className="group cursor-pointer overflow-hidden rounded-3xl border bg-white p-8 shadow-xl transition hover:-translate-y-2"
+  >
+
+    <Calendar className="h-12 w-12 text-pink-600" />
+
+    <h2 className="mt-6 text-3xl font-black">
+      Event Management
+    </h2>
+
+    <p className="mt-3 text-slate-600">
+      Create, edit and publish events, control registrations and manage capacities.
+    </p>
+
+    <Button
+      className="mt-8"
+    >
+      Manage Events
+    </Button>
+
             </div>
-          </CardContent>
-        </Card>
+
+            </div>
+          {/* Registration Trends */}
+
+<div className="mt-10 rounded-3xl border bg-white p-8 shadow-sm">
+
+  <div className="mb-6 flex items-center justify-between">
+
+    <div>
+
+      <h2 className="text-2xl font-bold">
+        Registration Trends
+      </h2>
+
+      <p className="text-slate-500">
+        Daily registrations across all events
+      </p>
+
+    </div>
+
+  </div>
+
+  <div className="h-80 rounded-2xl border bg-slate-50 flex items-center justify-center">
+
+    {/* Recharts goes here */}
+
+  </div>
+
+</div>
+{/* Events Overview */}
+
+<div className="mt-10 rounded-3xl border bg-white shadow-sm">
+
+  <div className="border-b p-8">
+
+    <h2 className="text-2xl font-bold">
+      Events Overview
+    </h2>
+
+    <p className="mt-2 text-slate-500">
+      Manage registrations and monitor event performance.
+    </p>
+
+  </div>
+
+  <div className="overflow-x-auto">
+
+    <table className="w-full">
+
+      <thead className="bg-slate-50">
+
+        <tr>
+
+          <th className="px-8 py-4 text-left">Event</th>
+
+          <th className="px-8 py-4 text-left">Date</th>
+
+          <th className="px-8 py-4 text-left">Venue</th>
+
+          <th className="px-8 py-4 text-center">Capacity</th>
+
+          <th className="px-8 py-4 text-center">Registered</th>
+
+          <th className="px-8 py-4 text-center">Status</th>
+
+          <th className="px-8 py-4 text-right">Action</th>
+
+        </tr>
+
+      </thead>
+
+      <tbody>
+
+        {events.map((event) => {
+
+          const registrationCount = allRegistrations.filter(
+            (r) => r.eventId === event.id
+          ).length;
+
+          return (
+
+            <tr
+              key={event.id}
+              className="border-t hover:bg-slate-50"
+            >
+
+              <td className="px-8 py-6">
+
+                <div>
+
+                  <h3 className="font-bold">
+                    {event.title}
+                  </h3>
+
+                  <p className="text-sm text-slate-500">
+                    {event.category}
+                  </p>
+
+                </div>
+
+              </td>
+
+              <td className="px-8">
+
+                {new Date(event.date).toLocaleDateString()}
+
+              </td>
+
+              <td className="px-8">
+
+                {event.location}
+
+              </td>
+
+              <td className="px-8 text-center">
+
+                {event.capacity}
+
+              </td>
+
+              <td className="px-8 text-center font-semibold">
+
+                {registrationCount}
+
+              </td>
+
+              <td className="px-8 text-center">
+
+                <span className="rounded-full bg-green-100 px-3 py-1 text-xs font-bold text-green-700">
+
+                  {event.status}
+
+                </span>
+
+              </td>
+
+              <td className="px-8 text-right">
+
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() =>
+                    navigate(`/event/${event.id}`)
+                  }
+                >
+                  View
+                </Button>
+
+              </td>
+
+            </tr>
+
+          );
+
+        })}
+
+      </tbody>
+
+    </table>
+
+  </div>
+
+</div>
       </main>
+      </div>
+    </div>
     </div>
     );
 };
