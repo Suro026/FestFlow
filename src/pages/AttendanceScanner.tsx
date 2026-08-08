@@ -49,27 +49,36 @@ const AttendanceScanner = () => {
   };
 
   useEffect(() => {
-    if (!scannerOpen) return;
-    if (scannerRef.current) return;
+  if (!scannerOpen) return;
+
+  let cancelled = false;
+  let scanner: Html5QrcodeScanner | null = null;
+
+  const startScanner = () => {
+    if (cancelled) return;
 
     const readerElement = document.getElementById('reader');
-    if (!readerElement) return;
+    if (!readerElement) {
+      requestAnimationFrame(startScanner);
+      return;
+    }
 
-    let cancelled = false;
+    // Defensive: wipe out any leftover scanner UI from a previous mount
+    // (React 18 Strict Mode double-invokes effects in dev — the previous
+    // scanner.clear() is async and may not have finished DOM cleanup yet).
+    readerElement.innerHTML = '';
 
-    const startScanner = () => {
-      if (cancelled || scannerRef.current) return;
+    if (cancelled) return;
 
-      scannerRef.current = new Html5QrcodeScanner(
+    try {
+      scanner = new Html5QrcodeScanner(
         'reader',
-        {
-          fps: 10,
-          qrbox: { width: 250, height: 250 },
-        },
+        { fps: 10, qrbox: { width: 250, height: 250 } },
         false
       );
+      scannerRef.current = scanner;
 
-      scannerRef.current.render(
+      scanner.render(
         async (decodedText) => {
           try {
             const qrData = JSON.parse(decodedText);
@@ -82,24 +91,30 @@ const AttendanceScanner = () => {
             }
 
             stopScanner();
-          } catch {
+          } catch (err) {
+            console.error('QR handling failed:', err);
             toast.error('Invalid QR Code');
           }
         },
         () => {}
       );
-    };
+    } catch (err) {
+      console.error('Failed to start scanner:', err);
+      toast.error('Could not start camera. Check permissions.');
+    }
+  };
 
-    const rafId = window.requestAnimationFrame(startScanner);
+  const rafId = requestAnimationFrame(startScanner);
 
-    return () => {
-      cancelled = true;
-      window.cancelAnimationFrame(rafId);
-      scannerRef.current?.clear().catch(() => {});
-      scannerRef.current = null;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [scannerOpen, mode]);
+  return () => {
+    cancelled = true;
+    cancelAnimationFrame(rafId);
+    if (scanner) {
+      scanner.clear().catch((err) => console.error('scanner clear failed:', err));
+    }
+    scannerRef.current = null;
+  };
+}, [scannerOpen, mode]);
   // ---- END OLD SCANNER LOGIC ----
 
   const totalCapacity = 1500;
@@ -443,7 +458,7 @@ const AttendanceScanner = () => {
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 md:gap-6">
             <section className="lg:col-span-7 xl:col-span-8 flex flex-col gap-4 md:gap-6">
               <div className="glass-card rounded-[2rem] p-6 md:p-8 relative overflow-hidden group">
-                <div className="absolute -right-24 -top-24 w-64 h-64 brand-gradient-bg opacity-10 rounded-full blur-3xl group-hover:opacity-20 transition-opacity" />
+                <div className="absolute -right-24 -top-24 w-64 h-64 brand-gradient-bg opacity-10 rounded-full blur-3xl group-hover:opacity-20 transition-opacity pointer-events-none" />
                 <div className="mb-8 flex items-center justify-between gap-3">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-lg brand-gradient-bg flex items-center justify-center text-white">
