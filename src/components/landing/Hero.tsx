@@ -1,169 +1,121 @@
-import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 
 const Hero = () => {
   const navigate = useNavigate();
-  const heroWords = [
-    "Campus Events",
-    "Hackathons",
-    "Technical Fests",
-    "Workshops",
-    "Competitions",
-    "Student Communities",
+
+  const institutions = [
+    {
+      short: "IITB",
+      full: "Indian Institute of Technology, Bombay",
+      logo: "iitb.png",
+    },
+    {
+      short: "IIM",
+      full: "Indian Institute of Management",
+      logo: "iima.png",
+    },
+    {
+      short: "DU",
+      full: "University of Delhi",
+      logo: "du.jpg",
+    },
+    {
+      short: "TBIT",
+      full: "Techno Bengal Institute of Technology",
+      logo: "tbit.jpg",
+    },
+    {
+      short: "JU",
+      full: "Jadavpur University",
+      logo: "ju.svg",
+    },
+    {
+      short: "NITR",
+      full: "National Institute of Technology Rourkela",
+      logo: "nitr.svg",
+    },
+    {
+      short: "VIT",
+      full: "Vellore Institute of Technology",
+      logo: "vit.svg",
+    },
+    {
+      short: "SRM",
+      full: "SRM Institute of Science & Technology",
+      logo: "srm.jpg",
+    },
   ];
 
-  const [currentIndex, setCurrentIndex] = useState(0);
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setCurrentIndex((prev) => (prev + 1) % heroWords.length);
-    }, 1000);
-
-    return () => clearInterval(interval);
-  }, [heroWords.length]);
-
   return (
-    <section className="relative overflow-hidden bg-white">
-      <div className="absolute inset-0 overflow-hidden">
-        <div className="absolute -top-40 -left-32 h-96 w-96 rounded-full bg-pink-300/30 blur-3xl"></div>
-        <div className="absolute top-32 right-0 h-[450px] w-[450px] rounded-full bg-blue-300/20 blur-3xl"></div>
-        <div className="absolute bottom-0 left-1/2 h-[350px] w-[350px] rounded-full bg-purple-300/20 blur-3xl"></div>
+    <section className="relative overflow-hidden bg-[#f9f9ff] pt-24 pb-24 px-6">
+      {/* Decorative blobs */}
+      <div className="absolute top-0 left-1/4 w-96 h-96 bg-[#d23284] rounded-full mix-blend-multiply filter blur-3xl opacity-30"></div>
+      <div className="absolute top-0 right-1/4 w-96 h-96 bg-[#645efb] rounded-full mix-blend-multiply filter blur-3xl opacity-30"></div>
+
+      <div className="max-w-7xl mx-auto text-center relative z-10 flex flex-col items-center">
+        <h1 className="text-5xl md:text-7xl font-black leading-tight tracking-tight mb-6">
+          <span className="block text-[#111c2d]">Experience. Connect.</span>
+          <span className="block bg-gradient-to-r from-[#b10e6b] to-[#4b41e1] bg-clip-text text-transparent">
+            Elevate Your Campus Life.
+          </span>
+        </h1>
+
+        <p className="text-lg md:text-xl leading-8 text-[#574048] max-w-2xl mb-10">
+          FestFlow is India's smartest campus event network. Discover
+          trending fests, secure digital tickets, and build your
+          professional network all in one place.
+        </p>
+
+        <div className="flex flex-col sm:flex-row gap-4 mb-16">
+          <button
+            type="button"
+            onClick={() => navigate("/student-register")}
+            className="px-8 py-4 rounded-xl bg-gradient-to-r from-[#b10e6b] to-[#4b41e1] text-white font-semibold shadow-lg hover:shadow-xl hover:-translate-y-1 transition-all"
+          >
+            Explore Events
+          </button>
+
+          <button
+            type="button"
+            onClick={() => navigate("/admin-register")}
+            className="px-8 py-4 rounded-xl bg-white text-[#b10e6b] font-semibold border border-[#debec8]/60 hover:bg-[#d8e3fb]/40 transition-colors"
+          >
+            Organize a Fest
+          </button>
+        </div>
+
+        {/* Trusted Institutions Strip */}
+        <div className="w-full max-w-5xl">
+          <p className="text-xs font-bold tracking-widest uppercase text-[#574048]/70 mb-8">
+            Trusted by Leading Indian Institutions
+          </p>
+
+          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-6 items-center">
+            {institutions.map((inst) => (
+              <div
+                key={inst.short}
+                title={inst.full}
+                className="flex flex-col items-center justify-center gap-1 grayscale opacity-60 hover:grayscale-0 hover:opacity-100 transition-all duration-300 cursor-default"
+              >
+                {inst.logo ? (
+                  <img
+                    src={inst.logo}
+                    alt={inst.full}
+                    className="w-14 h-14 rounded-full object-cover border border-[#debec8]/40 bg-white shadow-sm"
+                  />
+                ) : (
+                  <div className="w-14 h-14 rounded-full bg-gradient-to-r from-[#b10e6b] to-[#4b41e1] flex items-center justify-center text-white font-black text-sm shadow-sm">
+                    {inst.short}
+                  </div>
+                )}
+                <span className="text-[10px] font-semibold text-[#111c2d] text-center leading-tight max-w-[90px]">
+                  {inst.full}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
-      <div className="relative max-w-7xl mx-auto px-6 pt-24 pb-20">
-
-        <div className="grid lg:grid-cols-2 gap-16 items-center">
-          <div>
-<div className="inline-flex items-center gap-2 rounded-full border border-pink-200 bg-pink-50 px-4 py-2 text-sm font-medium text-pink-600">
-
-🚀 India's Smart Campus Event Platform
-
-</div>
-
-<h1 className="mt-8 text-5xl md:text-7xl font-black leading-tight">
-
-Manage
-
-<span className="block bg-gradient-to-r from-pink-500 via-purple-500 to-blue-500 bg-clip-text text-transparent">
-
-{heroWords[currentIndex]}
-
-</span>
-
-Like Never Before.
-
-</h1>
-
-<p className="mt-8 text-xl leading-9 text-gray-600 max-w-xl">
-
-One powerful platform to manage registrations, QR tickets,
-attendance, food distribution, certificates,
-and complete fest operations.
-
-</p>
-<div className="flex flex-wrap gap-5 mt-10">
-
-<button
-  type="button"
-  onClick={() => navigate("/student-register")}
-  className="rounded-2xl bg-gradient-to-r from-pink-500 via-purple-500 to-blue-500 px-8 py-4 text-white font-semibold shadow-xl hover:scale-105 transition"
->
-
-Join Events
-
-</button>
-
-<button
-  type="button"
-  onClick={() => navigate("/admin-register")}
-  className="rounded-2xl border bg-white px-8 py-4 font-semibold hover:bg-gray-50"
->
-
-Create a Fest
-
-</button>
-
-</div>
-<div className="grid grid-cols-3 gap-5 mt-14">
-
-<div>
-
-<h2 className="text-3xl font-black">
-
-120+
-
-</h2>
-
-<p className="text-gray-500">
-
-Events
-
-</p>
-
-</div>
-
-<div>
-
-<h2 className="text-3xl font-black">
-
-5000+
-
-</h2>
-
-<p className="text-gray-500">
-
-Participants
-
-</p>
-
-</div>
-
-<div>
-
-<h2 className="text-3xl font-black">
-
-50+
-
-</h2>
-
-<p className="text-gray-500">
-
-Colleges
-
-</p>
-
-</div>
-
-</div>
-</div>
-<div className="relative"><div className="rounded-[32px] border bg-white shadow-2xl p-8">
-
-<img
-
-src="/image.png"
-
-className="rounded-2xl"
-
-alt="Dashboard"
-
-/>
-<div className="absolute -left-10 top-16 rounded-2xl bg-white p-4 shadow-xl">
-
-🎟
-
-QR Verified
-
-</div>
-<div className="absolute -right-8 bottom-16 rounded-2xl bg-white p-4 shadow-xl">
-
-🏆
-
-Certificates Ready
-
-</div>
-
-</div></div></div>
-</div>
-
     </section>
   );
 };
