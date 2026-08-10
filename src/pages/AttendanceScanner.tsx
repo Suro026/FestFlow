@@ -49,72 +49,81 @@ const AttendanceScanner = () => {
   };
 
   useEffect(() => {
-  if (!scannerOpen) return;
+    if (!scannerOpen) return;
 
-  let cancelled = false;
-  let scanner: Html5QrcodeScanner | null = null;
+    let cancelled = false;
+    let scanner: Html5QrcodeScanner | null = null;
 
-  const startScanner = () => {
-    if (cancelled) return;
+    const startScanner = () => {
+      if (cancelled) return;
 
-    const readerElement = document.getElementById('reader');
-    if (!readerElement) {
-      requestAnimationFrame(startScanner);
-      return;
-    }
+      const readerElement = document.getElementById('reader');
+      if (!readerElement) {
+        requestAnimationFrame(startScanner);
+        return;
+      }
 
-    // Defensive: wipe out any leftover scanner UI from a previous mount
-    // (React 18 Strict Mode double-invokes effects in dev — the previous
-    // scanner.clear() is async and may not have finished DOM cleanup yet).
-    readerElement.innerHTML = '';
+      // Defensive: wipe out any leftover scanner UI from a previous mount
+      // (React 18 Strict Mode double-invokes effects in dev — the previous
+      // scanner.clear() is async and may not have finished DOM cleanup yet).
+      readerElement.innerHTML = '';
 
-    if (cancelled) return;
+      if (cancelled) return;
 
-    try {
-      scanner = new Html5QrcodeScanner(
-        'reader',
-        { fps: 10, qrbox: { width: 250, height: 250 } },
-        false
-      );
-      scannerRef.current = scanner;
+      try {
+        scanner = new Html5QrcodeScanner(
+          'reader',
+          {
+            fps: 10,
+            qrbox: { width: 250, height: 250 },
+            // Force the rear camera on phones instead of showing a
+            // camera-picker dropdown (which can render invisible behind
+            // the dark overlay on mobile and blocks scanning entirely).
+            videoConstraints: {
+              facingMode: { ideal: 'environment' },
+            },
+          },
+          false
+        );
+        scannerRef.current = scanner;
 
-      scanner.render(
-        async (decodedText) => {
-          try {
-            const qrData = JSON.parse(decodedText);
-            const ticketCode = qrData.ticketCode || decodedText;
+        scanner.render(
+          async (decodedText) => {
+            try {
+              const qrData = JSON.parse(decodedText);
+              const ticketCode = qrData.ticketCode || decodedText;
 
-            if (mode === 'attendance') {
-              await verifyTicket(ticketCode);
-            } else {
-              await verifyFood(ticketCode);
+              if (mode === 'attendance') {
+                await verifyTicket(ticketCode);
+              } else {
+                await verifyFood(ticketCode);
+              }
+
+              stopScanner();
+            } catch (err) {
+              console.error('QR handling failed:', err);
+              toast.error('Invalid QR Code');
             }
+          },
+          () => {}
+        );
+      } catch (err) {
+        console.error('Failed to start scanner:', err);
+        toast.error('Could not start camera. Check permissions.');
+      }
+    };
 
-            stopScanner();
-          } catch (err) {
-            console.error('QR handling failed:', err);
-            toast.error('Invalid QR Code');
-          }
-        },
-        () => {}
-      );
-    } catch (err) {
-      console.error('Failed to start scanner:', err);
-      toast.error('Could not start camera. Check permissions.');
-    }
-  };
+    const rafId = requestAnimationFrame(startScanner);
 
-  const rafId = requestAnimationFrame(startScanner);
-
-  return () => {
-    cancelled = true;
-    cancelAnimationFrame(rafId);
-    if (scanner) {
-      scanner.clear().catch((err) => console.error('scanner clear failed:', err));
-    }
-    scannerRef.current = null;
-  };
-}, [scannerOpen, mode]);
+    return () => {
+      cancelled = true;
+      cancelAnimationFrame(rafId);
+      if (scanner) {
+        scanner.clear().catch((err) => console.error('scanner clear failed:', err));
+      }
+      scannerRef.current = null;
+    };
+  }, [scannerOpen, mode]);
   // ---- END OLD SCANNER LOGIC ----
 
   const totalCapacity = 1500;
@@ -484,11 +493,14 @@ const AttendanceScanner = () => {
 
                 {scannerOpen ? (
                   <div className="aspect-video relative rounded-3xl overflow-hidden bg-black border-4 border-surface-container-highest shadow-inner group/scan">
-                    <div className="absolute inset-0 w-full h-full bg-slate-900 opacity-80" />
+                    {/* pointer-events-none so this decorative dim layer never
+                        intercepts taps meant for the camera-permission prompt
+                        or camera-picker UI that html5-qrcode injects on mobile */}
+                    <div className="absolute inset-0 w-full h-full bg-slate-900 opacity-80 pointer-events-none" />
 
                     <div
                       id="reader"
-                      className="absolute inset-0 z-20"
+                      className="absolute inset-0 z-20 w-full h-full"
                     />
 
                     <div className="absolute inset-0 bg-primary/20 backdrop-blur-sm flex flex-col items-center justify-center opacity-0 transition-opacity duration-300 pointer-events-none" id="success-overlay">
