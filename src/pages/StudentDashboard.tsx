@@ -176,7 +176,7 @@ loadEvents();
 
     <header className="sticky top-0 z-50 border-b border-slate-200 bg-white/80 backdrop-blur-xl">
 
-      <div className="mx-auto flex h-20 max-w-7xl items-center justify-between px-6">
+      <div className="mx-auto flex h-auto max-w-7xl flex-col gap-4 px-4 py-4 sm:px-6 lg:h-20 lg:flex-row lg:items-center lg:justify-between">
 
         <div className="flex items-center gap-4">
 
@@ -204,7 +204,7 @@ loadEvents();
 
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
 
           <button
             onClick={() => navigate("/my-events")}
@@ -241,7 +241,7 @@ loadEvents();
 
       <div className="absolute inset-0 bg-black/10" />
 
-      <div className="relative mx-auto max-w-7xl px-6 py-20">
+      <div className="relative mx-auto max-w-7xl px-4 py-12 sm:px-6 sm:py-16 lg:px-6 lg:py-20">
 
         <div className="max-w-3xl">
 
@@ -251,7 +251,7 @@ loadEvents();
 
           </span>
 
-          <h2 className="mt-8 text-6xl font-black leading-tight text-white">
+          <h2 className="mt-8 text-4xl font-black leading-tight text-white sm:text-5xl lg:text-6xl">
 
             Explore
 

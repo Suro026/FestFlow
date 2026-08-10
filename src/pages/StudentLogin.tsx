@@ -166,7 +166,7 @@ const StudentLogin = () => {
 
      {/* RIGHT SIDE */}
 
-     <section className="flex flex-1 items-center justify-center bg-[#f9f9ff] px-6 py-12">
+     <section className="flex flex-1 items-center justify-center bg-[#f9f9ff] px-4 py-8 sm:px-6 sm:py-12">
 
       <div className="w-full max-w-md">
 

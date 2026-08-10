@@ -108,10 +108,10 @@ try {
   <div className="absolute -right-24 bottom-0 h-96 w-96 rounded-full bg-indigo-500/20 blur-[100px]" />
 
   {/* Top Navigation */}
-  <header className="fixed top-0 z-50 flex h-16 w-full items-center justify-between border-b border-slate-200/40 bg-white/80 px-6 backdrop-blur-md">
+  <header className="fixed top-0 z-50 flex h-16 w-full items-center justify-between border-b border-slate-200/40 bg-white/80 px-4 backdrop-blur-md sm:px-6">
     <div className="flex items-center gap-2">
       <Shield className="h-8 w-8 text-pink-600" />
-      <span className="text-2xl font-extrabold tracking-tight text-pink-600">
+      <span className="text-xl font-extrabold tracking-tight text-pink-600 sm:text-2xl">
         FestFlow
       </span>
     </div>
@@ -143,7 +143,7 @@ try {
     </div>
   </header>
 </>
-      <main className="relative z-10 mx-auto mt-24 mb-16 flex w-full max-w-7xl flex-col gap-12 px-6 lg:flex-row lg:items-start">
+      <main className="relative z-10 mx-auto mt-24 mb-16 flex w-full max-w-7xl flex-col gap-8 px-4 sm:px-6 lg:flex-row lg:items-start lg:gap-12">
 
   {/* Left Panel */}
   {/* Left Panel */}
@@ -153,7 +153,7 @@ try {
       ADMIN PORTAL
     </span>
 
-    <h1 className="mt-5 text-5xl font-extrabold leading-tight tracking-tight text-slate-900">
+    <h1 className="mt-5 text-3xl font-extrabold leading-tight tracking-tight text-slate-900 sm:text-4xl lg:text-5xl">
       Empower your event
       <br />
       <span className="italic text-pink-600">
@@ -161,7 +161,7 @@ try {
       </span>
     </h1>
 
-    <p className="mt-5 max-w-md text-lg leading-8 text-slate-500">
+    <p className="mt-5 max-w-md text-base leading-7 text-slate-500 sm:text-lg sm:leading-8">
       Join the ecosystem where efficiency meets creativity.
       Register as an administrator to start orchestrating
       unforgettable campus experiences.
@@ -210,10 +210,10 @@ try {
   {/* Right Panel */}
   <section className="w-full lg:w-7/12">
     <Card className="overflow-hidden rounded-[2rem] border border-white/40 bg-white/80 shadow-2xl backdrop-blur-xl">
-        <CardHeader className="relative space-y-6 border-b border-slate-200/50 px-10 pt-10 pb-8">
-          <div className="flex items-center justify-between">
+        <CardHeader className="relative space-y-6 border-b border-slate-200/50 px-4 pt-6 pb-6 sm:px-8 sm:pt-8 lg:px-10 lg:pt-10 lg:pb-8">
+          <div className="flex items-center justify-between gap-3">
   <div>
-    <h2 className="text-3xl font-bold tracking-tight text-slate-900">
+    <h2 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
       Create Admin Account
     </h2>
 

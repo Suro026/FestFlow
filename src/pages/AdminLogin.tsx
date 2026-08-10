@@ -76,7 +76,7 @@ const AdminLogin = () => {
 
     {/* LEFT PANEL */}
 
-    <section className="relative hidden w-1/2 overflow-hidden bg-[#f0f3ff] px-24 py-12 md:flex md:flex-col md:justify-center">
+    <section className="relative hidden w-1/2 overflow-hidden bg-[#f0f3ff] px-6 py-8 sm:px-10 lg:px-24 lg:py-12 md:flex md:flex-col md:justify-center">
 
       <div className="absolute right-0 top-1/4 h-64 w-64 rounded-full bg-gradient-to-br from-pink-600 to-indigo-600 opacity-10 blur-3xl" />
 
@@ -92,13 +92,13 @@ const AdminLogin = () => {
 
           </div>
 
-          <h1 className="text-3xl font-extrabold text-pink-700">
+          <h1 className="text-2xl font-extrabold text-pink-700 sm:text-3xl">
             FestFlow
           </h1>
 
         </div>
 
-        <h2 className="text-5xl font-black leading-tight text-slate-900">
+        <h2 className="text-4xl font-black leading-tight text-slate-900 sm:text-5xl">
 
           Admin Portal
 
@@ -156,7 +156,7 @@ const AdminLogin = () => {
 
     {/* RIGHT PANEL */}
 
-    <section className="flex flex-1 items-center justify-center px-6 py-12">
+    <section className="flex flex-1 items-center justify-center px-4 py-8 sm:px-6 sm:py-12">
 
       <div className="w-full max-w-md">
 

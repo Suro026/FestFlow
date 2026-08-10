@@ -74,14 +74,14 @@ const FestRegistration = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 py-10 px-4">
-      <div className="max-w-4xl mx-auto bg-white rounded-2xl shadow-lg p-8">
+    <div className="min-h-screen bg-gray-50 px-4 py-6 sm:py-10">
+      <div className="mx-auto max-w-4xl rounded-2xl bg-white p-4 shadow-lg sm:p-8">
 
-        <h1 className="text-4xl font-bold mb-2">
+        <h1 className="mb-2 text-3xl font-bold sm:text-4xl">
           Register Your Fest
         </h1>
 
-        <p className="text-gray-500 mb-8">
+        <p className="mb-8 text-sm text-gray-500 sm:text-base">
           Complete the details below to create your fest and become the Super Admin.
         </p>
 
@@ -149,7 +149,7 @@ const FestRegistration = () => {
             />
           </div>
 
-          <div className="grid md:grid-cols-2 gap-4">
+          <div className="grid gap-4 md:grid-cols-2">
             <div>
               <label className="font-medium">
                 Start Date

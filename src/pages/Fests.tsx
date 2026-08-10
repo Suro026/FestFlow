@@ -70,7 +70,7 @@ const Fests = () => {
 
 <nav className="sticky top-0 z-50 border-b border-white/20 bg-white/40 backdrop-blur-xl">
 
-  <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-6">
+  <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6">
 
     <div className="flex items-center gap-3">
 
@@ -122,7 +122,7 @@ const Fests = () => {
 
       </p>
 
-      <h1 className="text-6xl font-black leading-tight">
+      <h1 className="text-4xl font-black leading-tight sm:text-5xl lg:text-6xl">
 
         Find Your Next
 
@@ -132,7 +132,7 @@ const Fests = () => {
 
       </h1>
 
-      <p className="mt-8 text-xl leading-9 text-white/90">
+      <p className="mt-8 text-base leading-7 text-white/90 sm:text-xl sm:leading-9">
 
         Connect with clubs,
 
@@ -181,7 +181,7 @@ const Fests = () => {
 
 </section>
 
-      <section className="relative -mt-12 z-20 max-w-7xl mx-auto px-6 pb-20">
+      <section className="relative z-20 mx-auto max-w-7xl px-4 pb-20 pt-6 sm:px-6 sm:pt-0 lg:-mt-12">
 
   <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3">
 
