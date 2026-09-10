@@ -1,0 +1,255 @@
+rules_version = '2';
+
+// FestFlow Firestore security rules.
+//
+// These are the real access-control boundary. The route guards in the app are
+// a convenience that stops a student from navigating into an admin screen;
+// they are not security, because anyone can call the Firestore REST API
+// directly with a valid ID token and skip the UI entirely. Anything that must
+// not happen has to be denied here.
+//
+// Roles live in custom claims on the Auth token (`request.auth.token.role`),
+// set by the server when a super admin creates a staff account. The `role`
+// field on the user document is a mirror kept for querying, and it is never
+// writable by a client — so a student cannot promote themselves by editing
+// their own profile.
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ---------------------------------------------------------------- helpers
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function uid() {
+      return request.auth.uid;
+    }
+
+    function role() {
+      // Accounts created before their claim propagates read as "student",
+      // which is the safe default: least privilege until proven otherwise.
+      return signedIn() ? (request.auth.token.role is string ? request.auth.token.role : 'student') : '';
+    }
+
+    function isStudent()    { return role() == 'student'; }
+    function isOrganizer()  { return role() in ['organizer', 'admin', 'super_admin']; }
+    function isAdmin()      { return role() in ['admin', 'super_admin']; }
+    function isSuperAdmin() { return role() == 'super_admin'; }
+
+    // An organizer is scoped to the fests listed on their token. Admins and
+    // super admins are not scoped.
+    function managesFest(festId) {
+      return isAdmin()
+        || (isOrganizer()
+            && request.auth.token.festIds is list
+            && festId in request.auth.token.festIds);
+    }
+
+    function isOwner(userId) {
+      return signedIn() && uid() == userId;
+    }
+
+    // Fields changed by this write.
+    function changed() {
+      return request.resource.data.diff(resource.data).affectedKeys();
+    }
+
+    function onlyChanged(fields) {
+      return changed().hasOnly(fields);
+    }
+
+    // Writes that must come from the server (Admin SDK) are denied outright.
+    // The Admin SDK bypasses these rules, so `false` here means "server only",
+    // not "impossible".
+    function serverOnly() {
+      return false;
+    }
+
+    // ------------------------------------------------------------------ users
+
+    match /users/{userId} {
+      // A signed-in user reads their own profile. Staff read any profile so
+      // the admin screens can list participants.
+      allow get: if isOwner(userId) || isOrganizer();
+      allow list: if isOrganizer();
+
+      // Self sign-up. Constrained hard: the document id must equal the caller's
+      // uid, the email must match the verified token, and the role must be
+      // exactly "student". This is the rule that makes privilege escalation
+      // through self-registration impossible — the previous project let anyone
+      // hitting /admin-register write themselves an organizer record.
+      allow create: if isOwner(userId)
+                    && request.resource.data.id == userId
+                    && request.resource.data.role == 'student'
+                    && request.resource.data.email == request.auth.token.email
+                    && request.resource.data.disabled == false;
+
+      // A user edits their own profile, but may never touch role, disabled,
+      // email or the organizer block.
+      allow update: if isOwner(userId)
+                    && onlyChanged([
+                         'fullName', 'phone', 'photoUrl', 'student',
+                         'emailVerified', 'updatedAt'
+                       ])
+                    && request.resource.data.role == resource.data.role
+                    && request.resource.data.disabled == resource.data.disabled;
+
+      // Deleting an account removes the audit trail behind every registration
+      // and certificate it owns. Server only.
+      allow delete: if serverOnly();
+    }
+
+    // ------------------------------------------------------------------ fests
+
+    match /fests/{festId} {
+      // Anyone, signed in or not, can browse published fests. Drafts are
+      // visible only to the staff who manage them.
+      allow get, list: if resource.data.status == 'published' || isOrganizer();
+
+      allow create: if isAdmin()
+                    && request.resource.data.createdBy == uid();
+
+      allow update: if managesFest(festId);
+
+      // Only a super admin retires a fest, and only through the server, which
+      // checks that no events still hang off it.
+      allow delete: if serverOnly();
+    }
+
+    // ----------------------------------------------------------------- events
+
+    match /events/{eventId} {
+      allow get, list: if resource.data.status in ['published', 'ongoing', 'completed']
+                       || isOrganizer();
+
+      allow create: if isOrganizer()
+                    && managesFest(request.resource.data.festId)
+                    && request.resource.data.createdBy == uid()
+                    && request.resource.data.registeredCount == 0;
+
+      // `registeredCount` is deliberately excluded from what a client may
+      // write. It is maintained by the server inside the same transaction that
+      // writes a registration; letting a client set it would let any signed-in
+      // student mark an event full and close sign-ups for everyone else.
+      allow update: if managesFest(resource.data.festId)
+                    && request.resource.data.registeredCount == resource.data.registeredCount
+                    && request.resource.data.festId == resource.data.festId;
+
+      allow delete: if serverOnly();
+    }
+
+    // ---------------------------------------------------------- registrations
+
+    match /registrations/{registrationId} {
+      // A student sees their own entries; staff see every entry for a fest
+      // they manage.
+      allow get: if isOwner(resource.data.userId) || managesFest(resource.data.festId);
+      allow list: if isOrganizer();
+
+      // Registration goes through POST /api/registrations, which re-checks
+      // capacity, the deadline and duplicates inside a transaction and bumps
+      // the event counter atomically. None of that is expressible here, and
+      // doing it client-side is what makes overbooking possible.
+      allow create: if serverOnly();
+
+      // A student may cancel their own entry, and nothing else about it. The
+      // seat is released by the server when it sees the status change.
+      allow update: if isOwner(resource.data.userId)
+                    && onlyChanged(['status', 'cancelledAt', 'updatedAt'])
+                    && request.resource.data.status == 'cancelled'
+                    && resource.data.status == 'confirmed';
+
+      allow delete: if serverOnly();
+    }
+
+    // ------------------------------------------------------------- attendance
+
+    match /attendance/{registrationId} {
+      // A student can confirm their own check-in; staff see the whole feed.
+      allow get: if isOwner(resource.data.userId) || managesFest(resource.data.festId);
+      allow list: if isOrganizer();
+
+      // Scanning happens on the organizer's device, so this one write stays
+      // client-side. The document id is the registration id, which makes a
+      // second scan an *update* rather than a create — and updates are denied
+      // below. That is what turns a double scan into an honest "already
+      // checked in" instead of a silently overwritten timestamp.
+      allow create: if isOrganizer()
+                    && managesFest(request.resource.data.festId)
+                    && request.resource.data.scannedBy == uid()
+                    && request.resource.data.registrationId == registrationId;
+
+      allow update: if false;
+
+      // Undoing a mistaken check-in is an admin action, not an organizer one.
+      allow delete: if isAdmin() && managesFest(resource.data.festId);
+    }
+
+    // -------------------------------------------------------- foodCollections
+
+    match /foodCollections/{collectionId} {
+      allow get: if isOwner(resource.data.userId) || managesFest(resource.data.festId);
+      allow list: if isOrganizer();
+
+      // Same trick as attendance: the id encodes entry + day + meal slot, so
+      // collecting the same meal twice is an update, and updates are denied.
+      allow create: if isOrganizer()
+                    && managesFest(request.resource.data.festId)
+                    && request.resource.data.collectedBy == uid();
+
+      allow update: if false;
+      allow delete: if isAdmin() && managesFest(resource.data.festId);
+    }
+
+    // ---------------------------------------------------------------- results
+
+    match /results/{eventId} {
+      // Students see results only once they are published.
+      allow get, list: if resource.data.status == 'published' || isOrganizer();
+
+      // Publishing results is what triggers certificate generation, so it is
+      // restricted to super admins and routed through the server, which
+      // validates that every listed entry actually competed in this event.
+      allow create, update, delete: if serverOnly();
+    }
+
+    // ----------------------------------------------------------- certificates
+
+    match /certificates/{certificateId} {
+      // A student sees only their own, and only if it has not been revoked.
+      // Someone who was not eligible has no document here at all, so there is
+      // nothing to see rather than something hidden by the UI.
+      allow get: if (isOwner(resource.data.userId) && resource.data.revoked == false)
+                 || managesFest(resource.data.festId);
+      allow list: if isOrganizer();
+
+      // Issued, revoked and delivery-stamped by the server only. A client that
+      // could write here could award itself a first prize.
+      allow create, update, delete: if serverOnly();
+    }
+
+    // ---------------------------------------------------------- notifications
+
+    match /notifications/{notificationId} {
+      allow get, list: if isOwner(resource.data.userId);
+
+      allow create: if serverOnly();
+
+      // The recipient may mark it read. Nothing else.
+      allow update: if isOwner(resource.data.userId)
+                    && onlyChanged(['read', 'readAt', 'updatedAt']);
+
+      allow delete: if isOwner(resource.data.userId);
+    }
+
+    // ------------------------------------------------------------------ deny
+
+    // Anything not matched above is denied. Without this, a collection added
+    // later would be wide open until someone remembered to write rules for it.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
