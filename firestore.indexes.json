@@ -91,42 +91,6 @@
           "order": "DESCENDING"
         }
       ]
-    },
-    {
-      "collectionGroup": "certificates",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {
-          "fieldPath": "festId",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "revoked",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "issuedAt",
-          "order": "DESCENDING"
-        }
-      ]
-    },
-    {
-      "collectionGroup": "certificates",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {
-          "fieldPath": "eventId",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "revoked",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "issuedAt",
-          "order": "DESCENDING"
-        }
-      ]
     }
   ],
   "fieldOverrides": []

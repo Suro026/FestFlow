@@ -3,7 +3,6 @@ import {
   getCountFromServer,
   getDoc,
   getDocs,
-  orderBy,
   query,
   where,
   type QueryConstraint,
@@ -14,7 +13,7 @@ import type { CertificateQuery, CertificateRepository, GenerateSummary } from "@
 import { api } from "@/data/api-client";
 import { COLLECTIONS } from "../client";
 import { guard } from "../mapping";
-import { col, parseDoc, parseDocs, runPage, sortBy, subscribeList } from "../query-helpers";
+import { col, parseDoc, parseDocs, sortBy, subscribeList } from "../query-helpers";
 
 const certificates = () => col(COLLECTIONS.certificates);
 
@@ -26,7 +25,8 @@ const constraintsFor = (q: CertificateQuery): QueryConstraint[] => {
   if (q.type) out.push(where("type", "==", q.type));
   if (q.deliveryStatus) out.push(where("delivery.status", "==", q.deliveryStatus));
   if (!q.includeRevoked) out.push(where("revoked", "==", false));
-  out.push(orderBy("issuedAt", "desc"));
+  // Equality filters only — ordering happens in memory, so no composite
+  // index is required. A fest issues hundreds of certificates, not millions.
   return out;
 };
 
@@ -61,9 +61,12 @@ export class FirestoreCertificateRepository implements CertificateRepository {
   }
 
   list(q: CertificateQuery = {}): Promise<Page<Certificate>> {
-    return guard("Loading certificates", () =>
-      runPage(query(certificates(), ...constraintsFor(q)), certificateSchema, COLLECTIONS.certificates, q),
-    );
+    return guard("Loading certificates", async () => {
+      const snapshot = await getDocs(query(certificates(), ...constraintsFor(q)));
+      const items = sortBy(parseDocs(certificateSchema, snapshot.docs, COLLECTIONS.certificates), [(c) => c.issuedAt, "desc"]);
+      const limit = q.limit ?? items.length;
+      return { items: items.slice(0, limit), cursor: null, hasMore: items.length > limit };
+    });
   }
 
   listForUser(userId: string): Promise<Certificate[]> {
@@ -112,6 +115,15 @@ export class FirestoreCertificateRepository implements CertificateRepository {
       const snapshot = await getDocs(query(certificates(), where("delivery.status", "in", ["pending", "failed"])));
       return sortBy(parseDocs(certificateSchema, snapshot.docs, COLLECTIONS.certificates), [(c) => c.issuedAt, "asc"]).slice(0, limit);
     });
+  }
+
+  deliverPending(festId: string, eventId?: string) {
+    return guard("Sending certificates", () =>
+      api<{ attempted: number; sent: number; failed: number; reason?: string }>("/api/admin/certificates/deliver", {
+        method: "POST",
+        body: { festId, eventId },
+      }),
+    );
   }
 
   revoke(id: string, reason: string): Promise<void> {
