@@ -116,6 +116,7 @@ const NAV = [
   { seg: "volunteers", label: "Volunteers", min: "admin" },
   { seg: "staff", label: "Staff", min: "admin" },
   { seg: "console", label: "Console", min: "super_admin" },
+  { seg: "settings", label: "Settings", min: "admin" },
 ] as const;
 
 export const AdminShell = ({ children }: { children: React.ReactNode }) => {
