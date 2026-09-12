@@ -44,13 +44,10 @@ export interface RegistrationRepository {
    * Rejects with `already-exists` if the user is already registered, and with
    * `failed-precondition` if the event is closed or full.
    */
-  create(
-    input: CreateRegistrationInput,
-    registrant: { id: string; name: string; email: string },
-  ): Promise<Registration>;
+  create(input: CreateRegistrationInput): Promise<Registration>;
 
-  /** Cancels an entry and releases its seat in the same transaction. */
-  cancel(id: string, userId: string): Promise<void>;
+  /** Cancels the caller's own entry and releases its seats in the same transaction. */
+  cancel(id: string): Promise<void>;
 
   /** True when this user already holds a confirmed entry for the event. */
   existsForUserAndEvent(userId: string, eventId: string): Promise<boolean>;
@@ -60,9 +57,9 @@ export interface RegistrationRepository {
   countByFest(festId: string): Promise<number>;
 
   /**
-   * Backfills `members[].userId` for teammates who were entered by email and
-   * have since created an account. Called after a student signs up, so their
-   * teammate's certificate can reach them.
+   * Backfills `members[].userId` on entries where the caller was named by
+   * email before they had an account. Called once after sign-up, so a
+   * teammate's certificate can reach them. Returns how many entries changed.
    */
-  linkMemberAccountsByEmail(email: string, userId: string): Promise<number>;
+  linkMemberAccountsByEmail(): Promise<number>;
 }

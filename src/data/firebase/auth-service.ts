@@ -1,0 +1,173 @@
+import {
+  applyActionCode,
+  confirmPasswordReset,
+  createUserWithEmailAndPassword,
+  onIdTokenChanged,
+  sendEmailVerification,
+  sendPasswordResetEmail,
+  signInWithEmailAndPassword,
+  signOut,
+  updateProfile,
+  verifyPasswordResetCode,
+  type User as FirebaseUser,
+} from "firebase/auth";
+import { FirebaseError } from "firebase/app";
+import { USER_ROLES, type UserRole } from "@/core/models/user";
+import { AuthError, type AuthErrorCode, type AuthService, type Session } from "@/core/services/auth-service";
+import { auth } from "./client";
+
+const CODE_MAP: Record<string, AuthErrorCode> = {
+  "auth/invalid-credential": "invalid-credentials",
+  "auth/wrong-password": "invalid-credentials",
+  "auth/invalid-email": "invalid-credentials",
+  "auth/user-not-found": "user-not-found",
+  "auth/email-already-in-use": "email-in-use",
+  "auth/weak-password": "weak-password",
+  "auth/too-many-requests": "too-many-requests",
+  "auth/network-request-failed": "network",
+  "auth/expired-action-code": "expired-link",
+  "auth/invalid-action-code": "expired-link",
+  "auth/user-disabled": "user-disabled",
+};
+
+const MESSAGES: Record<AuthErrorCode, string> = {
+  "invalid-credentials": "That email and password don't match.",
+  "user-not-found": "No account with that email.",
+  "email-in-use": "An account with that email already exists. Sign in instead.",
+  "weak-password": "Use at least 8 characters with a mix of letters and numbers.",
+  "too-many-requests": "Too many attempts. Wait a few minutes, or reset your password.",
+  network: "Couldn't reach the server. Check your connection and try again.",
+  "expired-link": "This link has expired or was already used. Request a new one.",
+  "user-disabled": "This account has been disabled. Contact an organizer.",
+  unknown: "Something went wrong. Please try again.",
+};
+
+const translate = (error: unknown): AuthError => {
+  if (error instanceof AuthError) return error;
+  const code = error instanceof FirebaseError ? (CODE_MAP[error.code] ?? "unknown") : "unknown";
+  return new AuthError(code, MESSAGES[code]);
+};
+
+const roleFromClaim = (value: unknown): UserRole =>
+  typeof value === "string" && (USER_ROLES as readonly string[]).includes(value) ? (value as UserRole) : "student";
+
+const toSession = async (user: FirebaseUser, forceRefresh = false): Promise<Session> => {
+  const token = await user.getIdTokenResult(forceRefresh);
+  const festIds = Array.isArray(token.claims.festIds)
+    ? (token.claims.festIds as unknown[]).filter((id): id is string => typeof id === "string")
+    : [];
+
+  return {
+    uid: user.uid,
+    email: (user.email ?? "").toLowerCase(),
+    emailVerified: user.emailVerified,
+    displayName: user.displayName,
+    role: roleFromClaim(token.claims.role),
+    festIds,
+  };
+};
+
+const actionUrl = (path: string): string =>
+  `${process.env.NEXT_PUBLIC_APP_URL ?? window.location.origin}${path}`;
+
+export class FirebaseAuthService implements AuthService {
+  getSession(): Promise<Session | null> {
+    return new Promise((resolve) => {
+      const stop = onIdTokenChanged(auth, async (user) => {
+        stop();
+        resolve(user ? await toSession(user) : null);
+      });
+    });
+  }
+
+  onSessionChange(listener: (session: Session | null) => void): () => void {
+    // `onIdTokenChanged` rather than `onAuthStateChanged` so a claim change
+    // (a student promoted to organizer) reaches the UI on the next refresh.
+    return onIdTokenChanged(auth, async (user) => {
+      listener(user ? await toSession(user) : null);
+    });
+  }
+
+  async signIn(email: string, password: string): Promise<Session> {
+    try {
+      const credential = await signInWithEmailAndPassword(auth, email.trim(), password);
+      return await toSession(credential.user, true);
+    } catch (error) {
+      throw translate(error);
+    }
+  }
+
+  async signUp(email: string, password: string, displayName: string): Promise<Session> {
+    try {
+      const credential = await createUserWithEmailAndPassword(auth, email.trim(), password);
+      await updateProfile(credential.user, { displayName: displayName.trim() });
+      await sendEmailVerification(credential.user, { url: actionUrl("/verify-email?done=1") });
+      return await toSession(credential.user);
+    } catch (error) {
+      throw translate(error);
+    }
+  }
+
+  async signOut(): Promise<void> {
+    await signOut(auth);
+  }
+
+  async sendVerificationEmail(): Promise<void> {
+    const user = auth.currentUser;
+    if (!user) throw new AuthError("user-not-found", MESSAGES["user-not-found"]);
+    try {
+      await sendEmailVerification(user, { url: actionUrl("/verify-email?done=1") });
+    } catch (error) {
+      throw translate(error);
+    }
+  }
+
+  async refreshSession(): Promise<Session | null> {
+    const user = auth.currentUser;
+    if (!user) return null;
+    await user.reload();
+    return toSession(user, true);
+  }
+
+  async sendPasswordReset(email: string): Promise<void> {
+    try {
+      await sendPasswordResetEmail(auth, email.trim(), { url: actionUrl("/sign-in") });
+    } catch (error) {
+      const translated = translate(error);
+      // Do not reveal whether an address exists: treat "not found" as success.
+      if (translated.code === "user-not-found") return;
+      throw translated;
+    }
+  }
+
+  async verifyPasswordResetCode(code: string): Promise<string> {
+    try {
+      return await verifyPasswordResetCode(auth, code);
+    } catch (error) {
+      throw translate(error);
+    }
+  }
+
+  async confirmPasswordReset(code: string, newPassword: string): Promise<void> {
+    try {
+      await confirmPasswordReset(auth, code, newPassword);
+    } catch (error) {
+      throw translate(error);
+    }
+  }
+
+  async applyEmailVerification(code: string): Promise<void> {
+    try {
+      await applyActionCode(auth, code);
+      await auth.currentUser?.reload();
+    } catch (error) {
+      throw translate(error);
+    }
+  }
+
+  async getIdToken(): Promise<string | null> {
+    return auth.currentUser ? auth.currentUser.getIdToken() : null;
+  }
+}
+
+export const authService = new FirebaseAuthService();

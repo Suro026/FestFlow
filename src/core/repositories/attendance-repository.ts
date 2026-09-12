@@ -27,6 +27,7 @@ export interface AttendanceRepository {
     eventId: string;
     scannedBy: string;
     method?: "qr" | "manual";
+    gate?: string;
   }): Promise<ScanOutcome>;
 
   getByRegistration(registrationId: string): Promise<Attendance | null>;
@@ -43,9 +44,19 @@ export interface AttendanceRepository {
     onError: (error: unknown) => void,
   ): Unsubscribe;
 
+  /** Live feed across the whole fest, for the owner dashboard. */
+  subscribeByFest(
+    festId: string,
+    onChange: (records: Attendance[]) => void,
+    onError: (error: unknown) => void,
+    limit?: number,
+  ): Unsubscribe;
+
   countByEvent(eventId: string): Promise<number>;
 
-  /** Undoes a mistaken check-in. Organizer-only. */
+  countByFest(festId: string): Promise<number>;
+
+  /** Undoes a mistaken check-in. Admin-only. */
   remove(registrationId: string): Promise<void>;
 
   /**
@@ -58,9 +69,12 @@ export interface AttendanceRepository {
     mealType: MealType;
     servedOn: string;
     collectedBy: string;
+    post?: string;
   }): Promise<ScanOutcome>;
 
   listMealsByEvent(eventId: string, servedOn?: string): Promise<FoodCollection[]>;
 
   countMeals(eventId: string, servedOn?: string, mealType?: MealType): Promise<number>;
+
+  countMealsByFest(festId: string): Promise<number>;
 }

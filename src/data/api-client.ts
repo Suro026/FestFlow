@@ -1,0 +1,94 @@
+import { auth } from "@/data/firebase/client";
+import { RepositoryError, type RepositoryErrorCode } from "@/core/models/common";
+
+/**
+ * Calls the app's own API routes with the signed-in user's ID token.
+ *
+ * Used by repositories for the handful of writes that must run on the server —
+ * registration (transactional capacity), staff creation, publishing results,
+ * generating certificates. From a screen's point of view these are ordinary
+ * repository methods; that they cross an HTTP boundary is an implementation
+ * detail, which is what lets the Expo app call the very same endpoints.
+ */
+
+const STATUS_TO_CODE: Record<number, RepositoryErrorCode> = {
+  400: "invalid-argument",
+  401: "permission-denied",
+  403: "permission-denied",
+  404: "not-found",
+  409: "already-exists",
+  422: "failed-precondition",
+  429: "unavailable",
+  503: "unavailable",
+};
+
+export interface ApiErrorBody {
+  error?: string;
+  code?: string;
+  details?: Record<string, string>;
+}
+
+export class ApiClientError extends RepositoryError {
+  readonly status: number;
+  readonly details?: Record<string, string>;
+
+  constructor(status: number, body: ApiErrorBody) {
+    super(
+      STATUS_TO_CODE[status] ?? (status >= 500 ? "unavailable" : "unknown"),
+      body.error ?? `Request failed (${status})`,
+      body,
+    );
+    this.name = "ApiClientError";
+    this.status = status;
+    this.details = body.details;
+  }
+}
+
+export const api = async <T>(
+  path: string,
+  init: Omit<RequestInit, "body"> & { body?: unknown; auth?: boolean } = {},
+): Promise<T> => {
+  const { body, auth: withAuth = true, headers, ...rest } = init;
+
+  const requestHeaders = new Headers(headers);
+  if (body !== undefined) requestHeaders.set("Content-Type", "application/json");
+
+  if (withAuth) {
+    const user = auth.currentUser;
+    if (!user) throw new RepositoryError("permission-denied", "Sign in to continue.");
+    requestHeaders.set("Authorization", `Bearer ${await user.getIdToken()}`);
+  }
+
+  let response: Response;
+
+  try {
+    response = await fetch(path, {
+      ...rest,
+      headers: requestHeaders,
+      body: body === undefined ? undefined : JSON.stringify(body),
+    });
+  } catch (error) {
+    throw new RepositoryError(
+      "unavailable",
+      "Could not reach the server. Check your connection and try again.",
+      error,
+    );
+  }
+
+  if (response.status === 204) return undefined as T;
+
+  const text = await response.text();
+  let parsed: unknown = null;
+
+  try {
+    parsed = text ? JSON.parse(text) : null;
+  } catch {
+    parsed = null;
+  }
+
+  if (!response.ok) {
+    throw new ApiClientError(response.status, (parsed as ApiErrorBody) ?? {});
+  }
+
+  return parsed as T;
+};

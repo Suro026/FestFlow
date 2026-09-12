@@ -14,6 +14,16 @@ export interface EventQuery extends PageRequest {
 export interface EventRepository {
   getById(id: string): Promise<Event | null>;
 
+  /** Resolves `/f/{fest}/e/{slug}`. Slugs are unique within a fest only. */
+  getBySlug(festId: string, slug: string): Promise<Event | null>;
+
+  /** Live view of one event — seat counts move while a student is deciding. */
+  subscribeById(
+    id: string,
+    onChange: (event: Event | null) => void,
+    onError: (error: unknown) => void,
+  ): Unsubscribe;
+
   getManyByIds(ids: string[]): Promise<Event[]>;
 
   list(query?: EventQuery): Promise<Page<Event>>;
@@ -47,4 +57,6 @@ export interface EventRepository {
   setRegistrationOpen(id: string, open: boolean): Promise<void>;
 
   countByFest(festId: string): Promise<number>;
+
+  isSlugAvailable(festId: string, slug: string, excludingEventId?: string): Promise<boolean>;
 }

@@ -12,6 +12,12 @@ export interface FestRepository {
 
   getBySlug(slug: string): Promise<Fest | null>;
 
+  subscribeById(
+    id: string,
+    onChange: (fest: Fest | null) => void,
+    onError: (error: unknown) => void,
+  ): Unsubscribe;
+
   list(query?: FestQuery): Promise<Page<Fest>>;
 
   /** Published fests only — what the student-facing explorer shows. */

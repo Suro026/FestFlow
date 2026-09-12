@@ -45,17 +45,18 @@ export interface CertificateRepository {
    * both what it created and what already existed, which is what lets the
    * dashboard say "42 issued, 8 already had one" after a re-publish.
    */
-  issueMany(
-    drafts: CertificateDraft[],
-    issuedBy: string,
-  ): Promise<{ created: Certificate[]; existing: Certificate[] }>;
+  issueMany(drafts: CertificateDraft[]): Promise<{ created: Certificate[]; existing: Certificate[] }>;
+
+  /**
+   * The whole post-event run for one event: eligibility, issue, PDF, email.
+   * `dryRun` computes and reports without writing, for the confirmation step
+   * ("78 eligible · 3 winner · 75 participation · 2 without accounts").
+   */
+  generateForEvent(eventId: string, options?: { dryRun?: boolean }): Promise<GenerateSummary>;
 
   attachFile(id: string, fileUrl: string): Promise<void>;
 
-  markDelivery(
-    id: string,
-    delivery: { status: DeliveryStatus; error?: string },
-  ): Promise<void>;
+  markDelivery(id: string, delivery: { status: DeliveryStatus; error?: string }): Promise<void>;
 
   /** Certificates still waiting to be emailed, for the delivery worker. */
   listPendingDelivery(limit?: number): Promise<Certificate[]>;
@@ -65,4 +66,16 @@ export interface CertificateRepository {
   countByEvent(eventId: string): Promise<number>;
 
   countByFest(festId: string): Promise<number>;
+}
+
+export interface GenerateSummary {
+  dryRun: boolean;
+  eligible: number;
+  created: number;
+  existing: number;
+  emailed: number;
+  skipped: number;
+  failed: number;
+  unmatched: Array<{ name: string; email: string; type: string }>;
+  byType: Record<string, number>;
 }

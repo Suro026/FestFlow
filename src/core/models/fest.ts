@@ -33,6 +33,8 @@ export const festSchema = z
 
     organizationName: shortTextSchema,
     venue: shortTextSchema,
+    /** City the fest is held in — the explorer's primary filter. */
+    city: shortTextSchema,
     startDate: calendarDateSchema,
     endDate: calendarDateSchema,
 
@@ -74,6 +76,7 @@ export const createFestSchema = z
     description: longTextSchema.optional(),
     organizationName: shortTextSchema,
     venue: shortTextSchema,
+    city: shortTextSchema,
     startDate: calendarDateSchema,
     endDate: calendarDateSchema,
     bannerUrl: z.string().url().max(2000).optional(),
@@ -98,6 +101,7 @@ export const updateFestSchema = z.object({
   description: longTextSchema.optional(),
   organizationName: shortTextSchema.optional(),
   venue: shortTextSchema.optional(),
+  city: shortTextSchema.optional(),
   startDate: calendarDateSchema.optional(),
   endDate: calendarDateSchema.optional(),
   bannerUrl: z.string().url().max(2000).optional(),

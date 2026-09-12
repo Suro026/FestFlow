@@ -2,228 +2,535 @@
 @import "tw-animate-css";
 
 /*
- * Tailwind v4 is CSS-first: there is no tailwind.config.ts any more, so the
- * design tokens that used to live in `theme.extend.colors` are declared here
- * instead.
+ * FestFlow — the "Nocturne" design system, as Tailwind v4 theme tokens plus
+ * the component classes the design canvas is built from.
  *
- * The palette itself is carried over unchanged from the Vite project, so the
- * ported screens look exactly as they did. The redesign in Phase 2 changes the
- * values in `:root`; nothing else has to move.
+ * Source of truth: FestFlow UI.dc.html and its _ds/nocturne/styles.css. Every
+ * colour, radius and shadow below is copied from there, not invented. Where the
+ * design uses a class by name (.btn, .tag, .kick, .metarow, .kpi, .seg …) the
+ * same class exists here with the same rules, so a screen in the canvas and a
+ * screen in the app are built from the same vocabulary.
+ *
+ * Nocturne in one paragraph: a near-neutral blue-grey ground, Inter at medium
+ * weight, 8px radii, and one blurple accent used as a line and a glow rather
+ * than a flood. Buttons are outlined, not filled. Hairline rules fade to
+ * transparent at their ends. Hierarchy comes from size and space, never from
+ * bold weights or saturated fills.
  */
 
-@custom-variant dark (&:is(.dark *));
+/* ───────────────────────────── tokens ───────────────────────────── */
 
 :root {
-  --background: 210 40% 98%;
-  --foreground: 215 25% 15%;
+  --color-bg: #161826;
+  --color-surface: #232532;
+  --color-text: #e9e9ed;
+  --color-accent: #9184d9;
+  --color-divider: color-mix(in srgb, #e9e9ed 16%, transparent);
 
-  --card: 0 0% 100%;
-  --card-foreground: 215 25% 15%;
+  /* Tonal ramps on one shared OKLCH lightness scale. */
+  --color-neutral-100: #f3f5fe;
+  --color-neutral-200: #e4e7f5;
+  --color-neutral-300: #cfd3e5;
+  --color-neutral-400: #b2b6ca;
+  --color-neutral-500: #9397ab;
+  --color-neutral-600: #75798c;
+  --color-neutral-700: #595d6c;
+  --color-neutral-800: #3f424d;
+  --color-neutral-900: #292b31;
 
-  --popover: 0 0% 100%;
-  --popover-foreground: 215 25% 15%;
+  --color-accent-100: #f5f4ff;
+  --color-accent-200: #e7e5fe;
+  --color-accent-300: #d2cefd;
+  --color-accent-400: #b5abfc;
+  --color-accent-500: #968ae0;
+  --color-accent-600: #796cbf;
+  --color-accent-700: #5d5294;
+  --color-accent-800: #423a6a;
+  --color-accent-900: #2b2741;
 
-  --primary: 217 91% 35%;
-  --primary-foreground: 0 0% 100%;
-  --primary-hover: 217 91% 30%;
-  --primary-light: 217 91% 45%;
-  --primary-lighter: 217 91% 95%;
+  /* Saturated deep indigo — presence at page scale, never interface chrome. */
+  --color-section: #262a60;
+  --color-section-glow: #353b80;
+  --color-section-ghost: #4c5397;
 
-  --secondary: 215 20% 93%;
-  --secondary-foreground: 215 25% 15%;
+  /* Semantic states. Nocturne is mono, so these stay close to the ramps:
+     success leans on the accent, danger is a desaturated red kept quiet. */
+  --color-danger: #d97a84;
+  --color-danger-800: #4a2b30;
 
-  --muted: 215 20% 93%;
-  --muted-foreground: 215 16% 47%;
+  --space-1: 2.8px;
+  --space-2: 5.6px;
+  --space-3: 8.4px;
+  --space-4: 11.2px;
+  --space-6: 16.8px;
+  --space-8: 22.4px;
 
-  --accent: 43 96% 56%;
-  --accent-foreground: 215 25% 15%;
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 14px;
 
-  --destructive: 0 84% 60%;
-  --destructive-foreground: 0 0% 100%;
+  /* Elevation on a dark ground is an edge plus ambient darkness. */
+  --shadow-sm: 0 0 0 1px #3f424d;
+  --shadow-md: 0 0 0 1px #595d6c, 0 6px 18px rgba(0, 0, 0, 0.55);
+  --shadow-lg: 0 0 0 1px #9397ab, 0 16px 40px rgba(0, 0, 0, 0.65);
 
-  --success: 142 71% 45%;
-  --success-foreground: 0 0% 100%;
+  --font-heading-weight: 500;
 
-  --border: 215 20% 88%;
-  --input: 215 20% 88%;
-  --ring: 217 91% 35%;
+  /* The fading hairline, reused everywhere a rule is drawn. */
+  --rule-fade: linear-gradient(
+    to right,
+    transparent,
+    var(--color-divider) 20px,
+    var(--color-divider) calc(100% - 20px),
+    transparent
+  );
+  --rule-fade-wide: linear-gradient(
+    to right,
+    transparent,
+    var(--color-divider) 48px,
+    var(--color-divider) calc(100% - 48px),
+    transparent
+  );
 
-  --radius: 0.5rem;
-
-  --sidebar-background: 0 0% 98%;
-  --sidebar-foreground: 240 5.3% 26.1%;
-  --sidebar-primary: 240 5.9% 10%;
-  --sidebar-primary-foreground: 0 0% 98%;
-  --sidebar-accent: 240 4.8% 95.9%;
-  --sidebar-accent-foreground: 240 5.9% 10%;
-  --sidebar-border: 220 13% 91%;
-  --sidebar-ring: 217.2 91.2% 59.8%;
+  color-scheme: dark;
 }
 
-/*
- * The Vite project only ever shipped a light theme, and the ported screens
- * assume it. These values exist so `dark:` variants have something coherent to
- * resolve to rather than inheriting light colours, but the app does not switch
- * to them yet — that is part of the redesign.
- */
-.dark {
-  --background: 215 28% 9%;
-  --foreground: 210 40% 98%;
-
-  --card: 215 25% 12%;
-  --card-foreground: 210 40% 98%;
-
-  --popover: 215 25% 12%;
-  --popover-foreground: 210 40% 98%;
-
-  --primary: 217 91% 60%;
-  --primary-foreground: 215 28% 9%;
-  --primary-hover: 217 91% 65%;
-  --primary-light: 217 91% 70%;
-  --primary-lighter: 217 40% 20%;
-
-  --secondary: 215 20% 18%;
-  --secondary-foreground: 210 40% 98%;
-
-  --muted: 215 20% 18%;
-  --muted-foreground: 215 16% 65%;
-
-  --accent: 43 96% 56%;
-  --accent-foreground: 215 28% 9%;
-
-  --destructive: 0 72% 51%;
-  --destructive-foreground: 210 40% 98%;
-
-  --success: 142 71% 45%;
-  --success-foreground: 215 28% 9%;
-
-  --border: 215 20% 22%;
-  --input: 215 20% 22%;
-  --ring: 217 91% 60%;
-
-  --sidebar-background: 215 25% 12%;
-  --sidebar-foreground: 210 40% 98%;
-  --sidebar-primary: 217 91% 60%;
-  --sidebar-primary-foreground: 215 28% 9%;
-  --sidebar-accent: 215 20% 18%;
-  --sidebar-accent-foreground: 210 40% 98%;
-  --sidebar-border: 215 20% 22%;
-  --sidebar-ring: 217 91% 60%;
-}
-
-/*
- * `@theme inline` turns the variables above into Tailwind utilities, so
- * `bg-background`, `text-muted-foreground`, `border-border` and the rest all
- * work exactly as they did under v3.
- */
 @theme inline {
-  --color-background: hsl(var(--background));
-  --color-foreground: hsl(var(--foreground));
+  --color-bg: var(--color-bg);
+  --color-surface: var(--color-surface);
+  --color-text: var(--color-text);
+  --color-accent: var(--color-accent);
+  --color-divider: var(--color-divider);
+  --color-danger: var(--color-danger);
+  --color-danger-800: var(--color-danger-800);
 
-  --color-card: hsl(var(--card));
-  --color-card-foreground: hsl(var(--card-foreground));
+  --color-neutral-100: var(--color-neutral-100);
+  --color-neutral-200: var(--color-neutral-200);
+  --color-neutral-300: var(--color-neutral-300);
+  --color-neutral-400: var(--color-neutral-400);
+  --color-neutral-500: var(--color-neutral-500);
+  --color-neutral-600: var(--color-neutral-600);
+  --color-neutral-700: var(--color-neutral-700);
+  --color-neutral-800: var(--color-neutral-800);
+  --color-neutral-900: var(--color-neutral-900);
 
-  --color-popover: hsl(var(--popover));
-  --color-popover-foreground: hsl(var(--popover-foreground));
+  --color-accent-100: var(--color-accent-100);
+  --color-accent-200: var(--color-accent-200);
+  --color-accent-300: var(--color-accent-300);
+  --color-accent-400: var(--color-accent-400);
+  --color-accent-500: var(--color-accent-500);
+  --color-accent-600: var(--color-accent-600);
+  --color-accent-700: var(--color-accent-700);
+  --color-accent-800: var(--color-accent-800);
+  --color-accent-900: var(--color-accent-900);
 
-  --color-primary: hsl(var(--primary));
-  --color-primary-foreground: hsl(var(--primary-foreground));
-  --color-primary-hover: hsl(var(--primary-hover));
-  --color-primary-light: hsl(var(--primary-light));
-  --color-primary-lighter: hsl(var(--primary-lighter));
+  --color-section: var(--color-section);
+  --color-section-glow: var(--color-section-glow);
+  --color-section-ghost: var(--color-section-ghost);
 
-  --color-secondary: hsl(var(--secondary));
-  --color-secondary-foreground: hsl(var(--secondary-foreground));
+  --radius-sm: var(--radius-sm);
+  --radius-md: var(--radius-md);
+  --radius-lg: var(--radius-lg);
+  --radius-phone: 34px;
 
-  --color-muted: hsl(var(--muted));
-  --color-muted-foreground: hsl(var(--muted-foreground));
+  --shadow-sm: var(--shadow-sm);
+  --shadow-md: var(--shadow-md);
+  --shadow-lg: var(--shadow-lg);
 
-  --color-accent: hsl(var(--accent));
-  --color-accent-foreground: hsl(var(--accent-foreground));
+  --font-sans: var(--font-inter), "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: ui-monospace, Menlo, Consolas, monospace;
 
-  --color-destructive: hsl(var(--destructive));
-  --color-destructive-foreground: hsl(var(--destructive-foreground));
+  /* Mobile-first breakpoints; the design's phone frame is 390px, its web
+     frame 1180px. `sm` is where the tap bar hands over to the top nav. */
+  --breakpoint-sm: 40rem;
+  --breakpoint-md: 48rem;
+  --breakpoint-lg: 64rem;
+  --breakpoint-xl: 80rem;
 
-  --color-success: hsl(var(--success));
-  --color-success-foreground: hsl(var(--success-foreground));
+  --animate-fade-in: fade-in 180ms ease-out;
+  --animate-rise: rise 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
 
-  --color-border: hsl(var(--border));
-  --color-input: hsl(var(--input));
-  --color-ring: hsl(var(--ring));
-
-  --color-sidebar: hsl(var(--sidebar-background));
-  --color-sidebar-foreground: hsl(var(--sidebar-foreground));
-  --color-sidebar-primary: hsl(var(--sidebar-primary));
-  --color-sidebar-primary-foreground: hsl(var(--sidebar-primary-foreground));
-  --color-sidebar-accent: hsl(var(--sidebar-accent));
-  --color-sidebar-accent-foreground: hsl(var(--sidebar-accent-foreground));
-  --color-sidebar-border: hsl(var(--sidebar-border));
-  --color-sidebar-ring: hsl(var(--sidebar-ring));
-
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
-
-  --font-sans: var(--font-plus-jakarta), system-ui, -apple-system, "Segoe UI", sans-serif;
+  @keyframes fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  @keyframes rise {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
 }
+
+/* ───────────────────────────── base ───────────────────────────── */
 
 @layer base {
-  * {
-    border-color: hsl(var(--border));
-  }
+  *, *::before, *::after { box-sizing: border-box; }
 
   html {
-    scroll-behavior: smooth;
-    /* Stops layout shifting sideways when a dialog locks scrolling. */
     scrollbar-gutter: stable;
+    -webkit-text-size-adjust: 100%;
   }
 
   body {
-    background-color: hsl(var(--background));
-    color: hsl(var(--foreground));
+    margin: 0;
+    background: var(--color-bg);
+    color: var(--color-text);
+    font-family: var(--font-sans);
+    font-size: 15px;
+    line-height: 1.55;
+    font-weight: 400;
     -webkit-font-smoothing: antialiased;
     min-height: 100dvh;
   }
 
-  /*
-   * Respect a reader who has asked for less motion. The carousels and
-   * accordions animate by default, which can be genuinely unpleasant for some
-   * people and is a one-rule fix.
-   */
+  h1, h2, h3, h4, h5, h6 {
+    font-weight: var(--font-heading-weight);
+    line-height: 1.12;
+    letter-spacing: -0.015em;
+    margin: 0;
+  }
+  h1 { font-size: 42px; }
+  h2 { font-size: 32px; }
+  h3 { font-size: 25px; }
+  h4 { font-size: 20px; }
+  h5 { font-size: 16px; }
+  h6 { font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; }
+
+  p { margin: 0; }
+  a { color: var(--color-accent); text-underline-offset: 3px; }
+  img { display: block; max-width: 100%; }
+  button { font: inherit; color: inherit; }
+  code, kbd, samp, pre { font-family: var(--font-mono); }
+
+  :focus { outline: none; }
+  :focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
+  ::selection { background: color-mix(in srgb, var(--color-accent) 30%, transparent); }
+
+  /* Native date/time pickers on a dark ground. */
+  input[type="date"], input[type="time"], input[type="datetime-local"] {
+    color-scheme: dark;
+  }
+
   @media (prefers-reduced-motion: reduce) {
-    *,
-    *::before,
-    *::after {
+    *, *::before, *::after {
       animation-duration: 0.01ms !important;
       animation-iteration-count: 1 !important;
       transition-duration: 0.01ms !important;
       scroll-behavior: auto !important;
     }
   }
-
-  /* Keyboard focus stays visible; mouse clicks do not draw a ring. */
-  :focus-visible {
-    outline: 2px solid hsl(var(--ring));
-    outline-offset: 2px;
-  }
-
-  .material-symbols-outlined {
-    font-family: "Material Symbols Outlined";
-    font-variation-settings: "FILL" 0, "wght" 400, "GRAD" 0, "opsz" 24;
-    line-height: 1;
-  }
 }
+
+/* ───────────────────────── components ───────────────────────── */
 
 @layer components {
-  .glass-card {
-    background: rgba(255, 255, 255, 0.72);
-    backdrop-filter: blur(12px);
-    border: 1px solid rgba(15, 23, 42, 0.06);
-    box-shadow: 0 10px 30px -18px rgba(15, 23, 42, 0.18);
+  /* — images — anything darker than the page falls away. */
+  .lighten { mix-blend-mode: lighten; background-color: transparent; }
+
+  /* — rules — freestanding rules fade; box outlines stay solid. */
+  .hr {
+    height: 1px; border: 0; margin: var(--space-4) 0;
+    background: var(--rule-fade-wide);
   }
 
-  .brand-gradient {
-    background: linear-gradient(135deg, #ec4899 0%, #b10e6b 100%);
+  /* — small caps label above a block — */
+  .kick {
+    font-size: 10.5px; letter-spacing: 0.1em; text-transform: uppercase;
+    color: var(--color-neutral-500);
   }
+  .card-kicker {
+    font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase;
+    color: var(--color-accent);
+  }
+
+  /* — key / value row with a fading rule beneath — */
+  .metarow {
+    display: flex; justify-content: space-between; gap: 12px;
+    padding: 9px 0; font-size: 13px;
+    background: var(--rule-fade) no-repeat bottom / 100% 1px;
+  }
+  .metarow > :first-child { color: var(--color-neutral-500); flex: none; }
+  .metarow > :last-child { text-align: right; min-width: 0; }
+
+  /* — stat blocks — */
+  .kpi { flex: 1; min-width: 0; padding: var(--space-6) var(--space-8); }
+  .kpi + .kpi { border-left: 1px solid var(--color-divider); }
+  .kpin { font-size: 29px; font-weight: 500; letter-spacing: -0.02em; line-height: 1.1; }
+  .kpil {
+    font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase;
+    color: var(--color-neutral-500); margin-top: 4px;
+  }
+
+  /* — progress bar — */
+  .bar { height: 4px; border-radius: 2px; background: var(--color-neutral-800); overflow: hidden; }
+  .bar > i { display: block; height: 100%; background: var(--color-accent); transition: width 300ms ease; }
+
+  /* — buttons — the primary is an accent outline, never a fill. */
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    cursor: pointer; text-decoration: none; white-space: nowrap;
+    font-weight: var(--font-heading-weight); font-size: 14px; line-height: 1.2;
+    color: var(--color-text);
+    background: transparent; border: 1px solid transparent;
+    padding: var(--space-2) calc(var(--space-3) * 1.2);
+    min-height: 36px;
+    border-radius: var(--radius-md);
+    transition: background-color 120ms ease, border-color 120ms ease, color 120ms ease;
+  }
+  .btn svg { display: block; flex: none; }
+  .btn:disabled, .btn[aria-disabled="true"] { opacity: 0.45; cursor: not-allowed; pointer-events: none; }
+  .btn-primary { color: var(--color-accent); border-color: var(--color-accent); }
+  .btn-primary:hover { background: color-mix(in srgb, var(--color-accent) 12%, transparent); }
+  .btn-primary:active { background: color-mix(in srgb, var(--color-accent) 22%, transparent); }
+  .btn-secondary { border-color: var(--color-divider); }
+  .btn-secondary:hover { background: color-mix(in srgb, var(--color-text) 7%, transparent); }
+  .btn-secondary:active { background: color-mix(in srgb, var(--color-text) 14%, transparent); }
+  .btn-ghost { color: var(--color-accent); padding-inline: var(--space-1); min-height: 0; }
+  .btn-ghost:hover { background: color-mix(in srgb, var(--color-accent) 10%, transparent); }
+  .btn-ghost:active { background: color-mix(in srgb, var(--color-accent) 18%, transparent); }
+  .btn-danger { color: var(--color-danger); border-color: var(--color-danger); }
+  .btn-danger:hover { background: color-mix(in srgb, var(--color-danger) 12%, transparent); }
+  .btn-icon { width: 36px; height: 36px; padding: 0; }
+  .btn-block { width: 100%; }
+  .btn-lg { padding: 12px 22px; font-size: 15px; min-height: 44px; }
+  .btn-sm { font-size: 12.5px; padding: 4px 10px; min-height: 30px; }
+  /*
+   * The marquee exception: the one filled button in the system, used only on
+   * a fest's own hero where the design wants "poster energy".
+   */
+  .btn-fill {
+    background: var(--color-accent); color: var(--color-bg);
+    border-color: var(--color-accent); font-weight: 600;
+  }
+  .btn-fill:hover { background: var(--color-accent-400); border-color: var(--color-accent-400); }
+  .btn-fill:active { background: var(--color-accent-500); border-color: var(--color-accent-500); }
+
+  /* — forms — */
+  .field > label, .field-label {
+    display: block; font-size: 12px; margin-bottom: 5px;
+    color: color-mix(in srgb, var(--color-text) 70%, transparent);
+  }
+  .input {
+    width: 100%; min-height: 36px; padding: 6px 10px; font: inherit;
+    font-size: 14px; color: var(--color-text); caret-color: var(--color-accent);
+    background: var(--color-surface);
+    border: 1px solid var(--color-divider); border-radius: var(--radius-md);
+    transition: border-color 120ms ease;
+  }
+  .input::placeholder { color: var(--color-neutral-600); }
+  .input:hover { border-color: color-mix(in srgb, var(--color-text) 45%, transparent); }
+  .input:focus-visible { border-color: var(--color-accent); outline-offset: 0; }
+  .input[aria-invalid="true"] { border-color: var(--color-danger); }
+  .input:disabled { opacity: 0.45; cursor: not-allowed; }
+  textarea.input { min-height: 90px; resize: vertical; }
+  select.input { appearance: none; padding-right: 30px; }
+  .field-error { font-size: 12px; color: var(--color-danger); margin-top: 5px; }
+  .field-hint { font-size: 12px; color: var(--color-neutral-500); margin-top: 5px; }
+
+  .radio { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; font-size: 14px; }
+  .radio input, .seg-opt input {
+    position: absolute; opacity: 0; width: 0; height: 0; pointer-events: none;
+  }
+  .radio .dot {
+    width: 16px; height: 16px; flex: none; border-radius: 50%;
+    border: 1.5px solid var(--color-divider);
+  }
+  .radio:hover .dot { border-color: var(--color-accent); }
+  .radio input:checked + .dot {
+    border-color: var(--color-accent); background: var(--color-accent);
+    box-shadow: inset 0 0 0 4px var(--color-bg);
+  }
+  .radio input:focus-visible + .dot { outline: 2px solid var(--color-accent); outline-offset: 2px; }
+
+  .seg {
+    display: inline-flex; overflow: hidden; max-width: 100%;
+    border: 1px solid var(--color-divider); border-radius: var(--radius-md);
+  }
+  .seg-opt {
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    padding: 7px 12px; font-size: 13px; cursor: pointer; white-space: nowrap;
+    position: relative;
+  }
+  .seg-opt + .seg-opt { border-left: 1px solid var(--color-divider); }
+  .seg-opt:has(input:checked), .seg-opt[data-state="on"], .seg-opt[aria-pressed="true"] {
+    color: var(--color-accent); box-shadow: inset 0 0 0 1px var(--color-accent);
+  }
+  .seg-opt:not(:has(input:checked)):not([data-state="on"]):hover {
+    background: color-mix(in srgb, var(--color-text) 7%, transparent);
+  }
+  .seg-opt:has(input:focus-visible), .seg-opt:focus-visible {
+    outline: 2px solid var(--color-accent); outline-offset: -2px;
+  }
+  .seg-fill > .seg-opt { flex: 1; }
+
+  /* — cards — the edge is a 1px shadow, not a border. */
+  .card {
+    display: flex; flex-direction: column; gap: var(--space-2);
+    padding: var(--space-3); border-radius: var(--radius-md); background: var(--color-surface);
+  }
+  .card-title { font-weight: var(--font-heading-weight); font-size: 17px; line-height: 1.2; }
+  .card-body { margin: 0; font-size: 13px; opacity: 0.8; flex: 1; }
+  .card-meta {
+    display: flex; align-items: center; gap: 6px; font-size: 11px;
+    color: color-mix(in srgb, var(--color-text) 50%, transparent);
+  }
+  .elev-sm { box-shadow: var(--shadow-sm); }
+  .elev-md { box-shadow: var(--shadow-md); }
+  .elev-lg { box-shadow: var(--shadow-lg); }
+  /* An outlined panel on the page ground — used constantly in the design. */
+  .panel { border-radius: var(--radius-md); box-shadow: var(--shadow-sm); }
+  .note {
+    padding: var(--space-4); border-radius: var(--radius-md); box-shadow: var(--shadow-sm);
+    font-size: 12.5px; color: var(--color-neutral-400);
+  }
+  .note > .note-title { color: var(--color-text); margin-bottom: 5px; }
+
+  /* — tags — */
+  .tag {
+    display: inline-flex; align-items: center; gap: 5px; font-size: 11px;
+    letter-spacing: 0.02em; padding: 3px 10px; white-space: nowrap;
+    border-radius: calc(var(--radius-md) * 0.75); line-height: 1.5;
+  }
+  .tag svg { flex: none; }
+  .tag-accent { background: var(--color-accent-800); color: var(--color-accent-100); }
+  .tag-neutral { background: var(--color-neutral-800); color: var(--color-neutral-100); }
+  .tag-outline { border: 1px solid var(--color-accent); color: var(--color-accent); }
+  .tag-danger { background: var(--color-danger-800); color: var(--color-neutral-100); }
+  .tag-live {
+    background: var(--color-accent); color: var(--color-bg);
+    font-weight: 600; letter-spacing: 0.06em;
+  }
+
+  /* — navigation — */
+  .nav {
+    display: flex; align-items: center; gap: var(--space-4);
+    padding: var(--space-3) var(--space-4);
+  }
+  .nav-brand {
+    font-weight: var(--font-heading-weight); font-size: 18px; margin-right: auto;
+    color: inherit; text-decoration: none; display: inline-flex; align-items: baseline; gap: 6px;
+  }
+  .nav-role { font-size: 11px; color: var(--color-neutral-500); letter-spacing: 0.06em; }
+  .nav a, .nav-link {
+    color: inherit; text-decoration: none; font-size: 14px;
+    transition: color 120ms ease;
+  }
+  .nav a:hover, .nav a[aria-current="page"], .nav-link:hover, .nav-link[aria-current="page"] {
+    color: var(--color-accent);
+  }
+
+  /* — mobile tap bar — */
+  .tapbar {
+    display: flex; justify-content: space-around; align-items: center;
+    padding: 9px 0 calc(16px + env(safe-area-inset-bottom));
+    border-top: 1px solid var(--color-divider); background: var(--color-bg);
+  }
+  .tapitem {
+    display: flex; flex-direction: column; align-items: center; gap: 4px;
+    font-size: 9.5px; letter-spacing: 0.02em; color: var(--color-neutral-500);
+    text-decoration: none; min-width: 56px;
+  }
+  .tapdot { display: grid; place-items: center; width: 20px; height: 20px; }
+  .tapitem[data-on], .tapitem[aria-current="page"] { color: var(--color-accent); }
+
+  /* — tables — row rules fade at both ends, as strips on the row. */
+  .table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  .table th {
+    text-align: left; font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase;
+    color: color-mix(in srgb, var(--color-text) 60%, transparent);
+    padding: var(--space-2); font-weight: 400; white-space: nowrap;
+  }
+  .table td { padding: var(--space-2); vertical-align: middle; }
+  .table thead tr { background: var(--rule-fade-wide) no-repeat bottom / 100% 1px; }
+  .table tbody tr {
+    background: linear-gradient(to right,
+      transparent, color-mix(in srgb, var(--color-text) 8%, transparent) 48px,
+      color-mix(in srgb, var(--color-text) 8%, transparent) calc(100% - 48px), transparent)
+      no-repeat bottom / 100% 1px;
+  }
+  .table tbody tr:hover {
+    background:
+      linear-gradient(color-mix(in srgb, var(--color-text) 4%, transparent),
+                      color-mix(in srgb, var(--color-text) 4%, transparent)) no-repeat 0 0 / 100% 100%,
+      linear-gradient(to right,
+        transparent, color-mix(in srgb, var(--color-text) 8%, transparent) 48px,
+        color-mix(in srgb, var(--color-text) 8%, transparent) calc(100% - 48px), transparent)
+        no-repeat bottom / 100% 1px;
+  }
+  .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+
+  /* — dialog — */
+  .dialog-backdrop {
+    position: fixed; inset: 0; z-index: 50;
+    background: color-mix(in srgb, var(--color-neutral-900) 55%, transparent);
+    backdrop-filter: blur(2px);
+  }
+  .dialog {
+    display: flex; flex-direction: column; gap: var(--space-3);
+    padding: var(--space-6); border-radius: var(--radius-lg);
+    background: var(--color-surface); box-shadow: var(--shadow-lg);
+  }
+  .dialog-title { font-weight: var(--font-heading-weight); font-size: 20px; }
+  .dialog-body { font-size: 14px; opacity: 0.85; }
+  .dialog-actions { display: flex; justify-content: flex-end; gap: var(--space-2); margin-top: var(--space-2); }
+
+  /* — timeline — a left rail with dots, from the analytics and volunteer screens. */
+  .timeline {
+    display: flex; flex-direction: column; gap: 14px; padding-left: 12px;
+    box-shadow: inset 1px 0 0 var(--color-divider);
+  }
+  .timeline-item { position: relative; }
+  .timeline-item::before {
+    content: ""; position: absolute; left: -16px; top: 5px;
+    width: 7px; height: 7px; border-radius: 50%; background: var(--color-neutral-700);
+  }
+  .timeline-item[data-live]::before { background: var(--color-accent); }
+
+  /* — the mono ticket / certificate code — */
+  .code {
+    font-family: var(--font-mono); font-size: 12.5px; letter-spacing: 0.12em;
+  }
+
+  /* — placeholder artwork block, until real images are uploaded — */
+  .ph {
+    background-image: repeating-linear-gradient(135deg, var(--color-divider) 0 6px, transparent 6px 12px);
+    background-color: var(--color-surface);
+    display: flex; align-items: flex-end;
+  }
+
+  /* — scanner viewfinder corners — */
+  .viewfinder > span {
+    position: absolute; width: 34px; height: 34px; border: 0 solid var(--color-accent);
+  }
+  .viewfinder > span:nth-child(1) { left: 0; top: 0; border-left-width: 2px; border-top-width: 2px; border-radius: 6px 0 0 0; }
+  .viewfinder > span:nth-child(2) { right: 0; top: 0; border-right-width: 2px; border-top-width: 2px; border-radius: 0 6px 0 0; }
+  .viewfinder > span:nth-child(3) { left: 0; bottom: 0; border-left-width: 2px; border-bottom-width: 2px; border-radius: 0 0 0 6px; }
+  .viewfinder > span:nth-child(4) { right: 0; bottom: 0; border-right-width: 2px; border-bottom-width: 2px; border-radius: 0 0 6px 0; }
+
+  /* — skeleton — */
+  .skeleton {
+    background: linear-gradient(90deg, var(--color-surface) 25%, var(--color-neutral-800) 50%, var(--color-surface) 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.4s ease-in-out infinite;
+    border-radius: var(--radius-sm);
+  }
+  @keyframes shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
 }
+
+/* ───────────────────────── utilities ───────────────────────── */
+
+@utility rule-b { background: var(--rule-fade) no-repeat bottom / 100% 1px; }
+@utility text-balance { text-wrap: balance; }
+@utility scrollbar-none {
+  scrollbar-width: none;
+  &::-webkit-scrollbar { display: none; }
+}
+/* Safe-area padding for the scanner and tap bar on notched phones. */
+@utility pb-safe { padding-bottom: env(safe-area-inset-bottom); }
+@utility pt-safe { padding-top: env(safe-area-inset-top); }
+
+/* html5-qrcode injects its own chrome; hide everything but the video. */
+#qr-reader { border: none !important; }
+#qr-reader video { object-fit: cover; width: 100% !important; height: 100% !important; }
+#qr-reader__dashboard, #qr-reader__status_span, #qr-reader__header_message,
+#qr-reader img[alt="Info icon"], #qr-reader__scan_region img { display: none !important; }
+#qr-reader__scan_region { min-height: 0 !important; }

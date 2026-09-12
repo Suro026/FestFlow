@@ -24,7 +24,7 @@ export interface NotificationRepository {
 
   createMany(inputs: CreateNotification[]): Promise<number>;
 
-  markRead(id: string, userId: string): Promise<void>;
+  markRead(id: string): Promise<void>;
 
   markAllRead(userId: string): Promise<number>;
 }
