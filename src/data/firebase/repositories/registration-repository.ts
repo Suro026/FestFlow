@@ -163,6 +163,16 @@ export class FirestoreRegistrationRepository implements RegistrationRepository {
     );
   }
 
+  staffAction(id: string, action: "promote" | "cancel", reason?: string): Promise<"promoted" | "cancelled" | "noop"> {
+    return guard(action === "promote" ? "Promoting entry" : "Cancelling entry", async () => {
+      const response = await api<{ result: "promoted" | "cancelled" | "noop" }>(`/api/admin/registrations/${id}`, {
+        method: "POST",
+        body: { action, reason },
+      });
+      return response.result;
+    });
+  }
+
   existsForUserAndEvent(userId: string, eventId: string): Promise<boolean> {
     return guard("Checking registration", async () => {
       const snapshot = await getCountFromServer(

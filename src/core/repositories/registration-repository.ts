@@ -49,6 +49,12 @@ export interface RegistrationRepository {
   /** Cancels the caller's own entry and releases its seats in the same transaction. */
   cancel(id: string): Promise<void>;
 
+  /**
+   * Staff actions on one entry — promote from the waitlist, or cancel on the
+   * holder's behalf. Admin-only, transactional against the event, audited.
+   */
+  staffAction(id: string, action: "promote" | "cancel", reason?: string): Promise<"promoted" | "cancelled" | "noop">;
+
   /** True when this user already holds a confirmed entry for the event. */
   existsForUserAndEvent(userId: string, eventId: string): Promise<boolean>;
 
