@@ -1,11 +1,5 @@
 import { createStaffSchema, type UserRole } from "@/core/models/user";
-import {
-  ApiError,
-  handler,
-  ok,
-  readBody,
-  requireRole,
-} from "@/server/api";
+import { ApiError, handler, ok, readBody, requireFestAccess, requireRole } from "@/server/api";
 import {
   COLLECTIONS,
   FieldValue,
@@ -49,10 +43,21 @@ const throwawayPassword = (): string => {
   return `Aa1!${Buffer.from(bytes).toString("base64url")}`;
 };
 
-/** POST /api/admin/staff — create an organizer, admin or super admin. */
+/**
+ * POST /api/admin/staff — create an organizer, admin or super admin.
+ *
+ * Super admins may create any role. Admins may create *organizer* accounts
+ * (volunteers, event heads) scoped to fests they manage — the canvas's
+ * "created by an admin, never self sign-up". Nobody below admin gets here.
+ */
 export const POST = handler(async (request) => {
-  const caller = await requireRole(request, "super_admin");
+  const caller = await requireRole(request, "admin");
   const input = await readBody(request, createStaffSchema);
+
+  if (input.role !== "organizer" && caller.role !== "super_admin") {
+    throw ApiError.forbidden("Only a super admin can create admin or super admin accounts.");
+  }
+  for (const festId of input.festIds) requireFestAccess(caller, festId);
 
   const auth = adminAuth();
   const db = adminDb();
