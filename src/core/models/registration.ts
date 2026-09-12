@@ -57,6 +57,14 @@ export const registrationSchema = z
     type: z.enum(["solo", "team"]),
     teamName: shortTextSchema.optional(),
     members: z.array(teamMemberSchema).min(1).max(50),
+    /**
+     * Flat copy of `members[].email`, because Firestore cannot query inside an
+     * array of objects and "is this person already on a team" has to be a
+     * query, not a scan.
+     */
+    memberEmails: z.array(emailSchema).default([]),
+    /** Seats this entry consumes — the member count at registration time. */
+    seats: z.number().int().min(1).default(1),
 
     ticketCode: ticketCodeSchema,
     status: registrationStatusSchema.default("confirmed"),

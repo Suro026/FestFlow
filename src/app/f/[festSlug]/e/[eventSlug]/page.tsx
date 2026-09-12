@@ -1,0 +1,137 @@
+import type { Metadata } from "next";
+import Link from "next/link";
+import { notFound } from "next/navigation";
+import { repositories } from "@/data/repositories";
+import { StudentShell, Page } from "@/components/shell/student-shell";
+import { RegisterPanel } from "@/components/event/register-panel";
+import { CATEGORY_LABELS } from "@/components/event/event-card";
+import { Artwork, Kick, MetaList, MetaRow, Tag } from "@/components/ui/primitives";
+import { formatCalendarDate, formatTeamSize } from "@/lib/utils";
+
+export const revalidate = 30;
+
+type Params = { festSlug: string; eventSlug: string };
+
+const load = async ({ festSlug, eventSlug }: Params) => {
+  const repos = repositories();
+  const fest = await repos.fests.getBySlug(festSlug).catch(() => null);
+  if (!fest || fest.status !== "published") return null;
+  const event = await repos.events.getBySlug(fest.id, eventSlug).catch(() => null);
+  if (!event || event.status === "draft") return null;
+  return { fest, event };
+};
+
+export async function generateMetadata({ params }: { params: Promise<Params> }): Promise<Metadata> {
+  const data = await load(await params);
+  if (!data) return { title: "Event not found" };
+  return {
+    title: `${data.event.title} · ${data.fest.name}`,
+    description: data.event.description?.slice(0, 160),
+    openGraph: { images: data.event.posterUrl ? [data.event.posterUrl] : [] },
+  };
+}
+
+/** 2a — event detail. Poster card on a phone, 52px headline with a two-column body on desktop. */
+export default async function EventPage({ params }: { params: Promise<Params> }) {
+  const data = await load(await params);
+  if (!data) notFound();
+  const { fest, event } = data;
+
+  const when = `${new Intl.DateTimeFormat("en-GB", { weekday: "short" }).format(new Date(`${event.date}T00:00:00`))} ${formatCalendarDate(event.date)} · ${event.startTime}${event.endTime ? ` – ${event.endTime}` : ""}`;
+
+  return (
+    <StudentShell>
+      <Page className="pb-[150px] pt-1.5 sm:pt-[30px] lg:pb-11">
+        <div className="grid gap-11 lg:grid-cols-[1fr_372px]">
+          <div>
+            {/* Phone: poster card */}
+            <div className="relative mb-3.5 h-[250px] overflow-hidden rounded-lg lg:hidden">
+              <Artwork src={event.posterUrl} label="event poster" className="absolute inset-0 items-start" alt="" />
+              <div className="absolute inset-0" style={{ background: "linear-gradient(to top, var(--color-bg) 6%, transparent 70%)" }} />
+              <div className="absolute inset-x-3.5 bottom-3">
+                <div className="mb-2 flex gap-1.5">
+                  <Tag tone="accent">{CATEGORY_LABELS[event.category]}</Tag>
+                  <Tag tone="neutral">{formatTeamSize(event.eventType, event.teamSize)}</Tag>
+                </div>
+                <div className="text-[27px] font-medium leading-[1.05] tracking-[-0.025em]">{event.title}</div>
+              </div>
+            </div>
+
+            {/* Desktop: heading */}
+            <div className="hidden lg:block">
+              <div className="mb-3.5 flex flex-wrap items-center gap-2">
+                <Tag tone="accent">{CATEGORY_LABELS[event.category]}</Tag>
+                <Tag tone="neutral">{formatTeamSize(event.eventType, event.teamSize)}</Tag>
+                <Link href={`/f/${fest.slug}`} className="text-[12px] text-neutral-500 no-underline hover:text-accent">
+                  {fest.name} · {fest.organizationName}
+                </Link>
+              </div>
+              <h1 className="mb-3.5 text-[52px] leading-none tracking-[-0.03em]">{event.title}</h1>
+              {event.description ? <p className="max-w-[560px] text-[15.5px] text-neutral-300">{event.description}</p> : null}
+              <Artwork src={event.posterUrl} label="event photograph — dark background, .lighten" className="my-6 h-[280px] rounded-lg" alt="" />
+            </div>
+
+            {/* Phone: meta */}
+            <MetaList className="lg:hidden">
+              <MetaRow label="When">{when}</MetaRow>
+              <MetaRow label="Where">{event.venue}</MetaRow>
+              {event.capacity > 0 ? (
+                <MetaRow label="Seats">
+                  {event.registeredCount} of {event.capacity} taken
+                </MetaRow>
+              ) : null}
+              {event.registrationDeadline ? <MetaRow label="Registration closes">{formatCalendarDate(event.registrationDeadline)}, 23:59</MetaRow> : null}
+            </MetaList>
+
+            {event.description ? <p className="mt-4 text-[13.5px] text-neutral-300 lg:hidden">{event.description}</p> : null}
+
+            {/* Details */}
+            <div className="mt-4 grid gap-8 sm:grid-cols-2 lg:mt-0">
+              {event.prizes.length ? (
+                <div className="sm:col-span-2 lg:col-span-1">
+                  <Kick className="mb-2">Prizes</Kick>
+                  <div className="flex flex-col gap-1.5 text-[13px] text-neutral-300">
+                    {event.prizes.map((p, i) => (
+                      <div key={i}>{p}</div>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+              {event.rules.length ? (
+                <div>
+                  <Kick className="mb-2.5">Rules</Kick>
+                  <div className="flex flex-col gap-[7px] text-[13.5px] text-neutral-300">
+                    {event.rules.map((r, i) => (
+                      <div key={i}>{r}</div>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+              {event.coordinators.length ? (
+                <div>
+                  <Kick className="mb-2.5">Coordinators</Kick>
+                  <div className="flex flex-col gap-[9px] text-[13.5px]">
+                    {event.coordinators.map((c, i) => (
+                      <div key={i}>
+                        {c.name}
+                        {c.phone || c.email ? (
+                          <div className="text-[12px] text-neutral-500">
+                            {c.phone ? <a href={`tel:${c.phone}`} className="text-inherit no-underline">{c.phone}</a> : null}
+                            {c.phone && c.email ? " · " : null}
+                            {c.email ? <a href={`mailto:${c.email}`} className="text-inherit no-underline">{c.email}</a> : null}
+                          </div>
+                        ) : null}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          </div>
+
+          <RegisterPanel event={event} fest={fest} />
+        </div>
+      </Page>
+    </StudentShell>
+  );
+}
