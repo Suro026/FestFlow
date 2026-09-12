@@ -76,7 +76,7 @@ export const RegisterPanel = ({ event: initial, fest }: { event: Event; fest: Fe
     if (existing.data) {
       return (
         <Button asChild variant="secondary" size="lg" block>
-          <Link href="/my-events">You're registered · view ticket</Link>
+          <Link href="/my-events">You’re registered · view ticket</Link>
         </Button>
       );
     }
@@ -142,7 +142,7 @@ export const RegisterPanel = ({ event: initial, fest }: { event: Event; fest: Fe
           </a>
         </div>
         <Note title={`Run by ${fest.organizationName}`}>
-          Registrations, entry scans and certificates for this event are issued by the college's own account. Your
+          Registrations, entry scans and certificates for this event are issued by the college’s own account. Your
           certificate is emailed to you and carries a link anyone can check against that record.
         </Note>
       </div>

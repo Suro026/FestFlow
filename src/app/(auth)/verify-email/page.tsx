@@ -112,13 +112,13 @@ export default function VerifyEmailPage() {
           {session?.emailVerified ? <Tag tone="accent" check>Verified</Tag> : <Tag tone="neutral">Waiting</Tag>}
         </MetaRow>
         {arrivedFromLink && !applying && !session?.emailVerified ? (
-          <MetaRow label="Link">Opened — tap “I've verified” if this doesn't update</MetaRow>
+          <MetaRow label="Link">Opened — tap “I’ve verified” if this doesn’t update</MetaRow>
         ) : null}
       </MetaList>
 
       <div className="flex flex-wrap gap-2">
         <Button variant="primary" onClick={check} loading={applying}>
-          I've verified
+          I’ve verified
         </Button>
         <Button variant="secondary" onClick={resend} disabled={cooldown > 0}>
           {cooldown > 0 ? `Resend in ${cooldown}s` : resent ? "Resend again" : "Resend email"}
