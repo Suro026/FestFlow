@@ -90,6 +90,15 @@ export class FirestoreRegistrationRepository implements RegistrationRepository {
     });
   }
 
+  listForEvent(eventId: string): Promise<Registration[]> {
+    return guard("Loading roster", async () => {
+      const snapshot = await getDocs(query(registrations(), where("eventId", "==", eventId)));
+      return snapshot.docs
+        .map((d) => parseDoc(registrationSchema, d, COLLECTIONS.registrations))
+        .filter((r): r is Registration => r !== null);
+    });
+  }
+
   listForUserWithEvents(userId: string): Promise<RegistrationWithEvent[]> {
     return guard("Loading your events", async () => {
       const snapshot = await getDocs(query(registrations(), where("userId", "==", userId)));

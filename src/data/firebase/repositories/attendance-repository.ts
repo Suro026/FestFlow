@@ -73,7 +73,7 @@ export class FirestoreAttendanceRepository implements AttendanceRepository {
    * Manual (non-QR) entry is an admin action and goes through the server so
    * it lands in the audit log; volunteers cannot mark it from here.
    */
-  recordScan(input: { ticketCode: string; eventId: string; scannedBy: string; method?: "qr" | "manual"; gate?: string }): Promise<ScanOutcome> {
+  recordScan(input: { ticketCode: string; eventId: string; scannedBy: string; method?: "qr" | "manual"; gate?: string; scannedAt?: Date }): Promise<ScanOutcome> {
     return guard("Recording check-in", async () => {
       if (input.method === "manual") {
         return api<ScanOutcome>("/api/admin/attendance/manual", {
@@ -203,28 +203,44 @@ export class FirestoreAttendanceRepository implements AttendanceRepository {
     });
   }
 
-  /** Same shape as `recordScan`, keyed by entry + day + slot. */
-  recordMeal(input: { ticketCode: string; eventId: string; mealType: MealType; servedOn: string; collectedBy: string; post?: string }): Promise<ScanOutcome> {
+  /**
+   * Meal handout. One document per serving, keyed entry + day + slot + n,
+   * so a team of three collects exactly three lunches and a fourth scan is
+   * refused. The transaction reads servings 1..memberCount and creates the
+   * first gap; two counters serving the same team at once cannot both take
+   * serving 3.
+   */
+  recordMeal(input: { ticketCode: string; eventId: string; mealType: MealType; servedOn: string; collectedBy: string; post?: string; scannedAt?: Date }): Promise<ScanOutcome> {
     return guard("Recording meal", async () => {
       const resolved = await resolveTicket(input.ticketCode, input.eventId);
       if (!resolved.ok) return resolved.outcome;
 
       const { registration } = resolved;
-      const ref = doc(meals(), foodCollectionIdFor(registration.id, input.servedOn, input.mealType));
+      const of = Math.max(1, registration.members.length);
 
       try {
         return await runTransaction(firestore(), async (tx) => {
-          const existing = await tx.get(ref);
+          let next = 0;
+          let last: { collectedAt?: Date; collectedByName?: string } | null = null;
+          for (let n = 1; n <= of; n += 1) {
+            const snap = await tx.get(doc(meals(), foodCollectionIdFor(registration.id, input.servedOn, input.mealType, n)));
+            if (!snap.exists()) {
+              next = n;
+              break;
+            }
+            const rec = parseDoc(foodCollectionSchema, snap, COLLECTIONS.foodCollections);
+            last = { collectedAt: rec?.collectedAt, collectedByName: rec?.collectedByName };
+          }
 
-          if (existing.exists()) {
-            const record = parseDoc(foodCollectionSchema, existing, COLLECTIONS.foodCollections);
+          if (next === 0) {
             return {
               result: "already-recorded",
-              at: record?.collectedAt ?? new Date(),
-              ...(record?.collectedByName ? { by: record.collectedByName } : {}),
+              at: last?.collectedAt ?? new Date(),
+              ...(last?.collectedByName ? { by: last.collectedByName } : {}),
             } satisfies ScanOutcome;
           }
 
+          const ref = doc(meals(), foodCollectionIdFor(registration.id, input.servedOn, input.mealType, next));
           tx.set(
             ref,
             stripUndefined({
@@ -238,10 +254,12 @@ export class FirestoreAttendanceRepository implements AttendanceRepository {
               teamName: registration.teamName,
               mealType: input.mealType,
               servedOn: input.servedOn,
+              serving: next,
               post: input.post,
-              collectedAt: serverTimestamp(),
+              collectedAt: input.scannedAt ?? serverTimestamp(),
               collectedBy: input.collectedBy,
               collectedByName: firebaseAuth().currentUser?.displayName ?? undefined,
+              queuedOffline: Boolean(input.scannedAt),
               createdAt: serverTimestamp(),
               updatedAt: serverTimestamp(),
             }),
@@ -254,8 +272,9 @@ export class FirestoreAttendanceRepository implements AttendanceRepository {
               userName: registration.userName,
               ticketCode: registration.ticketCode,
               ...(registration.teamName ? { teamName: registration.teamName } : {}),
-              memberCount: registration.members.length,
+              memberCount: of,
             },
+            serving: { n: next, of },
           } satisfies ScanOutcome;
         });
       } catch (error) {
