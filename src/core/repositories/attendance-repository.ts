@@ -28,6 +28,8 @@ export interface AttendanceRepository {
     scannedBy: string;
     method?: "qr" | "manual";
     gate?: string;
+    /** For a scan taken offline and synced later: when it really happened. */
+    scannedAt?: Date;
   }): Promise<ScanOutcome>;
 
   getByRegistration(registrationId: string): Promise<Attendance | null>;
@@ -70,6 +72,7 @@ export interface AttendanceRepository {
     servedOn: string;
     collectedBy: string;
     post?: string;
+    scannedAt?: Date;
   }): Promise<ScanOutcome>;
 
   listMealsByEvent(eventId: string, servedOn?: string): Promise<FoodCollection[]>;

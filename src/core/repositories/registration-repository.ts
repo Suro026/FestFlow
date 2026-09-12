@@ -23,6 +23,9 @@ export interface RegistrationRepository {
 
   list(query?: RegistrationQuery): Promise<Page<Registration>>;
 
+  /** Every entry for one event, unpaged — the scanner's offline roster. */
+  listForEvent(eventId: string): Promise<Registration[]>;
+
   /** A student's own entries, joined with their events, for "My Events". */
   listForUserWithEvents(userId: string): Promise<RegistrationWithEvent[]>;
 

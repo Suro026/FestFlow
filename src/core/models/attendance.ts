@@ -76,6 +76,8 @@ export const foodCollectionSchema = z
     /** `YYYY-MM-DD` of the day the meal belongs to. */
     servedOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
 
+    /** Which of the entry's servings this is, 1..memberCount. */
+    serving: z.number().int().min(1).default(1),
     /** The counter it was served from. */
     post: shortTextSchema.optional(),
     collectedAt: z.date(),
@@ -97,7 +99,9 @@ export const foodCollectionIdFor = (
   registrationId: string,
   servedOn: string,
   mealType: MealType,
-): string => `${registrationId}_${servedOn}_${mealType}`;
+  /** 1-based serving index — a team of three collects three lunches. */
+  serving = 1,
+): string => `${registrationId}_${servedOn}_${mealType}_${serving}`;
 
 /** What the scanner screens receive after a successful or rejected scan. */
 export type ScanOutcome =
@@ -106,6 +110,8 @@ export type ScanOutcome =
       registration: { id: string; userName: string; ticketCode: string; teamName?: string; memberCount: number };
       /** True when the scan was accepted locally and is waiting to sync. */
       queued?: boolean;
+      /** Meals: which serving this was, of how many. */
+      serving?: { n: number; of: number };
     }
   | { result: "already-recorded"; at: Date; by?: string }
   | { result: "not-found" }
