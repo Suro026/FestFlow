@@ -1,18 +1,14 @@
 import {
   doc,
-  increment,
-  writeBatch,
   getCountFromServer,
   getDoc,
   getDocs,
   onSnapshot,
   query,
-  serverTimestamp,
-  updateDoc,
   where,
   type QueryConstraint,
 } from "firebase/firestore";
-import { RepositoryError, type Page, type Unsubscribe } from "@/core/models/common";
+import type { Page, Unsubscribe } from "@/core/models/common";
 import {
   eventSchema,
   isRegistrationOpen,
@@ -22,11 +18,17 @@ import {
 } from "@/core/models/event";
 import type { EventQuery, EventRepository } from "@/core/repositories/event-repository";
 import { api } from "@/data/api-client";
-import { COLLECTIONS, firestore } from "../client";
-import { guard, stripUndefined, toRepositoryError } from "../mapping";
+import { COLLECTIONS } from "../client";
+import { guard, toRepositoryError } from "../mapping";
 import { col, getManyById, parseDoc, parseDocs, sortBy, subscribeList } from "../query-helpers";
 
 const events = () => col(COLLECTIONS.events);
+
+const parseFromApi = (raw: unknown): Event => {
+  const parsed = eventSchema.safeParse(raw);
+  if (!parsed.success) throw new Error("Server returned an unexpected event shape");
+  return parsed.data;
+};
 
 /**
  * One server-side filter; the rest in memory. A fest has tens of events, not
@@ -109,60 +111,36 @@ export class FirestoreEventRepository implements EventRepository {
     );
   }
 
-  create(input: CreateEvent, createdBy: string): Promise<Event> {
+  /**
+   * Writes go through the server: the fest's public event counter and an
+   * audit entry are written alongside the event, and the capacity / team-size
+   * guards run against the live document rather than a client's stale copy.
+   */
+  create(input: CreateEvent): Promise<Event> {
     return guard("Creating event", async () => {
-      if (!(await this.isSlugAvailable(input.festId, input.slug))) {
-        throw new RepositoryError("already-exists", `An event at "${input.slug}" already exists in this fest.`);
-      }
-
-      const ref = doc(events());
-      const batch = writeBatch(firestore());
-      batch.set(
-        ref,
-        stripUndefined({
-          ...input,
-          registeredCount: 0,
-          createdBy,
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp(),
-        }),
-      );
-      // Keep the fest's public event count honest without a count query.
-      batch.update(doc(col(COLLECTIONS.fests), input.festId), { "stats.events": increment(1) });
-      await batch.commit();
-
-      const created = await getDoc(ref);
-      const parsed = parseDoc(eventSchema, created, COLLECTIONS.events);
-      if (!parsed) throw new Error("Event was written but could not be read back");
-      return parsed;
+      const response = await api<{ event: unknown }>("/api/admin/events", { method: "POST", body: input });
+      return parseFromApi(response.event);
     });
   }
 
   update(id: string, changes: Partial<CreateEvent>): Promise<void> {
     return guard("Saving event", async () => {
-      // `registeredCount` and `festId` are excluded by the rules; strip them
-      // here too so an accidental spread does not turn into a denied write.
       const { festId: _festId, ...rest } = changes as Partial<CreateEvent> & { festId?: string };
       void _festId;
-      await updateDoc(doc(events(), id), stripUndefined({ ...rest, updatedAt: serverTimestamp() }));
+      await api<{ event: unknown }>(`/api/admin/events/${id}`, { method: "PATCH", body: rest });
     });
   }
 
-  /** Server-side: refuses while registrations exist. */
   delete(id: string): Promise<void> {
     return guard("Deleting event", () => api<void>(`/api/admin/events/${id}`, { method: "DELETE" }));
   }
 
   setStatus(id: string, status: EventStatus): Promise<void> {
-    return guard("Updating event", async () => {
-      await updateDoc(doc(events(), id), { status, updatedAt: serverTimestamp() });
-    });
+    return this.update(id, { status });
   }
 
   setRegistrationOpen(id: string, open: boolean): Promise<void> {
-    return guard("Updating event", async () => {
-      await updateDoc(doc(events(), id), { registrationOpen: open, updatedAt: serverTimestamp() });
-    });
+    return this.update(id, { registrationOpen: open });
   }
 
   countByFest(festId: string): Promise<number> {

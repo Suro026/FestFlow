@@ -128,20 +128,11 @@ service cloud.firestore {
       allow get, list: if resource.data.status in ['published', 'ongoing', 'completed']
                        || isOrganizer();
 
-      allow create: if isOrganizer()
-                    && managesFest(request.resource.data.festId)
-                    && request.resource.data.createdBy == uid()
-                    && request.resource.data.registeredCount == 0;
-
-      // `registeredCount` is deliberately excluded from what a client may
-      // write. It is maintained by the server inside the same transaction that
-      // writes a registration; letting a client set it would let any signed-in
-      // student mark an event full and close sign-ups for everyone else.
-      allow update: if managesFest(resource.data.festId)
-                    && request.resource.data.registeredCount == resource.data.registeredCount
-                    && request.resource.data.festId == resource.data.festId;
-
-      allow delete: if serverOnly();
+      // Every event write goes through /api/admin/events, which checks fest
+      // scope, refuses a capacity below the seats already taken, locks team
+      // size once entries exist, keeps the fest's event counter honest and
+      // records the change in the audit log. None of that fits in a rule.
+      allow create, update, delete: if serverOnly();
     }
 
     // ---------------------------------------------------------- registrations
