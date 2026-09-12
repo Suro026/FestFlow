@@ -84,26 +84,35 @@ export const userSchema = z
 
 export type User = z.infer<typeof userSchema>;
 
-/** What a student supplies at sign-up. The role is assigned by the server. */
-export const studentSignUpSchema = z
+export const passwordSchema = z
+  .string()
+  .min(8, "Use at least 8 characters")
+  .max(128)
+  .regex(/[a-z]/, "Include a lowercase letter")
+  .regex(/[A-Z]/, "Include an uppercase letter")
+  .regex(/\d/, "Include a number");
+
+export const passwordsMatch = { message: "Passwords do not match", path: ["confirmPassword"] as string[] };
+
+/**
+ * What a student supplies at sign-up, as a plain object so a form can extend
+ * it (consent, captcha) before adding the cross-field refinement.
+ */
+export const studentSignUpFields = z
   .object({
     fullName: shortTextSchema,
     email: emailSchema,
     phone: phoneSchema,
-    password: z
-      .string()
-      .min(8, "Use at least 8 characters")
-      .max(128)
-      .regex(/[a-z]/, "Include a lowercase letter")
-      .regex(/[A-Z]/, "Include an uppercase letter")
-      .regex(/\d/, "Include a number"),
+    password: passwordSchema,
     confirmPassword: z.string(),
   })
-  .merge(studentProfileSchema)
-  .refine((data) => data.password === data.confirmPassword, {
-    message: "Passwords do not match",
-    path: ["confirmPassword"],
-  });
+  .extend(studentProfileSchema.shape);
+
+/** The role is assigned by the server; a client never sends one. */
+export const studentSignUpSchema = studentSignUpFields.refine(
+  (data) => data.password === data.confirmPassword,
+  passwordsMatch,
+);
 
 export type StudentSignUp = z.infer<typeof studentSignUpSchema>;
 
