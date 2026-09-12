@@ -77,7 +77,10 @@ export const snapshotData = (
 ): Record<string, unknown> | null => {
   if (!snapshot.exists()) return null;
 
-  return timestampsToDates({ ...snapshot.data(), id: snapshot.id });
+  // A pending `serverTimestamp()` reads back as null in a local snapshot until
+  // the server acknowledges the write; "estimate" substitutes the client clock
+  // so a just-created row does not briefly show a 1970 date.
+  return timestampsToDates({ ...snapshot.data({ serverTimestamps: "estimate" }), id: snapshot.id });
 };
 
 const FIRESTORE_CODE_MAP: Record<string, RepositoryErrorCode> = {

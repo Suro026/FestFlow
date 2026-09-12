@@ -159,6 +159,7 @@ export const COLLECTIONS = {
   certificates: "certificates",
   foodCollections: "foodCollections",
   notifications: "notifications",
+  shifts: "shifts",
 } as const;
 
 /** Ensures the app is only ever initialised once per process. */

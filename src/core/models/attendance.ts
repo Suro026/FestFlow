@@ -31,9 +31,15 @@ export const attendanceSchema = z
     teamName: shortTextSchema.optional(),
 
     method: attendanceMethodSchema.default("qr"),
+    /** Which gate the scan happened at, from the volunteer's post. */
+    gate: shortTextSchema.optional(),
     scannedAt: z.date(),
     /** uid of the organizer who performed the scan. */
     scannedBy: idSchema,
+    /** Display name at scan time, so "By Rohit · Gate B" needs no lookup. */
+    scannedByName: shortTextSchema.optional(),
+    /** Set when the scan was taken offline and synced later. */
+    queuedOffline: z.boolean().default(false),
   })
   .merge(auditFieldsSchema);
 
@@ -64,13 +70,18 @@ export const foodCollectionSchema = z
 
     userName: shortTextSchema,
     ticketCode: shortTextSchema,
+    teamName: shortTextSchema.optional(),
 
     mealType: mealTypeSchema,
     /** `YYYY-MM-DD` of the day the meal belongs to. */
     servedOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
 
+    /** The counter it was served from. */
+    post: shortTextSchema.optional(),
     collectedAt: z.date(),
     collectedBy: idSchema,
+    collectedByName: shortTextSchema.optional(),
+    queuedOffline: z.boolean().default(false),
   })
   .merge(auditFieldsSchema);
 
@@ -90,7 +101,12 @@ export const foodCollectionIdFor = (
 
 /** What the scanner screens receive after a successful or rejected scan. */
 export type ScanOutcome =
-  | { result: "ok"; registration: { id: string; userName: string; ticketCode: string; teamName?: string } }
+  | {
+      result: "ok";
+      registration: { id: string; userName: string; ticketCode: string; teamName?: string; memberCount: number };
+      /** True when the scan was accepted locally and is waiting to sync. */
+      queued?: boolean;
+    }
   | { result: "already-recorded"; at: Date; by?: string }
   | { result: "not-found" }
   | { result: "wrong-event"; expectedEventTitle: string }

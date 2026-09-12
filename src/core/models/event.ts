@@ -54,10 +54,34 @@ export const coordinatorSchema = z.object({
 
 export type Coordinator = z.infer<typeof coordinatorSchema>;
 
+export const slugSchema = z
+  .string()
+  .trim()
+  .toLowerCase()
+  .min(2)
+  .max(60)
+  .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "Use lowercase letters, numbers and hyphens");
+
+/**
+ * A named meal slot — "Day 1 lunch". Meals are tracked per slot rather than
+ * as one boolean, so a two-day fest can hand out six meals and refuse a
+ * second helping of any one of them.
+ */
+export const mealSlotSchema = z.object({
+  /** `YYYY-MM-DD` */
+  date: calendarDateSchema,
+  mealType: z.enum(["breakfast", "lunch", "dinner", "snack"]),
+  label: shortTextSchema,
+});
+
+export type MealSlot = z.infer<typeof mealSlotSchema>;
+
 export const eventSchema = z
   .object({
     id: idSchema,
     festId: idSchema,
+    /** URL segment under the fest: `/f/{fest}/e/{slug}`. Unique within a fest. */
+    slug: slugSchema,
 
     title: shortTextSchema,
     description: longTextSchema.optional(),
@@ -83,11 +107,20 @@ export const eventSchema = z
 
     registrationOpen: z.boolean().default(true),
     registrationDeadline: calendarDateSchema.optional(),
+    /** Registrations beyond capacity queue here instead of being refused. */
+    waitlistEnabled: z.boolean().default(false),
+
+    /** In rupees. 0 is free entry. */
+    entryFee: z.number().int().min(0).max(1000000).default(0),
 
     posterUrl: z.string().url().max(2000).optional(),
     rules: z.array(z.string().trim().max(500)).max(50).default([]),
     prizes: z.array(z.string().trim().max(200)).max(20).default([]),
     coordinators: z.array(coordinatorSchema).max(10).default([]),
+
+    /** Named entry points the scanner can be posted at. */
+    gates: z.array(shortTextSchema).max(20).default([]),
+    mealSlots: z.array(mealSlotSchema).max(30).default([]),
 
     status: eventStatusSchema.default("draft"),
 
@@ -132,6 +165,7 @@ export const seatsRemaining = (
 ): number | null => (event.capacity > 0 ? Math.max(0, event.capacity - event.registeredCount) : null);
 
 const eventWritableFields = {
+  slug: slugSchema,
   title: shortTextSchema,
   description: longTextSchema.optional(),
   category: eventCategorySchema.default("other"),
@@ -144,10 +178,14 @@ const eventWritableFields = {
   capacity: z.number().int().min(0).max(100000).default(0),
   registrationOpen: z.boolean().default(true),
   registrationDeadline: calendarDateSchema.optional(),
+  waitlistEnabled: z.boolean().default(false),
+  entryFee: z.number().int().min(0).max(1000000).default(0),
   posterUrl: z.string().url().max(2000).optional(),
   rules: z.array(z.string().trim().max(500)).max(50).default([]),
   prizes: z.array(z.string().trim().max(200)).max(20).default([]),
   coordinators: z.array(coordinatorSchema).max(10).default([]),
+  gates: z.array(shortTextSchema).max(20).default([]),
+  mealSlots: z.array(mealSlotSchema).max(30).default([]),
   status: eventStatusSchema.default("draft"),
 };
 

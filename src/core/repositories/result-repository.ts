@@ -20,7 +20,7 @@ export interface ResultRepository {
   ): Unsubscribe;
 
   /** Creates or replaces the sheet, leaving its published state untouched. */
-  save(input: UpsertResult, actorId: string): Promise<Result>;
+  save(input: UpsertResult): Promise<Result>;
 
   /**
    * Marks the sheet published and stamps the event's `resultsPublishedAt`.
@@ -29,9 +29,9 @@ export interface ResultRepository {
    * before it does so, since a stale sheet could otherwise award a certificate
    * to somebody who competed elsewhere.
    */
-  publish(eventId: string, actorId: string): Promise<Result>;
+  publish(eventId: string): Promise<Result>;
 
-  unpublish(eventId: string, actorId: string): Promise<void>;
+  unpublish(eventId: string): Promise<void>;
 
   /** Stamped once a certificate run finishes, so a re-publish is detectable. */
   markCertificatesGenerated(eventId: string): Promise<void>;

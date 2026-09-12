@@ -69,6 +69,7 @@ export const COLLECTIONS = {
   certificates: "certificates",
   foodCollections: "foodCollections",
   notifications: "notifications",
+  shifts: "shifts",
 } as const;
 
 export type CollectionName = (typeof COLLECTIONS)[keyof typeof COLLECTIONS];

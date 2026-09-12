@@ -244,6 +244,21 @@ service cloud.firestore {
       allow delete: if isOwner(resource.data.userId);
     }
 
+    // ----------------------------------------------------------------- shifts
+
+    match /shifts/{shiftId} {
+      // A volunteer sees their own roster; anyone managing the fest sees all.
+      allow get: if isOwner(resource.data.userId) || managesFest(resource.data.festId);
+      allow list: if isOrganizer();
+
+      // Rostering is an admin action — the same person who creates the
+      // volunteer's account assigns their post and window.
+      allow create: if isAdmin()
+                    && managesFest(request.resource.data.festId)
+                    && request.resource.data.createdBy == uid();
+      allow update, delete: if isAdmin() && managesFest(resource.data.festId);
+    }
+
     // ------------------------------------------------------------------ deny
 
     // Anything not matched above is denied. Without this, a collection added

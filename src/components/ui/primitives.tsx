@@ -1,0 +1,256 @@
+import * as React from "react";
+import { Check } from "@phosphor-icons/react/dist/ssr";
+import { cn } from "@/lib/utils";
+
+/**
+ * The small, stateless building blocks the design canvas is made of.
+ *
+ * Each one maps to a Nocturne class in globals.css. Kept in a single file
+ * because none of them carries behaviour — they are named layout so a screen
+ * reads like the design it came from.
+ */
+
+/* ───────────── tag ───────────── */
+
+type TagTone = "accent" | "neutral" | "outline" | "danger" | "live";
+
+export interface TagProps extends React.HTMLAttributes<HTMLSpanElement> {
+  tone?: TagTone;
+  /** Prepends the check glyph the design uses for confirmed states. */
+  check?: boolean;
+}
+
+export const Tag = ({ tone = "neutral", check, className, children, ...props }: TagProps) => (
+  <span className={cn("tag", `tag-${tone}`, className)} {...props}>
+    {check ? <Check size={12} weight="bold" aria-hidden /> : null}
+    {children}
+  </span>
+);
+
+/* ───────────── kick (small caps label) ───────────── */
+
+export const Kick = ({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) => (
+  <div className={cn("kick", className)} {...props} />
+);
+
+/* ───────────── metarow (key / value) ───────────── */
+
+export interface MetaRowProps extends React.HTMLAttributes<HTMLDivElement> {
+  label: React.ReactNode;
+  children: React.ReactNode;
+  /** Highlights the value in the accent's light step — "17 seats left". */
+  emphasis?: boolean;
+  /** Renders the value in the mono ticket/certificate face. */
+  mono?: boolean;
+}
+
+export const MetaRow = ({ label, children, emphasis, mono, className, ...props }: MetaRowProps) => (
+  <div className={cn("metarow", className)} {...props}>
+    <span>{label}</span>
+    <span className={cn(emphasis && "text-accent-300", mono && "code")}>{children}</span>
+  </div>
+);
+
+export const MetaList = ({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) => (
+  <div className={cn("flex flex-col", className)} {...props} />
+);
+
+/* ───────────── kpi strip ───────────── */
+
+export const KpiStrip = ({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) => (
+  <div
+    className={cn(
+      "flex overflow-x-auto scrollbar-none border-y border-divider",
+      className,
+    )}
+    {...props}
+  />
+);
+
+export interface KpiProps extends React.HTMLAttributes<HTMLDivElement> {
+  value: React.ReactNode;
+  label: React.ReactNode;
+}
+
+export const Kpi = ({ value, label, className, ...props }: KpiProps) => (
+  <div className={cn("kpi min-w-[128px]", className)} {...props}>
+    <div className="kpin">{value}</div>
+    <div className="kpil">{label}</div>
+  </div>
+);
+
+/* ───────────── progress bar ───────────── */
+
+export interface BarProps extends React.HTMLAttributes<HTMLDivElement> {
+  /** 0–1 */
+  value: number;
+  height?: number;
+}
+
+export const Bar = ({ value, height = 4, className, style, ...props }: BarProps) => {
+  const pct = Math.max(0, Math.min(1, Number.isFinite(value) ? value : 0)) * 100;
+  return (
+    <div
+      className={cn("bar", className)}
+      style={{ height, ...style }}
+      role="progressbar"
+      aria-valuenow={Math.round(pct)}
+      aria-valuemin={0}
+      aria-valuemax={100}
+      {...props}
+    >
+      <i style={{ width: `${pct}%` }} />
+    </div>
+  );
+};
+
+/* ───────────── panel / note / card ───────────── */
+
+export const Panel = ({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) => (
+  <div className={cn("panel", className)} {...props} />
+);
+
+export interface NoteProps extends Omit<React.HTMLAttributes<HTMLDivElement>, "title"> {
+  title?: React.ReactNode;
+}
+
+export const Note = ({ title, className, children, ...props }: NoteProps) => (
+  <div className={cn("note", className)} {...props}>
+    {title ? <div className="note-title">{title}</div> : null}
+    {children}
+  </div>
+);
+
+export const Card = ({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) => (
+  <div className={cn("card elev-sm", className)} {...props} />
+);
+
+/* ───────────── timeline ───────────── */
+
+export const Timeline = ({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) => (
+  <div className={cn("timeline", className)} {...props} />
+);
+
+export interface TimelineItemProps extends Omit<React.HTMLAttributes<HTMLDivElement>, "title"> {
+  title: React.ReactNode;
+  meta?: React.ReactNode;
+  live?: boolean;
+}
+
+export const TimelineItem = ({ title, meta, live, className, ...props }: TimelineItemProps) => (
+  <div className={cn("timeline-item", className)} data-live={live || undefined} {...props}>
+    <div className="text-[13px]">{title}</div>
+    {meta ? <div className="text-[11.5px] text-neutral-500">{meta}</div> : null}
+  </div>
+);
+
+/* ───────────── placeholder artwork ───────────── */
+
+export interface PlaceholderProps extends React.HTMLAttributes<HTMLDivElement> {
+  label?: string;
+  /** Real artwork, when there is one. Falls back to the striped block. */
+  src?: string | null;
+  alt?: string;
+  /** Lighten-blends a photograph into the ground, per the design system. */
+  lighten?: boolean;
+}
+
+export const Artwork = ({ label, src, alt = "", lighten = true, className, style, ...props }: PlaceholderProps) => {
+  if (src) {
+    return (
+      <div className={cn("overflow-hidden bg-surface", className)} style={style} {...props}>
+        {/* eslint-disable-next-line @next/next/no-img-element -- remote user uploads of unknown dimensions */}
+        <img src={src} alt={alt} className={cn("h-full w-full object-cover", lighten && "lighten")} loading="lazy" />
+      </div>
+    );
+  }
+
+  return (
+    <div className={cn("ph", className)} style={style} aria-hidden {...props}>
+      {label ? (
+        <div className="px-2.5 py-2 font-mono text-[10px] leading-none tracking-[0.04em] text-neutral-500">
+          {label}
+        </div>
+      ) : null}
+    </div>
+  );
+};
+
+/* ───────────── skeleton ───────────── */
+
+export const Skeleton = ({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) => (
+  <div className={cn("skeleton", className)} aria-hidden {...props} />
+);
+
+/* ───────────── empty state ───────────── */
+
+export interface EmptyStateProps extends Omit<React.HTMLAttributes<HTMLDivElement>, "title"> {
+  icon?: React.ReactNode;
+  title: React.ReactNode;
+  body?: React.ReactNode;
+  action?: React.ReactNode;
+}
+
+export const EmptyState = ({ icon, title, body, action, className, ...props }: EmptyStateProps) => (
+  <div
+    className={cn(
+      "panel flex flex-col items-start gap-2 p-6 text-left",
+      className,
+    )}
+    {...props}
+  >
+    {icon ? <div className="mb-1 text-accent">{icon}</div> : null}
+    <div className="text-[15px] font-medium">{title}</div>
+    {body ? <div className="max-w-[48ch] text-[13px] text-neutral-400">{body}</div> : null}
+    {action ? <div className="mt-2">{action}</div> : null}
+  </div>
+);
+
+/* ───────────── page heading ───────────── */
+
+export interface PageHeadingProps {
+  kick?: React.ReactNode;
+  title: React.ReactNode;
+  sub?: React.ReactNode;
+  actions?: React.ReactNode;
+  className?: string;
+  size?: "md" | "lg";
+}
+
+export const PageHeading = ({ kick, title, sub, actions, className, size = "md" }: PageHeadingProps) => (
+  <div className={cn("flex flex-wrap items-end justify-between gap-x-6 gap-y-3", className)}>
+    <div className="min-w-0">
+      {kick ? <Kick className="mb-1.5">{kick}</Kick> : null}
+      <h2 className={cn("m-0", size === "lg" ? "text-[29px]" : "text-[26px]")}>{title}</h2>
+      {sub ? <div className="mt-1 text-[13px] text-neutral-500">{sub}</div> : null}
+    </div>
+    {actions ? <div className="flex flex-wrap items-center gap-2">{actions}</div> : null}
+  </div>
+);
+
+/* ───────────── status pill for online/offline ───────────── */
+
+export interface StatusBannerProps extends React.HTMLAttributes<HTMLDivElement> {
+  tone?: "accent" | "neutral";
+  children: React.ReactNode;
+  trailing?: React.ReactNode;
+}
+
+export const StatusBanner = ({ tone = "accent", children, trailing, className, ...props }: StatusBannerProps) => (
+  <div
+    className={cn(
+      "flex items-center gap-2 rounded-md px-[11px] py-[9px] text-[12.5px]",
+      tone === "accent" ? "shadow-[inset_0_0_0_1px_var(--color-accent)]" : "shadow-[inset_0_0_0_1px_var(--color-divider)]",
+      className,
+    )}
+    role="status"
+    {...props}
+  >
+    <span
+      className={cn("h-[7px] w-[7px] flex-none rounded-full", tone === "accent" ? "bg-accent" : "bg-neutral-600")}
+      aria-hidden
+    />
+    <span className="flex-1">{children}</span>
+    {trailing ? <span className="text-accent-300">{trailing}</span> : null}
+  </div>
+);

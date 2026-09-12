@@ -9,6 +9,8 @@ export type { AttendanceRepository } from "./attendance-repository";
 export type { ResultRepository } from "./result-repository";
 export type { CertificateRepository, CertificateQuery } from "./certificate-repository";
 export type { NotificationRepository } from "./notification-repository";
+export type { ShiftRepository } from "./shift-repository";
+export type { GenerateSummary } from "./certificate-repository";
 
 import type { UserRepository } from "./user-repository";
 import type { FestRepository } from "./fest-repository";
@@ -18,6 +20,7 @@ import type { AttendanceRepository } from "./attendance-repository";
 import type { ResultRepository } from "./result-repository";
 import type { CertificateRepository } from "./certificate-repository";
 import type { NotificationRepository } from "./notification-repository";
+import type { ShiftRepository } from "./shift-repository";
 
 /**
  * The full set of repositories, resolved once and handed to the UI through a
@@ -36,4 +39,5 @@ export interface Repositories {
   results: ResultRepository;
   certificates: CertificateRepository;
   notifications: NotificationRepository;
+  shifts: ShiftRepository;
 }
