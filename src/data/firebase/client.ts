@@ -127,6 +127,7 @@ export const COLLECTIONS = {
   foodCollections: "foodCollections",
   notifications: "notifications",
   shifts: "shifts",
+  auditLog: "auditLog",
 } as const;
 
 export type CollectionName = (typeof COLLECTIONS)[keyof typeof COLLECTIONS];

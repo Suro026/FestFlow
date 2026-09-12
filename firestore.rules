@@ -266,6 +266,17 @@ service cloud.firestore {
       allow update, delete: if isAdmin() && managesFest(resource.data.festId);
     }
 
+    // --------------------------------------------------------------- auditLog
+
+    match /auditLog/{entryId} {
+      // The trail is readable by whoever manages the fest it concerns, and by
+      // super admins for platform-wide entries. Written by the server only:
+      // a client that could write here could also cover its tracks.
+      allow get, list: if isSuperAdmin()
+                       || (isOrganizer() && resource.data.festId is string && managesFest(resource.data.festId));
+      allow create, update, delete: if serverOnly();
+    }
+
     // ------------------------------------------------------------------ deny
 
     // Anything not matched above is denied. Without this, a collection added

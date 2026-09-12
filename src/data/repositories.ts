@@ -8,6 +8,7 @@ import { FirestoreResultRepository } from "./firebase/repositories/result-reposi
 import { FirestoreCertificateRepository } from "./firebase/repositories/certificate-repository";
 import { FirestoreNotificationRepository } from "./firebase/repositories/notification-repository";
 import { FirestoreShiftRepository } from "./firebase/repositories/shift-repository";
+import { FirestoreAuditRepository } from "./firebase/repositories/audit-repository";
 
 /**
  * The composition root.
@@ -29,6 +30,7 @@ export const createRepositories = (): Repositories => ({
   certificates: new FirestoreCertificateRepository(),
   notifications: new FirestoreNotificationRepository(),
   shifts: new FirestoreShiftRepository(),
+  audit: new FirestoreAuditRepository(),
 });
 
 export const repositories = (): Repositories => {

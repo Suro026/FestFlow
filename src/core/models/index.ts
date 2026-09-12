@@ -16,3 +16,4 @@ export * from "./result";
 export * from "./certificate";
 export * from "./notification";
 export * from "./shift";
+export * from "./audit";
