@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { idSchema, shortTextSchema } from "@/core/models/common";
 import { ApiError, handler, ok, readBody, requireRole } from "@/server/api";
+import { audit } from "@/server/audit";
 import {
   COLLECTIONS,
   FieldValue,
@@ -123,6 +124,21 @@ export const PATCH = handler(async (request, context) => {
     updatedAt: FieldValue.serverTimestamp(),
   });
 
+  await audit(caller, {
+    action: "staff_updated",
+    summary: `Updated ${current.fullName ?? current.email}: ${[
+      input.role !== undefined && input.role !== currentRole ? `role ${currentRole} → ${role}` : null,
+      input.disabled !== undefined ? (input.disabled ? "disabled" : "re-enabled") : null,
+      input.festIds !== undefined ? `scoped to ${festIds.length} fest(s)` : null,
+      input.fullName !== undefined ? "name" : null,
+    ]
+      .filter(Boolean)
+      .join(", ") || "details"}`,
+    subjectType: "user",
+    subjectId: id,
+    ...(festIds[0] ? { festId: festIds[0] } : {}),
+  });
+
   return ok({ id, role, festIds, disabled: input.disabled ?? current.disabled === true });
 });
 
@@ -167,6 +183,13 @@ export const DELETE = handler(async (request, context) => {
     });
 
   await ref.delete();
+
+  await audit(caller, {
+    action: "staff_deleted",
+    summary: `Deleted staff account ${data.fullName ?? data.email}`,
+    subjectType: "user",
+    subjectId: id,
+  });
 
   return ok({ id, deleted: true });
 });

@@ -13,6 +13,7 @@ import {
   adminDb,
 } from "@/server/firebase-admin";
 import { emailService } from "@/server/email";
+import { audit } from "@/server/audit";
 import { staffInviteEmail } from "@/server/email/templates";
 
 /**
@@ -133,6 +134,15 @@ export const POST = handler(async (request) => {
     throw error;
   }
 
+  await audit(caller, {
+    action: "staff_created",
+    summary: `Created ${ROLE_LABELS[input.role].toLowerCase()} account for ${input.fullName} (${input.email})`,
+    subjectType: "user",
+    subjectId: created.uid,
+    ...(input.festIds[0] ? { festId: input.festIds[0] } : {}),
+    details: { role: input.role, festIds: input.festIds },
+  });
+
   // A link, not a password. A password mailed in plain text lives in the
   // recipient's inbox forever and cannot be withdrawn; this expires.
   const setPasswordLink = await auth.generatePasswordResetLink(input.email);
@@ -178,14 +188,27 @@ export const POST = handler(async (request) => {
 /** GET /api/admin/staff — list non-student accounts. */
 export const GET = handler(async (request) => {
   await requireRole(request, "admin");
+  const auth = adminAuth();
 
   const snapshot = await adminDb()
     .collection(COLLECTIONS.users)
     .where("role", "in", ["organizer", "admin", "super_admin"])
     .get();
 
+  // Auth holds the sign-in metadata Firestore does not: whether the invite
+  // was ever used, and when they were last here. One batched lookup.
+  const ids = snapshot.docs.map((doc) => ({ uid: doc.id }));
+  const authUsers = new Map<string, { lastSignIn: string | null; created: string | null }>();
+  for (let i = 0; i < ids.length; i += 100) {
+    const batch = await auth.getUsers(ids.slice(i, i + 100)).catch(() => null);
+    for (const u of batch?.users ?? []) {
+      authUsers.set(u.uid, { lastSignIn: u.metadata.lastSignInTime ?? null, created: u.metadata.creationTime ?? null });
+    }
+  }
+
   const staff = snapshot.docs.map((doc) => {
     const data = doc.data();
+    const meta = authUsers.get(doc.id);
 
     return {
       id: doc.id,
@@ -195,7 +218,9 @@ export const GET = handler(async (request) => {
       designation: data.organizer?.designation ?? null,
       festIds: data.organizer?.festIds ?? [],
       disabled: data.disabled === true,
-      createdAt: data.createdAt?.toDate?.()?.toISOString() ?? null,
+      createdAt: data.createdAt?.toDate?.()?.toISOString() ?? meta?.created ?? null,
+      lastSignInAt: meta?.lastSignIn ? new Date(meta.lastSignIn).toISOString() : null,
+      activated: Boolean(meta?.lastSignIn),
     };
   });
 
