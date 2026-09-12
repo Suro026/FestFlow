@@ -1,4 +1,4 @@
-import { auth } from "@/data/firebase/client";
+import { firebaseAuth } from "@/data/firebase/client";
 import { RepositoryError, type RepositoryErrorCode } from "@/core/models/common";
 
 /**
@@ -54,7 +54,7 @@ export const api = async <T>(
   if (body !== undefined) requestHeaders.set("Content-Type", "application/json");
 
   if (withAuth) {
-    const user = auth.currentUser;
+    const user = firebaseAuth().currentUser;
     if (!user) throw new RepositoryError("permission-denied", "Sign in to continue.");
     requestHeaders.set("Authorization", `Bearer ${await user.getIdToken()}`);
   }

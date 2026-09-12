@@ -15,7 +15,7 @@ import type { Unsubscribe } from "@/core/models/common";
 import { shiftSchema, type CreateShift, type Shift, type UpdateShift } from "@/core/models/shift";
 import { userSchema } from "@/core/models/user";
 import type { ShiftRepository } from "@/core/repositories/shift-repository";
-import { COLLECTIONS, db } from "../client";
+import { COLLECTIONS, firestore } from "../client";
 import { guard, stripUndefined } from "../mapping";
 import { col, parseDoc, parseDocs, sortBy, subscribeList } from "../query-helpers";
 
@@ -99,7 +99,7 @@ export class FirestoreShiftRepository implements ShiftRepository {
 
   createMany(inputs: CreateShift[], createdBy: string): Promise<number> {
     return guard("Creating shifts", async () => {
-      const batch = writeBatch(db);
+      const batch = writeBatch(firestore());
       for (const input of inputs) {
         batch.set(
           doc(shifts()),

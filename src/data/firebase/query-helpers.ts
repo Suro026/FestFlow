@@ -16,7 +16,7 @@ import {
 } from "firebase/firestore";
 import type { ZodType } from "zod";
 import type { Page, PageRequest, Unsubscribe } from "@/core/models/common";
-import { db, type CollectionName } from "./client";
+import { firestore, type CollectionName } from "./client";
 import { snapshotData, toRepositoryError } from "./mapping";
 
 /**
@@ -28,7 +28,7 @@ import { snapshotData, toRepositoryError } from "./mapping";
  * old client must not blank the entire dashboard.
  */
 
-export const col = (name: CollectionName): CollectionReference<DocumentData> => collection(db, name);
+export const col = (name: CollectionName): CollectionReference<DocumentData> => collection(firestore(), name);
 
 export const parseDoc = <T>(
   schema: ZodType<T>,

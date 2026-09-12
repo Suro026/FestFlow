@@ -50,7 +50,3 @@ yarn-error.log*
 
 # Vercel
 .vercel
-
-# The old Vite source, kept only as a porting reference. Deleted once the
-# port is complete; tracked in git until then so nothing is lost.
-# (intentionally NOT ignored)

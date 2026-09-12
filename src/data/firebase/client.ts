@@ -2,61 +2,118 @@ import { getApp, getApps, initializeApp, type FirebaseApp } from "firebase/app";
 import { getAuth, type Auth } from "firebase/auth";
 import { getFirestore, type Firestore } from "firebase/firestore";
 import { getStorage, type FirebaseStorage } from "firebase/storage";
+import { RepositoryError } from "@/core/models/common";
 
 /**
  * The client Firebase SDK.
  *
- * This is the only file in the app that calls `initializeApp`. Everything else
- * imports the instances from here, which is what keeps Fast Refresh from
- * creating a second app on every edit (`getApps()` guard) and gives the Expo
- * app in Phase 2 a single file to swap for its own initialisation.
+ * Initialisation is lazy on purpose. `next build` prerenders the public
+ * pages, which import the repositories, which import this file — so anything
+ * that throws at import time takes the whole build down the moment an
+ * environment variable is missing. That is exactly what broke the first
+ * Vercel deploy. Now a missing config is a `RepositoryError` raised when a
+ * repository is *used*; the public pages already catch those and render an
+ * empty state, so the build passes and the site says what is wrong instead of
+ * refusing to exist.
+ *
+ * The `getApps()` guard keeps Fast Refresh from creating a second app on every
+ * edit, and gives the Expo app in Phase 2 a single file to swap.
  */
 
-const requireEnv = (name: string, value: string | undefined): string => {
-  if (!value) {
-    throw new Error(
-      `Missing ${name}. Copy .env.example to .env.local and fill in the Firebase web config ` +
-        `(Firebase console -> Project settings -> General -> Your apps).`,
-    );
-  }
-
-  return value;
-};
+const REQUIRED = [
+  "NEXT_PUBLIC_FIREBASE_API_KEY",
+  "NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN",
+  "NEXT_PUBLIC_FIREBASE_PROJECT_ID",
+  "NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET",
+  "NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID",
+  "NEXT_PUBLIC_FIREBASE_APP_ID",
+] as const;
 
 /**
- * Read eagerly rather than inside the accessor: `process.env.NEXT_PUBLIC_*` is
- * inlined at build time, so it has to be referenced as a literal property
- * access to be replaced at all.
+ * `process.env.NEXT_PUBLIC_*` is inlined at build time, so each variable has
+ * to be referenced as a literal property access — a dynamic lookup like
+ * `process.env[name]` is not replaced and reads as undefined in the browser.
  */
-const firebaseConfig = {
-  apiKey: requireEnv("NEXT_PUBLIC_FIREBASE_API_KEY", process.env.NEXT_PUBLIC_FIREBASE_API_KEY),
-  authDomain: requireEnv(
-    "NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN",
-    process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-  ),
-  projectId: requireEnv(
-    "NEXT_PUBLIC_FIREBASE_PROJECT_ID",
-    process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-  ),
-  storageBucket: requireEnv(
-    "NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET",
-    process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-  ),
-  messagingSenderId: requireEnv(
-    "NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID",
-    process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-  ),
-  appId: requireEnv("NEXT_PUBLIC_FIREBASE_APP_ID", process.env.NEXT_PUBLIC_FIREBASE_APP_ID),
-  ...(process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID
-    ? { measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID }
-    : {}),
+const readConfig = () => ({
+  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+  measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID,
+});
+
+/** Names of the required variables that are not set. Empty when configured. */
+export const missingFirebaseConfig = (): string[] => {
+  const config = readConfig();
+  const present: Record<(typeof REQUIRED)[number], string | undefined> = {
+    NEXT_PUBLIC_FIREBASE_API_KEY: config.apiKey,
+    NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: config.authDomain,
+    NEXT_PUBLIC_FIREBASE_PROJECT_ID: config.projectId,
+    NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: config.storageBucket,
+    NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: config.messagingSenderId,
+    NEXT_PUBLIC_FIREBASE_APP_ID: config.appId,
+  };
+  return REQUIRED.filter((name) => !present[name]);
 };
 
-export const firebaseApp: FirebaseApp = getApps().length ? getApp() : initializeApp(firebaseConfig);
+export const isFirebaseConfigured = (): boolean => missingFirebaseConfig().length === 0;
 
-export const auth: Auth = getAuth(firebaseApp);
-export const db: Firestore = getFirestore(firebaseApp);
-export const storage: FirebaseStorage = getStorage(firebaseApp);
+export class FirebaseNotConfiguredError extends RepositoryError {
+  readonly missing: string[];
+
+  constructor(missing: string[]) {
+    super(
+      "unavailable",
+      `Firebase is not configured: set ${missing.join(", ")} in the environment ` +
+        `(locally in .env.local, on Vercel under Project → Settings → Environment Variables).`,
+    );
+    this.name = "FirebaseNotConfiguredError";
+    this.missing = missing;
+  }
+}
+
+let warned = false;
+let app: FirebaseApp | null = null;
+
+export const firebaseApp = (): FirebaseApp => {
+  if (app) return app;
+
+  const missing = missingFirebaseConfig();
+
+  if (missing.length) {
+    // One loud line in the build log is worth more than a stack trace per page.
+    if (!warned && typeof window === "undefined") {
+      warned = true;
+      console.warn(
+        `\n[festflow] Firebase web config is missing (${missing.join(", ")}). ` +
+          `Pages will render without data until the variables are set.\n`,
+      );
+    }
+    throw new FirebaseNotConfiguredError(missing);
+  }
+
+  const config = readConfig();
+
+  app = getApps().length
+    ? getApp()
+    : initializeApp({
+        apiKey: config.apiKey,
+        authDomain: config.authDomain,
+        projectId: config.projectId,
+        storageBucket: config.storageBucket,
+        messagingSenderId: config.messagingSenderId,
+        appId: config.appId,
+        ...(config.measurementId ? { measurementId: config.measurementId } : {}),
+      });
+
+  return app;
+};
+
+export const firebaseAuth = (): Auth => getAuth(firebaseApp());
+export const firestore = (): Firestore => getFirestore(firebaseApp());
+export const firebaseStorage = (): FirebaseStorage => getStorage(firebaseApp());
 
 /** Collection names, in one place so a typo is a compile error, not a silent empty query. */
 export const COLLECTIONS = {

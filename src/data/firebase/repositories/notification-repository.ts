@@ -12,7 +12,7 @@ import {
 import type { Unsubscribe } from "@/core/models/common";
 import { notificationSchema, type CreateNotification, type Notification } from "@/core/models/notification";
 import type { NotificationRepository } from "@/core/repositories/notification-repository";
-import { COLLECTIONS, db } from "../client";
+import { COLLECTIONS, firestore } from "../client";
 import { guard } from "../mapping";
 import { col, parseDocs, sortBy, subscribeList } from "../query-helpers";
 
@@ -74,7 +74,7 @@ export class FirestoreNotificationRepository implements NotificationRepository {
 
       if (snapshot.empty) return 0;
 
-      const batch = writeBatch(db);
+      const batch = writeBatch(firestore());
       for (const item of snapshot.docs) {
         batch.update(item.ref, { read: true, readAt: serverTimestamp(), updatedAt: serverTimestamp() });
       }

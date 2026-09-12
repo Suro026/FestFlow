@@ -65,14 +65,25 @@ const AuthProvider = ({
   const [profileSettled, setProfileSettled] = React.useState(false);
 
   React.useEffect(() => {
-    return auth.onSessionChange((next) => {
-      setSession(next);
-      setStatus(next ? "signed-in" : "signed-out");
-      if (!next) {
-        setProfile(null);
-        setProfileSettled(true);
-      }
-    });
+    try {
+      return auth.onSessionChange((next) => {
+        setSession(next);
+        setStatus(next ? "signed-in" : "signed-out");
+        if (!next) {
+          setProfile(null);
+          setProfileSettled(true);
+        }
+      });
+    } catch (error) {
+      // Firebase is not configured for this deployment. Treat the visitor as
+      // signed out so the public pages still render, and say why in the
+      // console rather than blanking the whole app.
+      console.error("[festflow] auth unavailable:", error);
+      setSession(null);
+      setStatus("signed-out");
+      setProfileSettled(true);
+      return undefined;
+    }
   }, [auth]);
 
   React.useEffect(() => {
