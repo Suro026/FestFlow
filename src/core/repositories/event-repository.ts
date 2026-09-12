@@ -39,7 +39,7 @@ export interface EventRepository {
     onError: (error: unknown) => void,
   ): Unsubscribe;
 
-  create(input: CreateEvent, createdBy: string): Promise<Event>;
+  create(input: CreateEvent): Promise<Event>;
 
   update(id: string, changes: Partial<CreateEvent>): Promise<void>;
 

@@ -67,10 +67,12 @@ export const slugSchema = z
  * as one boolean, so a two-day fest can hand out six meals and refuse a
  * second helping of any one of them.
  */
+export const MEAL_TYPES_LIST = ["breakfast", "lunch", "dinner", "snack"] as const;
+
 export const mealSlotSchema = z.object({
   /** `YYYY-MM-DD` */
   date: calendarDateSchema,
-  mealType: z.enum(["breakfast", "lunch", "dinner", "snack"]),
+  mealType: z.enum(MEAL_TYPES_LIST),
   label: shortTextSchema,
 });
 
