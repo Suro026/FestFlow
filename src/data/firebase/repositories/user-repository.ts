@@ -14,7 +14,7 @@ import type { Page, PageRequest, Unsubscribe } from "@/core/models/common";
 import type { UserRepository } from "@/core/repositories/user-repository";
 import { COLLECTIONS } from "../client";
 import { guard, stripUndefined } from "../mapping";
-import { col, getManyByField, matchesSearch, parseDoc, parseDocs, runPage, subscribeList } from "../query-helpers";
+import { col, getManyByField, matchesSearch, parseDoc, parseDocs, runPage, sortBy, subscribeList } from "../query-helpers";
 
 const users = () => col(COLLECTIONS.users);
 
@@ -123,10 +123,10 @@ export class FirestoreUserRepository implements UserRepository {
   subscribeToStaff(onChange: (items: User[]) => void, onError: (error: unknown) => void): Unsubscribe {
     const staffRoles = USER_ROLES.filter((role) => role !== "student");
     return subscribeList(
-      query(users(), where("role", "in", staffRoles), orderBy("createdAt", "desc")),
+      query(users(), where("role", "in", staffRoles)),
       userSchema,
       COLLECTIONS.users,
-      onChange,
+      (items) => onChange(sortBy(items, [(u) => u.fullName, "asc"])),
       onError,
     );
   }

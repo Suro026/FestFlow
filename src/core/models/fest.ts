@@ -51,6 +51,20 @@ export const festSchema = z
     contactEmail: z.string().email().optional(),
     contactPhone: z.string().max(20).optional(),
 
+    /**
+     * Public counters, maintained by the code paths that change them (event
+     * creation, the registration transaction, check-in). Registrations are
+     * not publicly listable - a student's entry is theirs - so the marquee's
+     * "6,412 registered" has to come from here rather than from a count.
+     */
+    stats: z
+      .object({
+        events: z.number().int().min(0).default(0),
+        registrations: z.number().int().min(0).default(0),
+        checkIns: z.number().int().min(0).default(0),
+      })
+      .default({ events: 0, registrations: 0, checkIns: 0 }),
+
     createdBy: idSchema,
   })
   .merge(auditFieldsSchema)

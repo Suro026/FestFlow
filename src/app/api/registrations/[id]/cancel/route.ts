@@ -40,17 +40,16 @@ export const POST = handler(async (request, context) => {
     // Find a waitlisted entry that fits the freed seats, before writing.
     let promote: FirebaseFirestore.QueryDocumentSnapshot | null = null;
     if (wasConfirmed && event.waitlistEnabled === true) {
+      // Equality-only query (no index needed); earliest-first in memory.
       const waiting = await tx.get(
-        db
-          .collection(COLLECTIONS.registrations)
-          .where("eventId", "==", reg.eventId)
-          .where("status", "==", "waitlisted")
-          .orderBy("createdAt", "asc")
-          .limit(10),
+        db.collection(COLLECTIONS.registrations).where("eventId", "==", reg.eventId).where("status", "==", "waitlisted"),
+      );
+      const ordered = [...waiting.docs].sort(
+        (a, b) => (a.data().createdAt?.toMillis?.() ?? 0) - (b.data().createdAt?.toMillis?.() ?? 0),
       );
       const capacity = Number(event.capacity ?? 0);
       const after = Number(event.registeredCount ?? 0) - seats;
-      promote = waiting.docs.find((d) => capacity === 0 || after + Number(d.data().seats ?? 1) <= capacity) ?? null;
+      promote = ordered.find((d) => capacity === 0 || after + Number(d.data().seats ?? 1) <= capacity) ?? null;
     }
 
     tx.update(regRef, {
@@ -66,6 +65,7 @@ export const POST = handler(async (request, context) => {
         delta += Number(promote.data().seats ?? 1);
       }
       tx.update(eventRef, { registeredCount: FieldValue.increment(delta), updatedAt: FieldValue.serverTimestamp() });
+      tx.update(db.collection(COLLECTIONS.fests).doc(String(reg.festId)), { "stats.registrations": FieldValue.increment(delta) });
     }
 
     return promote ? { id: promote.id, userId: String(promote.data().userId), title: String(reg.eventTitle) } : null;

@@ -100,19 +100,18 @@ export const POST = handler(async (request) => {
     );
     if (!dup.empty) throw ApiError.conflict("You already hold an entry for this event.");
 
-    // Teammates cannot be in two entries either.
+    // Teammates cannot be in two entries either. Firestore allows only one of
+    // `in` / `array-contains-any` per query, so status is checked in memory.
     if (teammateEmails.length) {
       const clash = await tx.get(
         db
           .collection(COLLECTIONS.registrations)
           .where("eventId", "==", input.eventId)
-          .where("memberEmails", "array-contains-any", teammateEmails.slice(0, 30))
-          .where("status", "in", ["confirmed", "waitlisted"])
-          .limit(1),
+          .where("memberEmails", "array-contains-any", teammateEmails.slice(0, 30)),
       );
-      if (!clash.empty) {
-        const other = clash.docs[0]!.data();
-        const taken = (other.memberEmails as string[]).find((e) => teammateEmails.includes(e));
+      const active = clash.docs.find((d) => d.data().status !== "cancelled");
+      if (active) {
+        const taken = (active.data().memberEmails as string[]).find((e) => teammateEmails.includes(e));
         throw ApiError.conflict(`${taken} is already on another team for this event.`);
       }
     }
@@ -161,6 +160,9 @@ export const POST = handler(async (request) => {
 
     if (status === "confirmed") {
       tx.update(eventRef, { registeredCount: FieldValue.increment(seats), updatedAt: FieldValue.serverTimestamp() });
+      tx.update(db.collection(COLLECTIONS.fests).doc(String(event.festId)), {
+        "stats.registrations": FieldValue.increment(seats),
+      });
     }
 
     return { regRef, status, event };

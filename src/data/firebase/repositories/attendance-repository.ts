@@ -1,10 +1,10 @@
 import {
   deleteDoc,
   doc,
+  increment,
   getCountFromServer,
   getDoc,
   getDocs,
-  orderBy,
   query,
   runTransaction,
   serverTimestamp,
@@ -29,7 +29,7 @@ import type { AttendanceRepository } from "@/core/repositories/attendance-reposi
 import { api } from "@/data/api-client";
 import { COLLECTIONS } from "../client";
 import { guard, stripUndefined, toRepositoryError } from "../mapping";
-import { col, parseDoc, parseDocs, subscribeList } from "../query-helpers";
+import { col, parseDoc, parseDocs, sortBy, subscribeList } from "../query-helpers";
 
 const attendance = () => col(COLLECTIONS.attendance);
 const meals = () => col(COLLECTIONS.foodCollections);
@@ -124,6 +124,8 @@ export class FirestoreAttendanceRepository implements AttendanceRepository {
             }),
           );
 
+          tx.update(doc(col(COLLECTIONS.fests), registration.festId), { "stats.checkIns": increment(1) });
+
           return {
             result: "ok",
             registration: {
@@ -150,8 +152,8 @@ export class FirestoreAttendanceRepository implements AttendanceRepository {
 
   listByEvent(eventId: string): Promise<Attendance[]> {
     return guard("Loading check-ins", async () => {
-      const snapshot = await getDocs(query(attendance(), where("eventId", "==", eventId), orderBy("scannedAt", "desc")));
-      return parseDocs(attendanceSchema, snapshot.docs, COLLECTIONS.attendance);
+      const snapshot = await getDocs(query(attendance(), where("eventId", "==", eventId)));
+      return sortBy(parseDocs(attendanceSchema, snapshot.docs, COLLECTIONS.attendance), [(a) => a.scannedAt, "desc"]);
     });
   }
 
@@ -164,18 +166,22 @@ export class FirestoreAttendanceRepository implements AttendanceRepository {
 
   subscribeByEvent(eventId: string, onChange: (records: Attendance[]) => void, onError: (error: unknown) => void): Unsubscribe {
     return subscribeList(
-      query(attendance(), where("eventId", "==", eventId), orderBy("scannedAt", "desc")),
+      query(attendance(), where("eventId", "==", eventId)),
       attendanceSchema,
       COLLECTIONS.attendance,
-      onChange,
+      (items) => onChange(sortBy(items, [(a) => a.scannedAt, "desc"])),
       onError,
     );
   }
 
   subscribeByFest(festId: string, onChange: (records: Attendance[]) => void, onError: (error: unknown) => void, limit = 50): Unsubscribe {
-    const constraints: QueryConstraint[] = [where("festId", "==", festId), orderBy("scannedAt", "desc")];
-    void limit;
-    return subscribeList(query(attendance(), ...constraints), attendanceSchema, COLLECTIONS.attendance, onChange, onError);
+    return subscribeList(
+      query(attendance(), where("festId", "==", festId)),
+      attendanceSchema,
+      COLLECTIONS.attendance,
+      (items) => onChange(sortBy(items, [(a) => a.scannedAt, "desc"]).slice(0, limit)),
+      onError,
+    );
   }
 
   countByEvent(eventId: string): Promise<number> {
@@ -263,8 +269,14 @@ export class FirestoreAttendanceRepository implements AttendanceRepository {
     return guard("Loading meals", async () => {
       const constraints: QueryConstraint[] = [where("eventId", "==", eventId)];
       if (servedOn) constraints.push(where("servedOn", "==", servedOn));
-      constraints.push(orderBy("collectedAt", "desc"));
       const snapshot = await getDocs(query(meals(), ...constraints));
+      return sortBy(parseDocs(foodCollectionSchema, snapshot.docs, COLLECTIONS.foodCollections), [(m) => m.collectedAt, "desc"]);
+    });
+  }
+
+  listMealsForUser(userId: string): Promise<FoodCollection[]> {
+    return guard("Loading meals", async () => {
+      const snapshot = await getDocs(query(meals(), where("userId", "==", userId)));
       return parseDocs(foodCollectionSchema, snapshot.docs, COLLECTIONS.foodCollections);
     });
   }

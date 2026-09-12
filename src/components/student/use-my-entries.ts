@@ -77,17 +77,14 @@ export const useMyEntries = () => {
         joined.map((j) => repos.attendance.getByRegistration(j.registration.id).catch(() => null)),
       );
 
-      // Meals: the rules let a student read their own food records.
+      // Meals: one owner-scoped query, grouped by entry.
+      const allMeals = await repos.attendance.listMealsForUser(session.uid).catch(() => []);
       const mealsByReg = new Map<string, FoodCollection[]>();
-      await Promise.all(
-        joined.map(async (j) => {
-          const list = await repos.attendance.listMealsByEvent(j.registration.eventId).catch(() => []);
-          mealsByReg.set(
-            j.registration.id,
-            list.filter((m) => m.registrationId === j.registration.id),
-          );
-        }),
-      );
+      for (const meal of allMeals) {
+        const list = mealsByReg.get(meal.registrationId) ?? [];
+        list.push(meal);
+        mealsByReg.set(meal.registrationId, list);
+      }
 
       return joined.map((j, i) => ({
         registration: j.registration,

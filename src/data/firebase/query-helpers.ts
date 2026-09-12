@@ -154,6 +154,33 @@ export const getManyByField = async <T>(
   return results.flatMap((snapshot) => parseDocs(schema, snapshot.docs, name));
 };
 
+/**
+ * In-memory ordering.
+ *
+ * Firestore needs a composite index for `where(a == x) + orderBy(b)`, and an
+ * index that does not exist fails the whole query. Every bounded list here
+ * (a fest's events, a student's entries, a shift roster) is small enough to
+ * fetch by one equality filter and order in memory, which means the app works
+ * on a fresh project before any index has been created. Only the paginated
+ * admin tables keep server-side ordering.
+ */
+export const sortBy = <T>(
+  items: T[],
+  ...keys: Array<[(item: T) => string | number | Date | undefined | null, "asc" | "desc"]>
+): T[] =>
+  [...items].sort((a, b) => {
+    for (const [pick, dir] of keys) {
+      const av = pick(a);
+      const bv = pick(b);
+      const an = av instanceof Date ? av.getTime() : av ?? "";
+      const bn = bv instanceof Date ? bv.getTime() : bv ?? "";
+      if (an === bn) continue;
+      const cmp = an < bn ? -1 : 1;
+      return dir === "asc" ? cmp : -cmp;
+    }
+    return 0;
+  });
+
 /** Case-insensitive contains, applied client-side to a fetched page. */
 export const matchesSearch = (haystack: Array<string | undefined | null>, needle: string | undefined): boolean => {
   if (!needle?.trim()) return true;

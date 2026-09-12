@@ -25,13 +25,8 @@ export default async function LandingPage() {
   const live = fests.filter((f) => f.startDate <= today && f.endDate >= today);
   const happening = [...live, ...fests.filter((f) => f.startDate > today)].slice(0, 3);
 
-  const [eventCounts, registrationCounts] = await Promise.all([
-    Promise.all(fests.map((f) => repos.events.countByFest(f.id).catch(() => 0))),
-    Promise.all(fests.map((f) => repos.registrations.countByFest(f.id).catch(() => 0))),
-  ]);
-
-  const totalEvents = eventCounts.reduce((a, b) => a + b, 0);
-  const totalRegistrations = registrationCounts.reduce((a, b) => a + b, 0);
+  const totalEvents = fests.reduce((a, f) => a + f.stats.events, 0);
+  const totalRegistrations = fests.reduce((a, f) => a + f.stats.registrations, 0);
   const colleges = new Set(fests.map((f) => f.organizationName)).size;
 
   return (

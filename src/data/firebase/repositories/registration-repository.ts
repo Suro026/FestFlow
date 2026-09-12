@@ -21,17 +21,23 @@ import type { RegistrationQuery, RegistrationRepository } from "@/core/repositor
 import { api } from "@/data/api-client";
 import { COLLECTIONS } from "../client";
 import { guard } from "../mapping";
-import { col, getManyByField, getManyById, matchesSearch, parseDoc, runPage, subscribeList } from "../query-helpers";
+import { col, getManyById, matchesSearch, parseDoc, runPage, sortBy, subscribeList } from "../query-helpers";
 
 const registrations = () => col(COLLECTIONS.registrations);
 
-const constraintsFor = (q: RegistrationQuery): QueryConstraint[] => {
+/**
+ * Equality filters merge on single-field indexes automatically; the orderBy
+ * is what needs a composite index. Admin tables (event/fest scope) keep it
+ * for pagination — see firestore.indexes.json — while a student's own list
+ * is small enough to sort in memory.
+ */
+const constraintsFor = (q: RegistrationQuery, paged: boolean): QueryConstraint[] => {
   const out: QueryConstraint[] = [];
   if (q.eventId) out.push(where("eventId", "==", q.eventId));
   if (q.festId) out.push(where("festId", "==", q.festId));
   if (q.userId) out.push(where("userId", "==", q.userId));
   if (q.status) out.push(where("status", "==", q.status));
-  out.push(orderBy("createdAt", "desc"));
+  if (paged) out.push(orderBy("createdAt", "desc"));
   return out;
 };
 
@@ -74,7 +80,7 @@ export class FirestoreRegistrationRepository implements RegistrationRepository {
   list(q: RegistrationQuery = {}): Promise<Page<Registration>> {
     return guard("Loading registrations", async () => {
       const page = await runPage(
-        query(registrations(), ...constraintsFor(q)),
+        query(registrations(), ...constraintsFor(q, true)),
         registrationSchema,
         COLLECTIONS.registrations,
         q,
@@ -86,23 +92,31 @@ export class FirestoreRegistrationRepository implements RegistrationRepository {
 
   listForUserWithEvents(userId: string): Promise<RegistrationWithEvent[]> {
     return guard("Loading your events", async () => {
-      const snapshot = await getDocs(
-        query(registrations(), where("userId", "==", userId), orderBy("createdAt", "desc")),
-      );
+      const snapshot = await getDocs(query(registrations(), where("userId", "==", userId)));
 
-      const mine = snapshot.docs
-        .map((d) => parseDoc(registrationSchema, d, COLLECTIONS.registrations))
-        .filter((r): r is Registration => r !== null);
+      const mine = sortBy(
+        snapshot.docs
+          .map((d) => parseDoc(registrationSchema, d, COLLECTIONS.registrations))
+          .filter((r): r is Registration => r !== null),
+        [(r) => r.createdAt, "desc"],
+      );
 
       if (mine.length === 0) return [];
 
-      const [events, attendance] = await Promise.all([
+      // Attendance is read per entry by its deterministic id: a `get` the
+      // owner rule allows, where a list by registration id would not be.
+      const [events, attendanceDocs] = await Promise.all([
         getManyById(COLLECTIONS.events, mine.map((r) => r.eventId), eventSchema),
-        getManyByField(COLLECTIONS.attendance, "registrationId", mine.map((r) => r.id), attendanceSchema),
+        Promise.all(mine.map((r) => getDoc(doc(col(COLLECTIONS.attendance), r.id)).catch(() => null))),
       ]);
 
       const eventById = new Map(events.map((e) => [e.id, e]));
-      const attended = new Set(attendance.map((a) => a.registrationId));
+      const attended = new Set(
+        attendanceDocs
+          .map((d) => (d && d.exists() ? parseDoc(attendanceSchema, d, COLLECTIONS.attendance) : null))
+          .filter((a): a is NonNullable<typeof a> => a !== null)
+          .map((a) => a.registrationId),
+      );
 
       return mine.map((registration) => {
         const event = eventById.get(registration.eventId);
@@ -126,10 +140,10 @@ export class FirestoreRegistrationRepository implements RegistrationRepository {
 
   subscribe(q: RegistrationQuery, onChange: (items: Registration[]) => void, onError: (error: unknown) => void): Unsubscribe {
     return subscribeList(
-      query(registrations(), ...constraintsFor(q)),
+      query(registrations(), ...constraintsFor(q, false)),
       registrationSchema,
       COLLECTIONS.registrations,
-      (items) => onChange(applySearch(items, q)),
+      (items) => onChange(applySearch(sortBy(items, [(r) => r.createdAt, "desc"]), q)),
       onError,
     );
   }
