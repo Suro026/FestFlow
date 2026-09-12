@@ -69,6 +69,10 @@ export const resultSchema = z
     publishedAt: z.date().optional(),
     publishedBy: idSchema.optional(),
 
+    /** Set when a published sheet is saved again — shown as an amendment. */
+    amendedAt: z.date().optional(),
+    amendedBy: idSchema.optional(),
+
     /**
      * Set once the certificate run for this sheet has completed, so a repeat
      * publish does not silently re-send every email.

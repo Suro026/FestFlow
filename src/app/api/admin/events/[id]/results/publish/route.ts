@@ -1,0 +1,92 @@
+import { ApiError, handler, ok, requireFestAccess, requireRole } from "@/server/api";
+import { COLLECTIONS, FieldValue, adminDb } from "@/server/firebase-admin";
+import { audit } from "@/server/audit";
+import { docToJson } from "@/server/serialize";
+
+/**
+ * POST /api/admin/events/[id]/results/publish
+ *
+ * Validates that every ranked entry is a confirmed, checked-in registration
+ * for *this* event before it marks the sheet published — "only checked-in
+ * teams can be ranked". Stamps the event and notifies every checked-in
+ * participant. Certificate generation is a separate, explicit step.
+ */
+export const POST = handler(async (request, context) => {
+  const caller = await requireRole(request, "admin");
+  const { id } = await context.params;
+  if (!id) throw ApiError.badRequest("Missing event id.");
+
+  const db = adminDb();
+  const eventRef = db.collection(COLLECTIONS.events).doc(id);
+  const eventSnap = await eventRef.get();
+  if (!eventSnap.exists) throw ApiError.notFound("That event no longer exists.");
+  const event = eventSnap.data()!;
+  requireFestAccess(caller, String(event.festId));
+
+  const ref = db.collection(COLLECTIONS.results).doc(id);
+  const sheet = await ref.get();
+  if (!sheet.exists) throw ApiError.unprocessable("Save a result sheet first.");
+  const entries = (sheet.data()!.entries ?? []) as Array<{ registrationId: string; displayName: string }>;
+  if (entries.length === 0) throw ApiError.unprocessable("Add at least one placed entry before publishing.");
+
+  // Every ranked entry must belong to this event and have been scanned in.
+  for (const entry of entries) {
+    const reg = await db.collection(COLLECTIONS.registrations).doc(entry.registrationId).get();
+    if (!reg.exists || reg.data()!.eventId !== id) {
+      throw ApiError.unprocessable(`"${entry.displayName}" is not a registration for this event.`);
+    }
+    if (reg.data()!.status === "cancelled") {
+      throw ApiError.unprocessable(`"${entry.displayName}" cancelled their registration.`);
+    }
+    const att = await db.collection(COLLECTIONS.attendance).doc(entry.registrationId).get();
+    if (!att.exists) {
+      throw ApiError.unprocessable(`"${entry.displayName}" was never checked in, so they cannot be ranked.`);
+    }
+  }
+
+  const batch = db.batch();
+  batch.update(ref, {
+    status: "published",
+    publishedAt: FieldValue.serverTimestamp(),
+    publishedBy: caller.uid,
+    updatedAt: FieldValue.serverTimestamp(),
+  });
+  batch.update(eventRef, { resultsPublishedAt: FieldValue.serverTimestamp(), updatedAt: FieldValue.serverTimestamp() });
+  await batch.commit();
+
+  // Notify everyone who was there, in batches under Firestore's 500 limit.
+  const attended = await db.collection(COLLECTIONS.attendance).where("eventId", "==", id).get();
+  let notify = db.batch();
+  let n = 0;
+  for (const a of attended.docs) {
+    notify.set(db.collection(COLLECTIONS.notifications).doc(), {
+      userId: a.data().userId,
+      type: "results_published",
+      title: `Results are out — ${event.title}`,
+      body: "See who placed. Certificates follow once the organizers issue them.",
+      link: "/my-events",
+      festId: event.festId,
+      eventId: id,
+      read: false,
+      createdAt: FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp(),
+    });
+    n += 1;
+    if (n % 450 === 0) {
+      await notify.commit();
+      notify = db.batch();
+    }
+  }
+  if (n % 450 !== 0) await notify.commit();
+
+  await audit(caller, {
+    action: "results_published",
+    summary: `Published results for "${event.title}" · ${entries.length} placed · ${n} participants notified`,
+    festId: String(event.festId),
+    eventId: id,
+    subjectType: "result",
+    subjectId: id,
+  });
+
+  return ok({ result: docToJson(await ref.get()) });
+});
