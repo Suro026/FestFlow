@@ -15,15 +15,11 @@ export default async function ExplorePage() {
   const repos = repositories();
   const fests = await repos.fests.listPublished().catch(() => []);
 
-  const withStats: FestWithStats[] = await Promise.all(
-    fests.map(async (fest) => {
-      const [events, registered] = await Promise.all([
-        repos.events.countByFest(fest.id).catch(() => 0),
-        repos.registrations.countByFest(fest.id).catch(() => 0),
-      ]);
-      return { fest, events, registered };
-    }),
-  );
+  const withStats: FestWithStats[] = fests.map((fest) => ({
+    fest,
+    events: fest.stats.events,
+    registered: fest.stats.registrations,
+  }));
 
   return (
     <div className="flex min-h-dvh flex-col">

@@ -14,7 +14,7 @@ import type { CertificateQuery, CertificateRepository, GenerateSummary } from "@
 import { api } from "@/data/api-client";
 import { COLLECTIONS } from "../client";
 import { guard } from "../mapping";
-import { col, parseDoc, parseDocs, runPage, subscribeList } from "../query-helpers";
+import { col, parseDoc, parseDocs, runPage, sortBy, subscribeList } from "../query-helpers";
 
 const certificates = () => col(COLLECTIONS.certificates);
 
@@ -68,19 +68,17 @@ export class FirestoreCertificateRepository implements CertificateRepository {
 
   listForUser(userId: string): Promise<Certificate[]> {
     return guard("Loading your certificates", async () => {
-      const snapshot = await getDocs(
-        query(certificates(), where("userId", "==", userId), where("revoked", "==", false), orderBy("issuedAt", "desc")),
-      );
-      return parseDocs(certificateSchema, snapshot.docs, COLLECTIONS.certificates);
+      const snapshot = await getDocs(query(certificates(), where("userId", "==", userId), where("revoked", "==", false)));
+      return sortBy(parseDocs(certificateSchema, snapshot.docs, COLLECTIONS.certificates), [(c) => c.issuedAt, "desc"]);
     });
   }
 
   subscribeForUser(userId: string, onChange: (items: Certificate[]) => void, onError: (error: unknown) => void): Unsubscribe {
     return subscribeList(
-      query(certificates(), where("userId", "==", userId), where("revoked", "==", false), orderBy("issuedAt", "desc")),
+      query(certificates(), where("userId", "==", userId), where("revoked", "==", false)),
       certificateSchema,
       COLLECTIONS.certificates,
-      onChange,
+      (items) => onChange(sortBy(items, [(c) => c.issuedAt, "desc"])),
       onError,
     );
   }
@@ -111,10 +109,8 @@ export class FirestoreCertificateRepository implements CertificateRepository {
 
   listPendingDelivery(limit = 100): Promise<Certificate[]> {
     return guard("Loading pending deliveries", async () => {
-      const snapshot = await getDocs(
-        query(certificates(), where("delivery.status", "in", ["pending", "failed"]), orderBy("issuedAt", "asc")),
-      );
-      return parseDocs(certificateSchema, snapshot.docs, COLLECTIONS.certificates).slice(0, limit);
+      const snapshot = await getDocs(query(certificates(), where("delivery.status", "in", ["pending", "failed"])));
+      return sortBy(parseDocs(certificateSchema, snapshot.docs, COLLECTIONS.certificates), [(c) => c.issuedAt, "asc"]).slice(0, limit);
     });
   }
 

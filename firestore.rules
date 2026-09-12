@@ -111,7 +111,11 @@ service cloud.firestore {
       allow create: if isAdmin()
                     && request.resource.data.createdBy == uid();
 
-      allow update: if managesFest(festId);
+      // Admins edit the fest. An organizer (a scanner, say) may only move the
+      // public counters — the scan transaction bumps `stats.checkIns` — and
+      // may not rename or reschedule anything.
+      allow update: if (isAdmin() && managesFest(festId))
+                    || (isOrganizer() && managesFest(festId) && onlyChanged(['stats']));
 
       // Only a super admin retires a fest, and only through the server, which
       // checks that no events still hang off it.
@@ -145,8 +149,10 @@ service cloud.firestore {
     match /registrations/{registrationId} {
       // A student sees their own entries; staff see every entry for a fest
       // they manage.
+      // `list` with the owner clause works because a query constrained by
+      // `where("userId", "==", uid)` lets Firestore prove it for every result.
       allow get: if isOwner(resource.data.userId) || managesFest(resource.data.festId);
-      allow list: if isOrganizer();
+      allow list: if isOrganizer() || isOwner(resource.data.userId);
 
       // Registration goes through POST /api/registrations, which re-checks
       // capacity, the deadline and duplicates inside a transaction and bumps
@@ -169,7 +175,7 @@ service cloud.firestore {
     match /attendance/{registrationId} {
       // A student can confirm their own check-in; staff see the whole feed.
       allow get: if isOwner(resource.data.userId) || managesFest(resource.data.festId);
-      allow list: if isOrganizer();
+      allow list: if isOrganizer() || isOwner(resource.data.userId);
 
       // Scanning happens on the organizer's device, so this one write stays
       // client-side. The document id is the registration id, which makes a
@@ -191,7 +197,7 @@ service cloud.firestore {
 
     match /foodCollections/{collectionId} {
       allow get: if isOwner(resource.data.userId) || managesFest(resource.data.festId);
-      allow list: if isOrganizer();
+      allow list: if isOrganizer() || isOwner(resource.data.userId);
 
       // Same trick as attendance: the id encodes entry + day + meal slot, so
       // collecting the same meal twice is an update, and updates are denied.
@@ -223,7 +229,8 @@ service cloud.firestore {
       // nothing to see rather than something hidden by the UI.
       allow get: if (isOwner(resource.data.userId) && resource.data.revoked == false)
                  || managesFest(resource.data.festId);
-      allow list: if isOrganizer();
+      allow list: if isOrganizer()
+                  || (isOwner(resource.data.userId) && resource.data.revoked == false);
 
       // Issued, revoked and delivery-stamped by the server only. A client that
       // could write here could award itself a first prize.

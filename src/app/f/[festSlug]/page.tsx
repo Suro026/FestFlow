@@ -34,11 +34,13 @@ export default async function FestPage({ params }: { params: Promise<Params> }) 
   const fest = await repos.fests.getBySlug(festSlug).catch(() => null);
   if (!fest || fest.status !== "published") notFound();
 
-  const [eventsPage, registered, checkedIn] = await Promise.all([
-    repos.events.list({ festId: fest.id, status: ["published", "ongoing", "completed"], limit: 200 }),
-    repos.registrations.countByFest(fest.id).catch(() => 0),
-    repos.attendance.countByFest(fest.id).catch(() => 0),
-  ]);
+  const eventsPage = await repos.events.list({
+    festId: fest.id,
+    status: ["published", "ongoing", "completed"],
+    limit: 200,
+  });
+  const registered = fest.stats.registrations;
+  const checkedIn = fest.stats.checkIns;
 
   const events = eventsPage.items;
   const phase = festPhase(fest);

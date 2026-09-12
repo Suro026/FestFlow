@@ -3,7 +3,6 @@ import {
   getCountFromServer,
   getDocs,
   limit as limitTo,
-  orderBy,
   query,
   serverTimestamp,
   updateDoc,
@@ -15,26 +14,24 @@ import { notificationSchema, type CreateNotification, type Notification } from "
 import type { NotificationRepository } from "@/core/repositories/notification-repository";
 import { COLLECTIONS, db } from "../client";
 import { guard } from "../mapping";
-import { col, parseDocs, subscribeList } from "../query-helpers";
+import { col, parseDocs, sortBy, subscribeList } from "../query-helpers";
 
 const notifications = () => col(COLLECTIONS.notifications);
 
 export class FirestoreNotificationRepository implements NotificationRepository {
   listForUser(userId: string, limit = 30): Promise<Notification[]> {
     return guard("Loading notifications", async () => {
-      const snapshot = await getDocs(
-        query(notifications(), where("userId", "==", userId), orderBy("createdAt", "desc"), limitTo(limit)),
-      );
-      return parseDocs(notificationSchema, snapshot.docs, COLLECTIONS.notifications);
+      const snapshot = await getDocs(query(notifications(), where("userId", "==", userId)));
+      return sortBy(parseDocs(notificationSchema, snapshot.docs, COLLECTIONS.notifications), [(n) => n.createdAt, "desc"]).slice(0, limit);
     });
   }
 
   subscribeForUser(userId: string, onChange: (items: Notification[]) => void, onError: (error: unknown) => void): Unsubscribe {
     return subscribeList(
-      query(notifications(), where("userId", "==", userId), orderBy("createdAt", "desc"), limitTo(30)),
+      query(notifications(), where("userId", "==", userId)),
       notificationSchema,
       COLLECTIONS.notifications,
-      onChange,
+      (items) => onChange(sortBy(items, [(n) => n.createdAt, "desc"]).slice(0, 30)),
       onError,
     );
   }

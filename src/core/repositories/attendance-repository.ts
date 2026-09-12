@@ -74,6 +74,9 @@ export interface AttendanceRepository {
 
   listMealsByEvent(eventId: string, servedOn?: string): Promise<FoodCollection[]>;
 
+  /** A student's own meal records across every event. */
+  listMealsForUser(userId: string): Promise<FoodCollection[]>;
+
   countMeals(eventId: string, servedOn?: string, mealType?: MealType): Promise<number>;
 
   countMealsByFest(festId: string): Promise<number>;

@@ -1,11 +1,11 @@
 import {
-  addDoc,
   doc,
+  increment,
+  writeBatch,
   getCountFromServer,
   getDoc,
   getDocs,
   onSnapshot,
-  orderBy,
   query,
   serverTimestamp,
   updateDoc,
@@ -22,27 +22,36 @@ import {
 } from "@/core/models/event";
 import type { EventQuery, EventRepository } from "@/core/repositories/event-repository";
 import { api } from "@/data/api-client";
-import { COLLECTIONS } from "../client";
+import { COLLECTIONS, db } from "../client";
 import { guard, stripUndefined, toRepositoryError } from "../mapping";
-import { col, getManyById, parseDoc, parseDocs, runPage, subscribeList } from "../query-helpers";
+import { col, getManyById, parseDoc, parseDocs, sortBy, subscribeList } from "../query-helpers";
 
 const events = () => col(COLLECTIONS.events);
 
+/**
+ * One server-side filter; the rest in memory. A fest has tens of events, not
+ * thousands, so this costs nothing and needs no composite index.
+ */
 const constraintsFor = (q: EventQuery): QueryConstraint[] => {
   const out: QueryConstraint[] = [];
   if (q.festId) out.push(where("festId", "==", q.festId));
-  if (q.status) {
-    out.push(Array.isArray(q.status) ? where("status", "in", q.status) : where("status", "==", q.status));
-  }
-  if (q.category) out.push(where("category", "==", q.category));
-  if (q.fromDate) out.push(where("date", ">=", q.fromDate));
-  out.push(orderBy("date", "asc"), orderBy("startTime", "asc"));
+  // Sent to the server as well as applied in memory: for an anonymous reader
+  // the rules need the status constraint in the query to allow the list.
+  if (q.status) out.push(Array.isArray(q.status) ? where("status", "in", q.status) : where("status", "==", q.status));
   return out;
 };
 
-/** `openOnly` depends on the clock and the counter, so it is applied in memory. */
-const applyOpenOnly = (items: Event[], q: EventQuery): Event[] =>
-  q.openOnly ? items.filter((event) => isRegistrationOpen(event)) : items;
+const refine = (items: Event[], q: EventQuery): Event[] => {
+  const statuses = q.status ? (Array.isArray(q.status) ? q.status : [q.status]) : null;
+  const filtered = items.filter(
+    (e) =>
+      (!statuses || statuses.includes(e.status)) &&
+      (!q.category || e.category === q.category) &&
+      (!q.fromDate || e.date >= q.fromDate) &&
+      (!q.openOnly || isRegistrationOpen(e)),
+  );
+  return sortBy(filtered, [(e) => e.date, "asc"], [(e) => e.startTime, "asc"]);
+};
 
 export class FirestoreEventRepository implements EventRepository {
   getById(id: string): Promise<Event | null> {
@@ -54,8 +63,15 @@ export class FirestoreEventRepository implements EventRepository {
 
   getBySlug(festId: string, slug: string): Promise<Event | null> {
     return guard("Loading event", async () => {
+      // `status in [...]` makes the read provable for anonymous visitors
+      // under the rules; staff reach drafts through the admin list instead.
       const snapshot = await getDocs(
-        query(events(), where("festId", "==", festId), where("slug", "==", slug.toLowerCase())),
+        query(
+          events(),
+          where("festId", "==", festId),
+          where("slug", "==", slug.toLowerCase()),
+          where("status", "in", ["published", "ongoing", "completed"]),
+        ),
       );
       const first = snapshot.docs[0];
       return first ? parseDoc(eventSchema, first, COLLECTIONS.events) : null;
@@ -76,9 +92,10 @@ export class FirestoreEventRepository implements EventRepository {
 
   list(q: EventQuery = {}): Promise<Page<Event>> {
     return guard("Loading events", async () => {
-      const page = await runPage(query(events(), ...constraintsFor(q)), eventSchema, COLLECTIONS.events, q);
-      page.items = applyOpenOnly(page.items, q);
-      return page;
+      const snapshot = await getDocs(query(events(), ...constraintsFor(q)));
+      const items = refine(parseDocs(eventSchema, snapshot.docs, COLLECTIONS.events), q);
+      const limit = q.limit ?? items.length;
+      return { items: items.slice(0, limit), cursor: null, hasMore: items.length > limit };
     });
   }
 
@@ -87,7 +104,7 @@ export class FirestoreEventRepository implements EventRepository {
       query(events(), ...constraintsFor(q)),
       eventSchema,
       COLLECTIONS.events,
-      (items) => onChange(applyOpenOnly(items, q)),
+      (items) => onChange(refine(items, q)),
       onError,
     );
   }
@@ -98,8 +115,10 @@ export class FirestoreEventRepository implements EventRepository {
         throw new RepositoryError("already-exists", `An event at "${input.slug}" already exists in this fest.`);
       }
 
-      const ref = await addDoc(
-        events(),
+      const ref = doc(events());
+      const batch = writeBatch(db);
+      batch.set(
+        ref,
         stripUndefined({
           ...input,
           registeredCount: 0,
@@ -108,6 +127,9 @@ export class FirestoreEventRepository implements EventRepository {
           updatedAt: serverTimestamp(),
         }),
       );
+      // Keep the fest's public event count honest without a count query.
+      batch.update(doc(col(COLLECTIONS.fests), input.festId), { "stats.events": increment(1) });
+      await batch.commit();
 
       const created = await getDoc(ref);
       const parsed = parseDoc(eventSchema, created, COLLECTIONS.events);

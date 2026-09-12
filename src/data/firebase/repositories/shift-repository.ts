@@ -4,7 +4,6 @@ import {
   doc,
   getDoc,
   getDocs,
-  orderBy,
   query,
   serverTimestamp,
   updateDoc,
@@ -18,9 +17,11 @@ import { userSchema } from "@/core/models/user";
 import type { ShiftRepository } from "@/core/repositories/shift-repository";
 import { COLLECTIONS, db } from "../client";
 import { guard, stripUndefined } from "../mapping";
-import { col, parseDoc, parseDocs, subscribeList } from "../query-helpers";
+import { col, parseDoc, parseDocs, sortBy, subscribeList } from "../query-helpers";
 
 const shifts = () => col(COLLECTIONS.shifts);
+
+const byTime = (items: Shift[]) => sortBy(items, [(s) => s.date, "asc"], [(s) => s.startTime, "asc"]);
 
 /** Fills the denormalised name/email from the volunteer's profile. */
 const withUser = async (input: CreateShift) => {
@@ -41,18 +42,18 @@ export class FirestoreShiftRepository implements ShiftRepository {
   listForUser(festId: string, userId: string): Promise<Shift[]> {
     return guard("Loading your shifts", async () => {
       const snapshot = await getDocs(
-        query(shifts(), where("festId", "==", festId), where("userId", "==", userId), orderBy("date"), orderBy("startTime")),
+        query(shifts(), where("festId", "==", festId), where("userId", "==", userId)),
       );
-      return parseDocs(shiftSchema, snapshot.docs, COLLECTIONS.shifts);
+      return byTime(parseDocs(shiftSchema, snapshot.docs, COLLECTIONS.shifts));
     });
   }
 
   subscribeForUser(festId: string, userId: string, onChange: (items: Shift[]) => void, onError: (error: unknown) => void): Unsubscribe {
     return subscribeList(
-      query(shifts(), where("festId", "==", festId), where("userId", "==", userId), orderBy("date"), orderBy("startTime")),
+      query(shifts(), where("festId", "==", festId), where("userId", "==", userId)),
       shiftSchema,
       COLLECTIONS.shifts,
-      onChange,
+      (items) => onChange(byTime(items)),
       onError,
     );
   }
@@ -61,18 +62,17 @@ export class FirestoreShiftRepository implements ShiftRepository {
     return guard("Loading roster", async () => {
       const constraints: QueryConstraint[] = [where("festId", "==", festId)];
       if (date) constraints.push(where("date", "==", date));
-      constraints.push(orderBy("date"), orderBy("startTime"));
       const snapshot = await getDocs(query(shifts(), ...constraints));
-      return parseDocs(shiftSchema, snapshot.docs, COLLECTIONS.shifts);
+      return byTime(parseDocs(shiftSchema, snapshot.docs, COLLECTIONS.shifts));
     });
   }
 
   subscribeByFest(festId: string, onChange: (items: Shift[]) => void, onError: (error: unknown) => void): Unsubscribe {
     return subscribeList(
-      query(shifts(), where("festId", "==", festId), orderBy("date"), orderBy("startTime")),
+      query(shifts(), where("festId", "==", festId)),
       shiftSchema,
       COLLECTIONS.shifts,
-      onChange,
+      (items) => onChange(byTime(items)),
       onError,
     );
   }

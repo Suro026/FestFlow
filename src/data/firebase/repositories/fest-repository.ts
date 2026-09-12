@@ -5,7 +5,6 @@ import {
   getDoc,
   getDocs,
   onSnapshot,
-  orderBy,
   query,
   serverTimestamp,
   updateDoc,
@@ -19,7 +18,7 @@ import type { FestQuery, FestRepository } from "@/core/repositories/fest-reposit
 import { api } from "@/data/api-client";
 import { COLLECTIONS } from "../client";
 import { guard, stripUndefined, toRepositoryError } from "../mapping";
-import { col, parseDoc, parseDocs, runPage, subscribeList } from "../query-helpers";
+import { col, parseDoc, parseDocs, sortBy, subscribeList } from "../query-helpers";
 
 const fests = () => col(COLLECTIONS.fests);
 
@@ -32,9 +31,10 @@ const constraintsFor = (q: FestQuery): QueryConstraint[] => {
     out.push(Array.isArray(q.status) ? where("status", "in", q.status) : where("status", "==", q.status));
   }
 
-  out.push(orderBy("startDate", "asc"));
   return out;
 };
+
+const byStart = (items: Fest[]) => sortBy(items, [(f) => f.startDate, "asc"]);
 
 export class FirestoreFestRepository implements FestRepository {
   getById(id: string): Promise<Fest | null> {
@@ -44,9 +44,18 @@ export class FirestoreFestRepository implements FestRepository {
     });
   }
 
+  /**
+   * Public lookup. The `status == "published"` clause is not a filter for
+   * the caller's benefit — it is what lets Firestore prove the read is
+   * allowed for an anonymous visitor. Without it the rule
+   * `resource.data.status == 'published'` cannot be evaluated against a
+   * query and the whole list is refused.
+   */
   getBySlug(slug: string): Promise<Fest | null> {
     return guard("Loading fest", async () => {
-      const snapshot = await getDocs(query(fests(), where("slug", "==", slug.toLowerCase())));
+      const snapshot = await getDocs(
+        query(fests(), where("slug", "==", slug.toLowerCase()), where("status", "==", "published")),
+      );
       const first = snapshot.docs[0];
       return first ? parseDoc(festSchema, first, COLLECTIONS.fests) : null;
     });
@@ -61,18 +70,28 @@ export class FirestoreFestRepository implements FestRepository {
   }
 
   list(q: FestQuery = {}): Promise<Page<Fest>> {
-    return guard("Loading fests", () => runPage(query(fests(), ...constraintsFor(q)), festSchema, COLLECTIONS.fests, q));
+    return guard("Loading fests", async () => {
+      const snapshot = await getDocs(query(fests(), ...constraintsFor(q)));
+      const items = byStart(parseDocs(festSchema, snapshot.docs, COLLECTIONS.fests));
+      return { items, cursor: null, hasMore: false };
+    });
   }
 
   listPublished(): Promise<Fest[]> {
     return guard("Loading fests", async () => {
-      const snapshot = await getDocs(query(fests(), where("status", "==", "published"), orderBy("startDate", "asc")));
-      return parseDocs(festSchema, snapshot.docs, COLLECTIONS.fests);
+      const snapshot = await getDocs(query(fests(), where("status", "==", "published")));
+      return byStart(parseDocs(festSchema, snapshot.docs, COLLECTIONS.fests));
     });
   }
 
   subscribe(q: FestQuery, onChange: (fests: Fest[]) => void, onError: (error: unknown) => void): Unsubscribe {
-    return subscribeList(query(fests(), ...constraintsFor(q)), festSchema, COLLECTIONS.fests, onChange, onError);
+    return subscribeList(
+      query(fests(), ...constraintsFor(q)),
+      festSchema,
+      COLLECTIONS.fests,
+      (items) => onChange(byStart(items)),
+      onError,
+    );
   }
 
   create(input: CreateFest, createdBy: string): Promise<Fest> {
