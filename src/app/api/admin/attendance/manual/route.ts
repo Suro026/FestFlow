@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { ApiError, handler, ok, readBody, requireFestAccess, requireRole } from "@/server/api";
+import { handler, ok, readBody, requireFestAccess, requireRole } from "@/server/api";
 import { COLLECTIONS, FieldValue, adminDb } from "@/server/firebase-admin";
 import { audit } from "@/server/audit";
 import { compact } from "@/server/serialize";

@@ -65,7 +65,7 @@ export default function VolunteersPage() {
     return m;
   }, [feed.data, today]);
 
-  const all = shifts.data ?? [];
+  const all = React.useMemo(() => shifts.data ?? [], [shifts.data]);
   const volunteers = new Set(all.map((s) => s.userId));
   const onNow = all.filter((s) => shiftPhase(s, now) === "active");
   const scansToday = [...scansBy.values()].reduce((a, b) => a + b, 0);
