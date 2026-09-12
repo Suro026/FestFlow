@@ -27,7 +27,7 @@ export default function EventAnalyticsPage() {
 
   const regs = React.useMemo(() => (registrations.data ?? []).filter((r) => r.status !== "cancelled"), [registrations.data]);
   const confirmed = regs.filter((r) => r.status === "confirmed");
-  const att = attendance.data ?? [];
+  const att = React.useMemo(() => attendance.data ?? [], [attendance.data]);
   const checkedIn = att.length;
   const registeredSeats = confirmed.reduce((s, r) => s + r.seats, 0);
   const noShows = Math.max(0, confirmed.length - checkedIn);
