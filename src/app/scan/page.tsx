@@ -43,6 +43,7 @@ const Scanner = () => {
   const params = useSearchParams();
   const festSlug = params.get("fest") ?? "";
   const eventSlug = params.get("event") ?? "";
+  const eventId = params.get("eventId") ?? "";
   const mode = (params.get("mode") === "meal" ? "meal" : "entry") as Mode;
   const gate = params.get("gate") ?? undefined;
 
@@ -52,7 +53,10 @@ const Scanner = () => {
     enabled: Boolean(fest.data),
     queryFn: () => repos.events.list({ festId: fest.data!.id, status: ["published", "ongoing"], limit: 200 }).then((p) => p.items),
   });
-  const event = React.useMemo(() => (events.data ?? []).find((e) => e.slug === eventSlug) ?? null, [events.data, eventSlug]);
+  const event = React.useMemo(
+    () => (events.data ?? []).find((e) => (eventSlug ? e.slug === eventSlug : eventId ? e.id === eventId : false)) ?? null,
+    [events.data, eventSlug, eventId],
+  );
 
   const sync = useScannerSync(repos, session?.uid, event);
   const camera = React.useRef<CameraHandle>(null);
