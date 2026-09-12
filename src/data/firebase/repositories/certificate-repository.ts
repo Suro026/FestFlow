@@ -9,12 +9,7 @@ import {
   type QueryConstraint,
 } from "firebase/firestore";
 import type { Page, Unsubscribe } from "@/core/models/common";
-import {
-  certificateSchema,
-  type Certificate,
-  type CertificateDraft,
-  type DeliveryStatus,
-} from "@/core/models/certificate";
+import { certificateSchema, type Certificate, type CertificateDraft } from "@/core/models/certificate";
 import type { CertificateQuery, CertificateRepository, GenerateSummary } from "@/core/repositories/certificate-repository";
 import { api } from "@/data/api-client";
 import { COLLECTIONS } from "../client";

@@ -1,0 +1,147 @@
+"use client";
+
+import * as React from "react";
+import QRCode from "react-qr-code";
+import { toast } from "sonner";
+import { DownloadSimple } from "@phosphor-icons/react";
+import type { Registration } from "@/core/models/registration";
+import type { Attendance, FoodCollection } from "@/core/models/attendance";
+import { Kick, Tag } from "@/components/ui/primitives";
+import { Button } from "@/components/ui/button";
+import { formatClock } from "@/lib/utils";
+
+/**
+ * The digital ticket — 2b.
+ *
+ * The QR encodes the public validation URL (`/t/FF-…`), so a random phone
+ * camera opens a page that says whether the ticket is real, while the gate
+ * scanner reads the code out of the same URL. The card is rendered from local
+ * data whenever possible: "Works offline" is a promise the page keeps by
+ * caching the student's entries in localStorage (see `useOfflineTickets`).
+ */
+
+export const ticketUrl = (ticketCode: string): string =>
+  `${process.env.NEXT_PUBLIC_APP_URL ?? (typeof window !== "undefined" ? window.location.origin : "")}/t/${ticketCode}`;
+
+export interface DigitalTicketProps {
+  registration: Registration;
+  festName: string;
+  organizationName?: string;
+  attendance?: Attendance | null;
+  meals?: FoodCollection[];
+  /** Meal slots the event defines, so unserved ones show as neutral tags. */
+  mealSlots?: Array<{ date: string; mealType: string; label: string }>;
+  compact?: boolean;
+}
+
+export const DigitalTicket = ({
+  registration,
+  festName,
+  organizationName,
+  attendance,
+  meals = [],
+  mealSlots = [],
+  compact,
+}: DigitalTicketProps) => {
+  const qrRef = React.useRef<HTMLDivElement>(null);
+  const served = new Set(meals.map((m) => `${m.servedOn}_${m.mealType}`));
+
+  const download = async () => {
+    const svg = qrRef.current?.querySelector("svg");
+    if (!svg) return;
+    try {
+      const xml = new XMLSerializer().serializeToString(svg);
+      const blob = new Blob([xml], { type: "image/svg+xml" });
+      const url = URL.createObjectURL(blob);
+      const img = new Image();
+      await new Promise<void>((resolve, reject) => {
+        img.onload = () => resolve();
+        img.onerror = () => reject(new Error("render"));
+        img.src = url;
+      });
+      const size = 1024;
+      const canvas = document.createElement("canvas");
+      canvas.width = size;
+      canvas.height = size + 160;
+      const ctx = canvas.getContext("2d")!;
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(img, 64, 48, size - 128, size - 128);
+      ctx.fillStyle = "#161826";
+      ctx.font = "600 44px ui-monospace, Menlo, monospace";
+      ctx.textAlign = "center";
+      ctx.fillText(registration.ticketCode, size / 2, size + 40);
+      ctx.font = "400 28px system-ui, sans-serif";
+      ctx.fillStyle = "#595d6c";
+      ctx.fillText(`${registration.eventTitle} · ${festName}`, size / 2, size + 100);
+      URL.revokeObjectURL(url);
+      const a = document.createElement("a");
+      a.href = canvas.toDataURL("image/png");
+      a.download = `festflow-${registration.ticketCode}.png`;
+      a.click();
+    } catch {
+      toast.error("Couldn't render the image. Screenshot the QR instead.");
+    }
+  };
+
+  return (
+    <div className="overflow-hidden rounded-lg shadow-md">
+      <div className="px-[18px] pb-3.5 pt-4">
+        <Kick className="mb-[5px]">
+          {festName}
+          {organizationName ? ` · ${organizationName}` : ""}
+        </Kick>
+        <div className="text-[20px] font-medium tracking-[-0.015em]">{registration.eventTitle}</div>
+        <div className="mt-1 text-[12.5px] text-neutral-500">
+          {registration.teamName
+            ? `Team ${registration.teamName} · ${registration.members.length} members`
+            : registration.userName}
+          {registration.status === "waitlisted" ? " · waitlisted" : null}
+        </div>
+      </div>
+
+      <div className="px-[18px] pb-4">
+        <div ref={qrRef} className={`mx-auto rounded-md bg-white p-3 ${compact ? "max-w-[200px]" : "max-w-[280px]"}`}>
+          <QRCode value={ticketUrl(registration.ticketCode)} size={256} style={{ width: "100%", height: "auto" }} level="M" />
+        </div>
+        <div className="code mt-[11px] text-center text-[13px] tracking-[0.14em]">{registration.ticketCode}</div>
+        <div className="mt-[3px] text-center text-[11.5px] text-neutral-500">
+          {registration.status === "waitlisted"
+            ? "Waitlisted — this code activates if a seat opens."
+            : "Show this at the gate. No network needed."}
+        </div>
+      </div>
+
+      {attendance || mealSlots.length ? (
+        <div className="border-t border-divider px-[18px] pb-4 pt-3">
+          <Kick className="mb-2">Entry & meals</Kick>
+          <div className="flex flex-wrap gap-1.5">
+            {attendance ? (
+              <Tag tone="accent" check>
+                Entry {formatClock(attendance.scannedAt)}
+              </Tag>
+            ) : (
+              <Tag tone="neutral">Not checked in</Tag>
+            )}
+            {mealSlots.map((slot) => {
+              const done = served.has(`${slot.date}_${slot.mealType}`);
+              return (
+                <Tag key={`${slot.date}_${slot.mealType}`} tone={done ? "accent" : "neutral"} check={done}>
+                  {slot.label}
+                </Tag>
+              );
+            })}
+          </div>
+        </div>
+      ) : null}
+
+      {!compact ? (
+        <div className="border-t border-divider px-[18px] py-3">
+          <Button variant="secondary" block onClick={download}>
+            <DownloadSimple size={15} /> Download PNG
+          </Button>
+        </div>
+      ) : null}
+    </div>
+  );
+};

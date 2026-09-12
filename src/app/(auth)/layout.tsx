@@ -1,6 +1,7 @@
+import * as React from "react";
 import Link from "next/link";
 import { Brand } from "@/components/shell/brand";
-import { Artwork, Kick } from "@/components/ui/primitives";
+import { Artwork, Kick, Skeleton } from "@/components/ui/primitives";
 
 /**
  * Auth screens — designed to fill a gap in the canvas, in its own idiom.
@@ -24,7 +25,22 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
       </header>
 
       <main className="mx-auto grid w-full max-w-[1180px] flex-1 grid-cols-1 gap-12 px-[18px] pb-16 pt-6 sm:px-6 sm:pt-12 lg:grid-cols-[minmax(0,420px)_1fr] lg:gap-20 lg:px-10">
-        <div className="w-full">{children}</div>
+        <div className="w-full">
+          {/* useSearchParams() in the pages bails out of static prerender;
+              Suspense gives the shell something to render meanwhile. */}
+          <React.Suspense
+            fallback={
+              <div aria-busy>
+                <Skeleton className="mb-3 h-3 w-24" />
+                <Skeleton className="mb-8 h-9 w-64" />
+                <Skeleton className="mb-4 h-10" />
+                <Skeleton className="h-10" />
+              </div>
+            }
+          >
+            {children}
+          </React.Suspense>
+        </div>
 
         <aside className="hidden lg:block">
           <div className="relative h-[420px] overflow-hidden rounded-lg">
