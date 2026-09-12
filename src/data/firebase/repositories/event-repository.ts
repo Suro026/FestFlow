@@ -22,7 +22,7 @@ import {
 } from "@/core/models/event";
 import type { EventQuery, EventRepository } from "@/core/repositories/event-repository";
 import { api } from "@/data/api-client";
-import { COLLECTIONS, db } from "../client";
+import { COLLECTIONS, firestore } from "../client";
 import { guard, stripUndefined, toRepositoryError } from "../mapping";
 import { col, getManyById, parseDoc, parseDocs, sortBy, subscribeList } from "../query-helpers";
 
@@ -116,7 +116,7 @@ export class FirestoreEventRepository implements EventRepository {
       }
 
       const ref = doc(events());
-      const batch = writeBatch(db);
+      const batch = writeBatch(firestore());
       batch.set(
         ref,
         stripUndefined({

@@ -3,8 +3,6 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   eslint: {
-    // `_legacy` holds the old Vite source, kept only as a porting reference.
-    // It is excluded from the build, so linting it would be noise.
     dirs: ["src"],
   },
   images: {

@@ -14,7 +14,7 @@ import {
 import { FirebaseError } from "firebase/app";
 import { USER_ROLES, type UserRole } from "@/core/models/user";
 import { AuthError, type AuthErrorCode, type AuthService, type Session } from "@/core/services/auth-service";
-import { auth } from "./client";
+import { firebaseAuth } from "./client";
 
 const CODE_MAP: Record<string, AuthErrorCode> = {
   "auth/invalid-credential": "invalid-credentials",
@@ -73,7 +73,7 @@ const actionUrl = (path: string): string =>
 export class FirebaseAuthService implements AuthService {
   getSession(): Promise<Session | null> {
     return new Promise((resolve) => {
-      const stop = onIdTokenChanged(auth, async (user) => {
+      const stop = onIdTokenChanged(firebaseAuth(), async (user) => {
         stop();
         resolve(user ? await toSession(user) : null);
       });
@@ -83,14 +83,14 @@ export class FirebaseAuthService implements AuthService {
   onSessionChange(listener: (session: Session | null) => void): () => void {
     // `onIdTokenChanged` rather than `onAuthStateChanged` so a claim change
     // (a student promoted to organizer) reaches the UI on the next refresh.
-    return onIdTokenChanged(auth, async (user) => {
+    return onIdTokenChanged(firebaseAuth(), async (user) => {
       listener(user ? await toSession(user) : null);
     });
   }
 
   async signIn(email: string, password: string): Promise<Session> {
     try {
-      const credential = await signInWithEmailAndPassword(auth, email.trim(), password);
+      const credential = await signInWithEmailAndPassword(firebaseAuth(), email.trim(), password);
       return await toSession(credential.user, true);
     } catch (error) {
       throw translate(error);
@@ -99,7 +99,7 @@ export class FirebaseAuthService implements AuthService {
 
   async signUp(email: string, password: string, displayName: string): Promise<Session> {
     try {
-      const credential = await createUserWithEmailAndPassword(auth, email.trim(), password);
+      const credential = await createUserWithEmailAndPassword(firebaseAuth(), email.trim(), password);
       await updateProfile(credential.user, { displayName: displayName.trim() });
       await sendEmailVerification(credential.user, { url: actionUrl("/verify-email?done=1") });
       return await toSession(credential.user);
@@ -109,11 +109,11 @@ export class FirebaseAuthService implements AuthService {
   }
 
   async signOut(): Promise<void> {
-    await signOut(auth);
+    await signOut(firebaseAuth());
   }
 
   async sendVerificationEmail(): Promise<void> {
-    const user = auth.currentUser;
+    const user = firebaseAuth().currentUser;
     if (!user) throw new AuthError("user-not-found", MESSAGES["user-not-found"]);
     try {
       await sendEmailVerification(user, { url: actionUrl("/verify-email?done=1") });
@@ -123,7 +123,7 @@ export class FirebaseAuthService implements AuthService {
   }
 
   async refreshSession(): Promise<Session | null> {
-    const user = auth.currentUser;
+    const user = firebaseAuth().currentUser;
     if (!user) return null;
     await user.reload();
     return toSession(user, true);
@@ -131,7 +131,7 @@ export class FirebaseAuthService implements AuthService {
 
   async sendPasswordReset(email: string): Promise<void> {
     try {
-      await sendPasswordResetEmail(auth, email.trim(), { url: actionUrl("/sign-in") });
+      await sendPasswordResetEmail(firebaseAuth(), email.trim(), { url: actionUrl("/sign-in") });
     } catch (error) {
       const translated = translate(error);
       // Do not reveal whether an address exists: treat "not found" as success.
@@ -142,7 +142,7 @@ export class FirebaseAuthService implements AuthService {
 
   async verifyPasswordResetCode(code: string): Promise<string> {
     try {
-      return await verifyPasswordResetCode(auth, code);
+      return await verifyPasswordResetCode(firebaseAuth(), code);
     } catch (error) {
       throw translate(error);
     }
@@ -150,7 +150,7 @@ export class FirebaseAuthService implements AuthService {
 
   async confirmPasswordReset(code: string, newPassword: string): Promise<void> {
     try {
-      await confirmPasswordReset(auth, code, newPassword);
+      await confirmPasswordReset(firebaseAuth(), code, newPassword);
     } catch (error) {
       throw translate(error);
     }
@@ -158,15 +158,16 @@ export class FirebaseAuthService implements AuthService {
 
   async applyEmailVerification(code: string): Promise<void> {
     try {
-      await applyActionCode(auth, code);
-      await auth.currentUser?.reload();
+      await applyActionCode(firebaseAuth(), code);
+      await firebaseAuth().currentUser?.reload();
     } catch (error) {
       throw translate(error);
     }
   }
 
   async getIdToken(): Promise<string | null> {
-    return auth.currentUser ? auth.currentUser.getIdToken() : null;
+    const user = firebaseAuth().currentUser;
+    return user ? user.getIdToken() : null;
   }
 }
 

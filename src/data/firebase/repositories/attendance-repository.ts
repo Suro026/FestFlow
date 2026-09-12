@@ -11,7 +11,6 @@ import {
   where,
   type QueryConstraint,
 } from "firebase/firestore";
-import { auth, db } from "../client";
 import type { Unsubscribe } from "@/core/models/common";
 import {
   attendanceIdFor,
@@ -27,7 +26,7 @@ import { registrationSchema, type Registration } from "@/core/models/registratio
 import { eventSchema } from "@/core/models/event";
 import type { AttendanceRepository } from "@/core/repositories/attendance-repository";
 import { api } from "@/data/api-client";
-import { COLLECTIONS } from "../client";
+import { COLLECTIONS, firebaseAuth, firestore } from "../client";
 import { guard, stripUndefined, toRepositoryError } from "../mapping";
 import { col, parseDoc, parseDocs, sortBy, subscribeList } from "../query-helpers";
 
@@ -90,7 +89,7 @@ export class FirestoreAttendanceRepository implements AttendanceRepository {
       const ref = doc(attendance(), attendanceIdFor(registration.id));
 
       try {
-        return await runTransaction(db, async (tx) => {
+        return await runTransaction(firestore(), async (tx) => {
           const existing = await tx.get(ref);
 
           if (existing.exists()) {
@@ -118,7 +117,7 @@ export class FirestoreAttendanceRepository implements AttendanceRepository {
               gate: input.gate,
               scannedAt: serverTimestamp(),
               scannedBy: input.scannedBy,
-              scannedByName: auth.currentUser?.displayName ?? undefined,
+              scannedByName: firebaseAuth().currentUser?.displayName ?? undefined,
               createdAt: serverTimestamp(),
               updatedAt: serverTimestamp(),
             }),
@@ -214,7 +213,7 @@ export class FirestoreAttendanceRepository implements AttendanceRepository {
       const ref = doc(meals(), foodCollectionIdFor(registration.id, input.servedOn, input.mealType));
 
       try {
-        return await runTransaction(db, async (tx) => {
+        return await runTransaction(firestore(), async (tx) => {
           const existing = await tx.get(ref);
 
           if (existing.exists()) {
@@ -242,7 +241,7 @@ export class FirestoreAttendanceRepository implements AttendanceRepository {
               post: input.post,
               collectedAt: serverTimestamp(),
               collectedBy: input.collectedBy,
-              collectedByName: auth.currentUser?.displayName ?? undefined,
+              collectedByName: firebaseAuth().currentUser?.displayName ?? undefined,
               createdAt: serverTimestamp(),
               updatedAt: serverTimestamp(),
             }),
