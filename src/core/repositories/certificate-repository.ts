@@ -61,6 +61,9 @@ export interface CertificateRepository {
   /** Certificates still waiting to be emailed, for the delivery worker. */
   listPendingDelivery(limit?: number): Promise<Certificate[]>;
 
+  /** Retries every pending/failed/skipped email for a fest (or one event). */
+  deliverPending(festId: string, eventId?: string): Promise<{ attempted: number; sent: number; failed: number; reason?: string }>;
+
   revoke(id: string, reason: string): Promise<void>;
 
   countByEvent(eventId: string): Promise<number>;
