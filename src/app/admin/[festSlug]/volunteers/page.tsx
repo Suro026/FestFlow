@@ -51,7 +51,8 @@ export default function VolunteersPage() {
   const [invite, setInvite] = React.useState<{ email: string; result: InviteResult } | null>(null);
   const [editing, setEditing] = React.useState<Shift | null>(null);
 
-  const now = new Date();
+  // One clock reading per render pass; the live subscriptions re-render anyway.
+  const now = React.useMemo(() => new Date(), [shifts.data, feed.data]); // eslint-disable-line react-hooks/exhaustive-deps
   const today = now.toISOString().slice(0, 10);
   const staffById = React.useMemo(() => new Map((staff.data ?? []).map((s) => [s.id, s])), [staff.data]);
 
