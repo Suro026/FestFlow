@@ -314,7 +314,13 @@ const RegistrationDetail = ({ registration: r, attendance: att, isAdmin, onDone 
                 <div className="truncate text-[13px]">{m.name}{m.college ? <span className="text-neutral-500"> · {m.college}</span> : null}</div>
                 <div className="truncate text-[11px] text-neutral-500">{m.email}{m.phone ? ` · ${m.phone}` : ""}</div>
               </div>
-              {m.isLeader ? <Tag tone="outline">Leader</Tag> : m.userId ? null : <Tag tone="neutral" className="opacity-70">No account</Tag>}
+              {m.isLeader ? (
+                <Tag tone="outline">Leader</Tag>
+              ) : m.inviteStatus === "pending" ? (
+                <Tag tone="neutral">Invited</Tag>
+              ) : m.userId ? null : (
+                <Tag tone="neutral" className="opacity-70">No account</Tag>
+              )}
             </div>
           ))}
         </div>

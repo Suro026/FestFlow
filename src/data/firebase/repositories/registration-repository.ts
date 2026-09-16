@@ -15,6 +15,7 @@ import {
   type CreateRegistrationInput,
   type Registration,
   type RegistrationWithEvent,
+  type TeamAction,
 } from "@/core/models/registration";
 import { attendanceSchema } from "@/core/models/attendance";
 import type { RegistrationQuery, RegistrationRepository } from "@/core/repositories/registration-repository";
@@ -99,16 +100,25 @@ export class FirestoreRegistrationRepository implements RegistrationRepository {
     });
   }
 
-  listForUserWithEvents(userId: string): Promise<RegistrationWithEvent[]> {
+  listForUserWithEvents(userId: string, email?: string): Promise<RegistrationWithEvent[]> {
     return guard("Loading your events", async () => {
-      const snapshot = await getDocs(query(registrations(), where("userId", "==", userId)));
+      // Two owner-provable queries: entries I created, and team entries that
+      // name my email. Both are what the rules allow a student to list.
+      const [own, named] = await Promise.all([
+        getDocs(query(registrations(), where("userId", "==", userId))),
+        email ? getDocs(query(registrations(), where("memberEmails", "array-contains", email.toLowerCase()))).catch(() => null) : null,
+      ]);
 
-      const mine = sortBy(
-        snapshot.docs
-          .map((d) => parseDoc(registrationSchema, d, COLLECTIONS.registrations))
-          .filter((r): r is Registration => r !== null),
-        [(r) => r.createdAt, "desc"],
-      );
+      const seen = new Set<string>();
+      const all: Registration[] = [];
+      for (const d of [...own.docs, ...(named?.docs ?? [])]) {
+        if (seen.has(d.id)) continue;
+        seen.add(d.id);
+        const parsed = parseDoc(registrationSchema, d, COLLECTIONS.registrations);
+        if (parsed) all.push(parsed);
+      }
+
+      const mine = sortBy(all, [(r) => r.createdAt, "desc"]);
 
       if (mine.length === 0) return [];
 
@@ -170,6 +180,21 @@ export class FirestoreRegistrationRepository implements RegistrationRepository {
     return guard("Cancelling registration", () =>
       api<void>(`/api/registrations/${id}/cancel`, { method: "POST" }),
     );
+  }
+
+  teamAction(id: string, input: TeamAction): Promise<Registration> {
+    const label =
+      input.action === "invite" ? "Inviting teammate"
+      : input.action === "remove" ? "Removing teammate"
+      : input.action === "rename" ? "Renaming team"
+      : input.action === "accept" ? "Joining team"
+      : "Declining invitation";
+    return guard(label, async () => {
+      const result = await api<{ registration: unknown }>(`/api/registrations/${id}/team`, { method: "POST", body: input });
+      const parsed = registrationSchema.safeParse(result.registration);
+      if (!parsed.success) throw new Error("Server returned an unexpected registration shape");
+      return parsed.data;
+    });
   }
 
   staffAction(id: string, action: "promote" | "cancel", reason?: string): Promise<"promoted" | "cancelled" | "noop"> {

@@ -7,6 +7,7 @@ import type { Event } from "@/core/models/event";
 import type { Fest } from "@/core/models/fest";
 import type { Attendance, FoodCollection } from "@/core/models/attendance";
 import { useAuth, useRepositories } from "@/components/providers";
+import { memberFor } from "@/core/models/registration";
 
 export interface Entry {
   registration: Registration;
@@ -14,6 +15,12 @@ export interface Entry {
   fest: Fest | null;
   attendance: Attendance | null;
   meals: FoodCollection[];
+  /**
+   * A team entry that names me but that I have not accepted yet. It shows
+   * under Teams as an invitation and nowhere else — not on the pass, not in
+   * My events — until I answer.
+   */
+  invited?: boolean;
 }
 
 const CACHE_KEY = "festflow.entries.v1";
@@ -60,7 +67,7 @@ export const useMyEntries = () => {
     queryFn: async (): Promise<Entry[]> => {
       if (!session) return [];
 
-      const joined = await repos.registrations.listForUserWithEvents(session.uid);
+      const joined = await repos.registrations.listForUserWithEvents(session.uid, session.email);
       if (joined.length === 0) return [];
 
       const eventIds = [...new Set(joined.map((j) => j.registration.eventId))];
@@ -92,6 +99,8 @@ export const useMyEntries = () => {
         fest: festById.get(j.registration.festId) ?? null,
         attendance: attendance[i] ?? null,
         meals: mealsByReg.get(j.registration.id) ?? [],
+        invited:
+          j.registration.userId !== session.uid && memberFor(j.registration, session.email)?.inviteStatus === "pending",
       }));
     },
   });
@@ -128,7 +137,7 @@ export const bucketEntries = (entries: Entry[], today = new Date().toISOString()
   const past: Entry[] = [];
 
   for (const entry of entries) {
-    if (entry.registration.status === "cancelled") continue;
+    if (entry.registration.status === "cancelled" || entry.invited) continue;
     if (entry.attendance) attended.push(entry);
     else if (!entry.event || entry.event.date >= today) upcoming.push(entry);
     else past.push(entry);

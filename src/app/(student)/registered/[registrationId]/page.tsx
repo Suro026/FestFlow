@@ -7,6 +7,7 @@ import { Check } from "@phosphor-icons/react";
 import { Page } from "@/components/shell/student-shell";
 import { DigitalTicket } from "@/components/student/digital-ticket";
 import { useMyEntries } from "@/components/student/use-my-entries";
+import { useAuth } from "@/components/providers";
 import { EmptyState, MetaList, MetaRow, Skeleton } from "@/components/ui/primitives";
 import { Button } from "@/components/ui/button";
 import { formatCalendarDate } from "@/lib/utils";
@@ -14,6 +15,7 @@ import { formatCalendarDate } from "@/lib/utils";
 /** 4b — "You're in". The confirmation, with the ticket already on screen. */
 export default function RegisteredPage() {
   const { registrationId } = useParams<{ registrationId: string }>();
+  const { session } = useAuth();
   const { entries, isPending } = useMyEntries();
   const entry = entries.find((e) => e.registration.id === registrationId);
 
@@ -47,16 +49,22 @@ export default function RegisteredPage() {
   const { registration, event, fest } = entry;
   const teammates = registration.members.filter((m) => !m.isLeader).map((m) => m.name.split(/\s+/)[0]);
   const waitlisted = registration.status === "waitlisted";
+  // A teammate opening the team pass sees the same ticket, with copy that
+  // doesn't pretend they did the registering.
+  const isLeader = !session || registration.userId === session.uid;
+  const pending = registration.members.filter((m) => m.inviteStatus === "pending").length;
 
   return (
     <Page className="max-w-[560px] pb-10 pt-[26px]">
       <div className="mb-[18px] grid h-[58px] w-[58px] place-items-center rounded-full text-accent shadow-[inset_0_0_0_2px_var(--color-accent)]">
         <Check size={28} weight="bold" />
       </div>
-      <h1 className="text-[31px] leading-[1.06] tracking-[-0.025em]">{waitlisted ? "You're on the list" : "You're in"}</h1>
+      <h1 className="text-[31px] leading-[1.06] tracking-[-0.025em]">
+        {waitlisted ? "You're on the list" : isLeader ? "You're in" : `You're on ${registration.teamName ?? "the team"}`}
+      </h1>
       <p className="mt-2.5 text-[14px] text-neutral-300">
         {registration.teamName ? `Team ${registration.teamName} is` : "You're"} {waitlisted ? "waitlisted for" : "registered for"}{" "}
-        {registration.eventTitle}.
+        {registration.eventTitle}.{!isLeader ? " One ticket admits the whole team." : ""}
       </p>
 
       <div className="mt-5">
@@ -73,8 +81,13 @@ export default function RegisteredPage() {
       </div>
 
       <MetaList className="mt-4">
-        <MetaRow label="Confirmation email">Sent to {registration.userEmail}</MetaRow>
-        {teammates.length ? <MetaRow label="Teammates notified">{teammates.join(", ")}</MetaRow> : null}
+        {isLeader ? <MetaRow label="Confirmation email">Sent to {registration.userEmail}</MetaRow> : <MetaRow label="Team leader">{registration.userName}</MetaRow>}
+        {teammates.length ? (
+          <MetaRow label={isLeader ? "Teammates invited" : "Team"}>
+            {teammates.join(", ")}
+            {pending ? ` · ${pending} yet to accept` : ""}
+          </MetaRow>
+        ) : null}
         <MetaRow label="Certificate">After attendance is confirmed</MetaRow>
       </MetaList>
 
@@ -82,6 +95,11 @@ export default function RegisteredPage() {
         <Button asChild variant="primary" size="lg" block>
           <Link href={`/my-pass?r=${registration.id}`}>View my pass</Link>
         </Button>
+        {registration.type === "team" ? (
+          <Button asChild variant="secondary" block>
+            <Link href="/teams">{isLeader ? "Manage the team" : "View the team"}</Link>
+          </Button>
+        ) : null}
         <Button asChild variant="ghost" block>
           <Link href={fest ? `/f/${fest.slug}` : "/explore"}>Back to the fest</Link>
         </Button>

@@ -183,3 +183,51 @@ export const registrationConfirmedEmail = (input: {
 
   return { to: input.to, subject: `Registered — ${input.eventTitle}`, text, html };
 };
+
+/**
+ * Sent to a teammate when a leader names them on a team entry.
+ *
+ * Whether or not they have an account yet, the link lands on the Teams page:
+ * signed-in it shows the invitation; signed-out it routes through sign-up
+ * with the same email, after which the entry is linked to them.
+ */
+export const teamInviteEmail = (input: {
+  to: string;
+  recipientName: string;
+  leaderName: string;
+  teamName: string;
+  eventTitle: string;
+  festName: string;
+  date: string;
+}): EmailMessage => {
+  const link = `${appUrl()}/teams`;
+
+  const text = [
+    `Hello ${input.recipientName},`,
+    "",
+    `${input.leaderName} added you to team "${input.teamName}" for "${input.eventTitle}" at ${input.festName} (${input.date}).`,
+    "",
+    "Accept or decline from your Teams page:",
+    link,
+    "",
+    `Sign in — or create an account — with this address (${input.to}) so the entry is linked to you.`,
+    "",
+    "— FestFlow",
+  ].join("\n");
+
+  const html = shell(
+    "You've been added to a team",
+    `<p style="margin:0 0 16px;color:#374151">
+       Hello ${escapeHtml(input.recipientName)}, <strong>${escapeHtml(input.leaderName)}</strong> added you to team
+       <strong>${escapeHtml(input.teamName)}</strong> for <strong>${escapeHtml(input.eventTitle)}</strong>
+       at ${escapeHtml(input.festName)} on ${escapeHtml(input.date)}.
+     </p>
+     <p style="margin:0 0 8px;color:#374151">Accept or decline from your Teams page.</p>
+     ${button(link, "Respond to the invitation")}
+     <p style="margin:0;font-size:13px;color:#6b7280">
+       Sign in — or create an account — with <strong>${escapeHtml(input.to)}</strong> so the entry is linked to you.
+     </p>`,
+  );
+
+  return { to: input.to, subject: `${input.leaderName} added you to ${input.teamName} — ${input.eventTitle}`, text, html };
+};
