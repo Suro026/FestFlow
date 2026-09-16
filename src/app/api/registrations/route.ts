@@ -5,10 +5,10 @@ import {
 } from "@/core/models/registration";
 import { isRegistrationOpen } from "@/core/models/event";
 import { ApiError, authenticate, handler, ok, readBody } from "@/server/api";
-import { COLLECTIONS, FieldValue, adminDb } from "@/server/firebase-admin";
+import { COLLECTIONS, FieldValue, Timestamp, adminDb } from "@/server/firebase-admin";
 import { compact, docToJson, randomBytes } from "@/server/serialize";
 import { emailService } from "@/server/email";
-import { registrationConfirmedEmail } from "@/server/email/templates";
+import { registrationConfirmedEmail, teamInviteEmail } from "@/server/email/templates";
 
 /**
  * POST /api/registrations — register for an event.
@@ -119,6 +119,9 @@ export const POST = handler(async (request) => {
     const ticketCode = generateTicketCode(randomBytes);
     const regRef = db.collection(COLLECTIONS.registrations).doc();
 
+    // Teammates start as invited: they confirm from their Teams page, and a
+    // declined invitation hands the seat back.
+    const invitedAt = Timestamp.now();
     const members = input.members.map((m, i) => {
       const email = i === 0 ? caller.email : m.email.toLowerCase();
       return compact({
@@ -129,6 +132,8 @@ export const POST = handler(async (request) => {
         college: i === 0 ? profile.student?.college : m.college,
         userId: i === 0 ? caller.uid : userIdByEmail.get(email),
         isLeader: i === 0,
+        inviteStatus: i === 0 ? "accepted" : "pending",
+        invitedAt: i === 0 ? undefined : invitedAt,
       });
     });
 
@@ -210,6 +215,48 @@ export const POST = handler(async (request) => {
         }),
       )
       .catch(() => undefined);
+  }
+
+  // Invitations to teammates: an in-app notification where an account
+  // exists, and an email either way.
+  const teammates = (registration.members as Array<{ name: string; email: string; userId?: string; isLeader?: boolean }>).filter(
+    (m) => !m.isLeader,
+  );
+  if (teammates.length && input.teamName) {
+    await Promise.all(
+      teammates.map(async (m) => {
+        if (m.userId) {
+          await db
+            .collection(COLLECTIONS.notifications)
+            .add({
+              userId: m.userId,
+              type: "team_invite",
+              title: `${leaderName} added you to ${input.teamName}`,
+              body: `${result.event.title} · ${festName}`,
+              link: "/teams",
+              festId: result.event.festId,
+              eventId: input.eventId,
+              read: false,
+              createdAt: FieldValue.serverTimestamp(),
+              updatedAt: FieldValue.serverTimestamp(),
+            })
+            .catch(() => undefined);
+        }
+        await emailService()
+          .send(
+            teamInviteEmail({
+              to: m.email,
+              recipientName: m.name,
+              leaderName,
+              teamName: input.teamName!,
+              eventTitle: String(result.event.title),
+              festName,
+              date: String(result.event.date),
+            }),
+          )
+          .catch(() => undefined);
+      }),
+    );
   }
 
   return ok({ registration }, 201);

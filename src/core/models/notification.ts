@@ -10,6 +10,8 @@ import { auditFieldsSchema, idSchema, shortTextSchema } from "./common";
 export const NOTIFICATION_TYPES = [
   "registration_confirmed",
   "registration_cancelled",
+  "team_invite",
+  "team_update",
   "event_reminder",
   "event_updated",
   "event_cancelled",

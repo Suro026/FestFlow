@@ -51,6 +51,23 @@ service cloud.firestore {
       return signedIn() && uid() == userId;
     }
 
+    // Named on a team entry by the email on the token. Firestore can prove
+    // this for a `where("memberEmails", "array-contains", email)` list.
+    function isTeamMember(memberEmails) {
+      return signedIn()
+        && request.auth.token.email is string
+        && memberEmails is list
+        && request.auth.token.email in memberEmails;
+    }
+
+    // For attendance/meal docs keyed by registration id: one read to learn
+    // who is on the team the doc belongs to.
+    function onRegistration(registrationId) {
+      return signedIn()
+        && exists(/databases/$(database)/documents/registrations/$(registrationId))
+        && isTeamMember(get(/databases/$(database)/documents/registrations/$(registrationId)).data.memberEmails);
+    }
+
     // Fields changed by this write.
     function changed() {
       return request.resource.data.diff(resource.data).affectedKeys();
@@ -142,8 +159,16 @@ service cloud.firestore {
       // they manage.
       // `list` with the owner clause works because a query constrained by
       // `where("userId", "==", uid)` lets Firestore prove it for every result.
-      allow get: if isOwner(resource.data.userId) || managesFest(resource.data.festId);
-      allow list: if isOrganizer() || isOwner(resource.data.userId);
+      // Teammates share the ticket, so anyone named on the entry can read it.
+      allow get: if isOwner(resource.data.userId)
+                 || isTeamMember(resource.data.memberEmails)
+                 || managesFest(resource.data.festId);
+      // The list clause is written without type guards: Firestore proves a
+      // rule against an `array-contains` query only when it is the bare
+      // `value in resource.data.field` form.
+      allow list: if isOrganizer()
+                  || isOwner(resource.data.userId)
+                  || (signedIn() && request.auth.token.email in resource.data.memberEmails);
 
       // Registration goes through POST /api/registrations, which re-checks
       // capacity, the deadline and duplicates inside a transaction and bumps
@@ -165,7 +190,10 @@ service cloud.firestore {
 
     match /attendance/{registrationId} {
       // A student can confirm their own check-in; staff see the whole feed.
-      allow get: if isOwner(resource.data.userId) || managesFest(resource.data.festId);
+      // Teammates read it too — the check-in is the team's, not the leader's.
+      allow get: if isOwner(resource.data.userId)
+                 || managesFest(resource.data.festId)
+                 || onRegistration(registrationId);
       allow list: if isOrganizer() || isOwner(resource.data.userId);
 
       // Scanning happens on the organizer's device, so this one write stays

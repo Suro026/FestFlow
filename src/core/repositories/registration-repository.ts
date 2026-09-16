@@ -4,6 +4,7 @@ import type {
   Registration,
   RegistrationStatus,
   RegistrationWithEvent,
+  TeamAction,
 } from "../models/registration";
 
 export interface RegistrationQuery extends PageRequest {
@@ -26,8 +27,14 @@ export interface RegistrationRepository {
   /** Every entry for one event, unpaged — the scanner's offline roster. */
   listForEvent(eventId: string): Promise<Registration[]>;
 
-  /** A student's own entries, joined with their events, for "My Events". */
-  listForUserWithEvents(userId: string): Promise<RegistrationWithEvent[]>;
+  /**
+   * A student's entries, joined with their events, for "My Events".
+   *
+   * Includes entries they created and, when `email` is given, team entries
+   * someone else created that name them — the team pass is one ticket shared
+   * by everyone on it.
+   */
+  listForUserWithEvents(userId: string, email?: string): Promise<RegistrationWithEvent[]>;
 
   subscribe(
     query: RegistrationQuery,
@@ -57,6 +64,14 @@ export interface RegistrationRepository {
    * holder's behalf. Admin-only, transactional against the event, audited.
    */
   staffAction(id: string, action: "promote" | "cancel", reason?: string): Promise<"promoted" | "cancelled" | "noop">;
+
+  /**
+   * Changes a team after registration — invite, remove, rename by the
+   * leader; accept or decline by the named teammate. Transactional against
+   * the event so a seat is only added if one is free, and released the
+   * moment a member leaves. Returns the updated entry.
+   */
+  teamAction(id: string, input: TeamAction): Promise<Registration>;
 
   /** True when this user already holds a confirmed entry for the event. */
   existsForUserAndEvent(userId: string, eventId: string): Promise<boolean>;

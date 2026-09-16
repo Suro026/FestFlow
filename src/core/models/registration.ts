@@ -20,6 +20,10 @@ export type RegistrationStatus = z.infer<typeof registrationStatusSchema>;
  * signed up. When a teammate later registers with the same email, the id is
  * backfilled, which is what lets their certificate reach them.
  */
+export const INVITE_STATUSES = ["accepted", "pending", "declined"] as const;
+export const inviteStatusSchema = z.enum(INVITE_STATUSES);
+export type InviteStatus = z.infer<typeof inviteStatusSchema>;
+
 export const teamMemberSchema = z.object({
   name: shortTextSchema,
   email: emailSchema,
@@ -29,6 +33,16 @@ export const teamMemberSchema = z.object({
   userId: idSchema.optional(),
   /** The member who created the registration. Exactly one per registration. */
   isLeader: z.boolean().default(false),
+  /**
+   * Whether the teammate has confirmed they are on this team. The leader is
+   * always `accepted`; everyone else starts `pending` and answers from their
+   * Teams page. A declined member is removed from the entry, so `declined`
+   * is only ever seen in transit. Defaults to `accepted` so entries written
+   * before invitations existed remain valid.
+   */
+  inviteStatus: inviteStatusSchema.default("accepted"),
+  invitedAt: z.date().optional(),
+  respondedAt: z.date().optional(),
 });
 
 export type TeamMember = z.infer<typeof teamMemberSchema>;
@@ -118,7 +132,10 @@ export const generateTicketCode = (randomBytes: (size: number) => Uint8Array): s
 const baseCreateRegistration = z.object({
   eventId: idSchema,
   teamName: shortTextSchema.optional(),
-  members: z.array(teamMemberSchema.omit({ isLeader: true })).min(1).max(50),
+  members: z
+    .array(teamMemberSchema.omit({ isLeader: true, userId: true, inviteStatus: true, invitedAt: true, respondedAt: true }))
+    .min(1)
+    .max(50),
 });
 
 export type CreateRegistrationInput = z.infer<typeof baseCreateRegistration>;
@@ -171,6 +188,50 @@ export const validateRegistration = (
 };
 
 export const createRegistrationSchema = baseCreateRegistration;
+
+/* ───────────── team management after registration ───────────── */
+
+export const teamMemberInputSchema = teamMemberSchema.omit({
+  isLeader: true,
+  userId: true,
+  inviteStatus: true,
+  invitedAt: true,
+  respondedAt: true,
+});
+export type TeamMemberInput = z.infer<typeof teamMemberInputSchema>;
+
+/**
+ * Everything that can happen to a team once it exists.
+ *
+ * `invite`, `remove` and `rename` are the leader's; `accept` and `decline`
+ * belong to the teammate named by email. Each runs as one server transaction
+ * against the event so seats never drift from the member list.
+ */
+export const teamActionSchema = z.discriminatedUnion("action", [
+  z.object({ action: z.literal("invite"), member: teamMemberInputSchema }),
+  z.object({ action: z.literal("remove"), email: emailSchema }),
+  z.object({ action: z.literal("rename"), teamName: shortTextSchema }),
+  z.object({ action: z.literal("accept") }),
+  z.object({ action: z.literal("decline") }),
+]);
+export type TeamAction = z.infer<typeof teamActionSchema>;
+
+/** The member row for an email, if any. */
+export const memberFor = (registration: Pick<Registration, "members">, email: string): TeamMember | undefined =>
+  registration.members.find((m) => m.email.toLowerCase() === email.toLowerCase());
+
+/** True when the caller is on the entry but did not create it. */
+export const isTeammate = (registration: Pick<Registration, "members" | "userId">, userId: string, email: string): boolean =>
+  registration.userId !== userId && memberFor(registration, email) !== undefined;
+
+/** The entry still needs answers or people before the event. */
+export const teamShortfall = (
+  registration: Pick<Registration, "members">,
+  teamSize: TeamSize,
+): { pending: number; missing: number } => ({
+  pending: registration.members.filter((m) => m.inviteStatus === "pending").length,
+  missing: Math.max(0, teamSize.min - registration.members.length),
+});
 
 /** A student's own view of an entry, joined with its event, for "My Events". */
 export interface RegistrationWithEvent {

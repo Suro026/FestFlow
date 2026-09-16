@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -130,7 +131,7 @@ export default function ProfilePage() {
           </MetaRow>
           {hasAtLeast(session.role, "organizer") ? (
             <MetaRow label="Staff access">
-              <a href="/admin" className="no-underline">Open the admin side</a>
+              <Link href="/admin" className="no-underline">Open the admin side</Link>
             </MetaRow>
           ) : null}
         </MetaList>
