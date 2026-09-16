@@ -4,6 +4,7 @@ import * as React from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Page } from "@/components/shell/student-shell";
+import { NotificationBell } from "@/components/shell/notifications";
 import { DigitalTicket } from "@/components/student/digital-ticket";
 import { bucketEntries, useMyEntries } from "@/components/student/use-my-entries";
 import { EmptyState, Skeleton, StatusBanner, Tag } from "@/components/ui/primitives";
@@ -56,7 +57,10 @@ export default function MyPassPage() {
     <Page className="max-w-[560px] pb-8 pt-2">
       <div className="flex items-center justify-between">
         <h4>My pass</h4>
-        <Tag tone="neutral">{online ? "Works offline" : "Offline · saved copy"}</Tag>
+        <div className="flex items-center gap-1.5">
+          <Tag tone="neutral">{online ? "Works offline" : "Offline · saved copy"}</Tag>
+          <NotificationBell className="sm:hidden" />
+        </div>
       </div>
 
       {!online && fromCache ? (

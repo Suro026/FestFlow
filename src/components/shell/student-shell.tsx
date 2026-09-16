@@ -7,6 +7,7 @@ import { MagnifyingGlass, Ticket, UsersThree, User as UserIcon } from "@phosphor
 import { cn } from "@/lib/utils";
 import { Brand } from "./brand";
 import { UserMenu } from "./user-menu";
+import { NotificationBell } from "./notifications";
 
 /**
  * The student side.
@@ -55,7 +56,8 @@ export const StudentShell = ({ children, hideTapBar, navExtra, className }: Stud
             </Link>
           ))}
           {navExtra}
-          <div className="ml-3">
+          <div className="ml-3 flex items-center gap-1.5">
+            <NotificationBell />
             <UserMenu variant="student" />
           </div>
         </nav>

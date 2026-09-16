@@ -8,6 +8,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
 import { z } from "zod";
 import { Page } from "@/components/shell/student-shell";
+import { NotificationBell } from "@/components/shell/notifications";
 import { useAuth, useRepositories } from "@/components/providers";
 import { bucketEntries, useMyEntries } from "@/components/student/use-my-entries";
 import { Avatar, Dialog, DialogActions, DialogContent } from "@/components/ui/overlays";
@@ -85,6 +86,7 @@ export default function ProfilePage() {
             {subline ? <span className="text-[11.5px] text-neutral-500">{subline}</span> : null}
           </div>
         </div>
+        <NotificationBell className="sm:hidden" />
         <Button variant="secondary" size="sm" onClick={() => setEditing(true)}>
           Edit
         </Button>
