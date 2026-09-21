@@ -70,6 +70,7 @@ export const POST = handler(async (request) => {
       type: c.type as CertificateType,
       certificateNumber: String(c.certificateNumber),
       attachmentFilename: pdf ? `${c.certificateNumber}.pdf` : undefined,
+      meta: { userId: String(c.userId), festId: String(c.festId), eventId: String(c.eventId), subjectType: "certificate", subjectId: doc.id },
     });
     if (pdf) message.attachments = [{ filename: `${c.certificateNumber}.pdf`, content: Buffer.from(pdf), contentType: "application/pdf" }];
 

@@ -1,5 +1,6 @@
 import { ApiError, authenticate, handler, ok } from "@/server/api";
 import { COLLECTIONS, FieldValue, adminDb } from "@/server/firebase-admin";
+import { announcePromotion } from "@/server/waitlist";
 
 /**
  * POST /api/registrations/[id]/cancel — a student withdraws their own entry.
@@ -71,21 +72,7 @@ export const POST = handler(async (request, context) => {
     return promote ? { id: promote.id, userId: String(promote.data().userId), title: String(reg.eventTitle) } : null;
   });
 
-  if (promoted) {
-    await db
-      .collection(COLLECTIONS.notifications)
-      .add({
-        userId: promoted.userId,
-        type: "registration_confirmed",
-        title: "A seat opened up — you're in",
-        body: promoted.title,
-        link: `/registered/${promoted.id}`,
-        read: false,
-        createdAt: FieldValue.serverTimestamp(),
-        updatedAt: FieldValue.serverTimestamp(),
-      })
-      .catch(() => undefined);
-  }
+  if (promoted) await announcePromotion(promoted.id);
 
   return ok({ cancelled: true, promoted: promoted?.id ?? null });
 });

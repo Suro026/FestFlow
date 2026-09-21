@@ -6,6 +6,7 @@ import { resultSchema, type Result } from "@/core/models/result";
 import type { GenerateSummary } from "@/core/repositories/certificate-repository";
 import { COLLECTIONS, FieldValue, adminDb, adminStorage } from "../firebase-admin";
 import { emailService } from "../email";
+import { notify } from "../notify";
 import { certificateIssuedEmail } from "../email/templates";
 import { compact, randomBytes, toJson } from "../serialize";
 import { renderCertificatePdf } from "./pdf";
@@ -204,6 +205,7 @@ export const issueCertificatesForEvent = async (options: IssueOptions): Promise<
       type: draft.type as CertificateType,
       certificateNumber,
       attachmentFilename: pdf ? `${certificateNumber}.pdf` : undefined,
+      meta: { userId: draft.userId, festId: draft.festId, eventId: draft.eventId, subjectType: "certificate", subjectId: id },
     });
     if (pdf) message.attachments = [{ filename: `${certificateNumber}.pdf`, content: Buffer.from(pdf), contentType: "application/pdf" }];
 
@@ -221,7 +223,7 @@ export const issueCertificatesForEvent = async (options: IssueOptions): Promise<
     else if (status === "skipped") base.skipped += 1;
     else base.failed += 1;
 
-    await db.collection(COLLECTIONS.notifications).add({
+    await notify({
       userId: draft.userId,
       type: "certificate_issued",
       title: "Your certificate is ready",
@@ -229,9 +231,6 @@ export const issueCertificatesForEvent = async (options: IssueOptions): Promise<
       link: "/certificates",
       festId: draft.festId,
       eventId: draft.eventId,
-      read: false,
-      createdAt: FieldValue.serverTimestamp(),
-      updatedAt: FieldValue.serverTimestamp(),
     });
   }
 

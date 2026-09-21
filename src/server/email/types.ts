@@ -1,9 +1,10 @@
 /**
  * Email delivery, behind an interface.
  *
- * No provider is wired up yet by deliberate choice, so the certificate
- * pipeline is written, complete and testable now, and picking Resend or SMTP
- * later is a change to one factory function rather than to the pipeline.
+ * The provider is chosen by EMAIL_PROVIDER (Resend in production, a console
+ * logger everywhere else). Everything that sends mail goes through
+ * `emailService()`, and every send is recorded in the `emailLog` collection
+ * with its outcome, so "did the invite go out?" is a query, not a guess.
  *
  * Implementations must not throw for an ordinary delivery failure. A bounced
  * address is normal at fest scale and must not abort a run of four hundred
@@ -17,6 +18,23 @@ export interface EmailAttachment {
   contentType: string;
 }
 
+/** Every template has one of these names; it is what the log is filtered by. */
+export const EMAIL_TEMPLATES = [
+  "registration_confirmed",
+  "team_invite",
+  "team_update",
+  "waitlist_promoted",
+  "certificate_issued",
+  "password_reset",
+  "staff_invite",
+  "email_verification",
+  "event_reminder",
+  "event_updated",
+  "event_cancelled",
+  "announcement",
+] as const;
+export type EmailTemplate = (typeof EMAIL_TEMPLATES)[number];
+
 export interface EmailMessage {
   to: string;
   subject: string;
@@ -25,11 +43,21 @@ export interface EmailMessage {
   html?: string;
   attachments?: EmailAttachment[];
   replyTo?: string;
+  /** Which template produced it — recorded in the log, sent to the provider as a tag. */
+  template: EmailTemplate;
+  /** What the message is about, for the log. Never secret. */
+  meta?: {
+    userId?: string;
+    festId?: string;
+    eventId?: string;
+    subjectType?: string;
+    subjectId?: string;
+  };
 }
 
 export type EmailResult =
-  | { ok: true; id?: string }
-  | { ok: false; error: string; retryable: boolean };
+  | { ok: true; id?: string; attempts?: number }
+  | { ok: false; error: string; retryable: boolean; attempts?: number };
 
 export interface EmailService {
   /** Human-readable name of the active provider, for logs and the health route. */

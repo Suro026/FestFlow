@@ -2,6 +2,8 @@ import { z } from "zod";
 import { ApiError, handler, ok, readBody, requireFestAccess, requireRole } from "@/server/api";
 import { COLLECTIONS, FieldValue, adminDb } from "@/server/firebase-admin";
 import { audit } from "@/server/audit";
+import { announcePromotion } from "@/server/waitlist";
+import { notify } from "@/server/notify";
 
 const actionSchema = z.object({
   action: z.enum(["promote", "cancel"]),
@@ -93,16 +95,7 @@ export const POST = handler(async (request, context) => {
       subjectType: "registration",
       subjectId: id,
     });
-    await db.collection(COLLECTIONS.notifications).add({
-      userId: outcome.reg.userId,
-      type: "registration_confirmed",
-      title: "A seat opened up — you're in",
-      body: String(outcome.reg.eventTitle),
-      link: `/registered/${id}`,
-      read: false,
-      createdAt: FieldValue.serverTimestamp(),
-      updatedAt: FieldValue.serverTimestamp(),
-    }).catch(() => undefined);
+    await announcePromotion(id);
   }
 
   if (outcome.kind === "cancelled") {
@@ -115,16 +108,15 @@ export const POST = handler(async (request, context) => {
       subjectId: id,
       details: { reason },
     });
-    await db.collection(COLLECTIONS.notifications).add({
-      userId: outcome.reg.userId,
+    await notify({
+      userId: String(outcome.reg.userId),
       type: "registration_cancelled",
       title: "Your registration was cancelled by the organizers",
       body: `${outcome.reg.eventTitle}${reason ? ` — ${reason}` : ""}`,
       link: "/my-events",
-      read: false,
-      createdAt: FieldValue.serverTimestamp(),
-      updatedAt: FieldValue.serverTimestamp(),
-    }).catch(() => undefined);
+      festId: String(outcome.reg.festId),
+      eventId: String(outcome.reg.eventId),
+    });
   }
 
   return ok({ result: outcome.kind });

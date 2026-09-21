@@ -6,131 +6,61 @@ import { CERTIFICATE_LABELS, type CertificateType } from "@/core/models/certific
  *
  * Deliberately plain HTML with inline styles and a real text alternative:
  * mail clients strip stylesheets, and a certificate notice that renders as a
- * blank page is worse than one that renders as plain text.
+ * blank page is worse than one that renders as plain text. Every template
+ * names itself (`template`) and what it is about (`meta`) so the delivery log
+ * can be filtered without parsing subjects.
  */
 
 const escapeHtml = (value: string): string =>
-  value
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
+  value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 
-const appUrl = (): string => process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+export const appUrl = (): string => (process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000").replace(/\/$/, "");
 
-const shell = (heading: string, body: string): string => `
-<div style="font-family:system-ui,-apple-system,'Segoe UI',sans-serif;background:#f6f7fb;padding:32px 16px">
-  <div style="max-width:560px;margin:0 auto;background:#ffffff;border-radius:12px;padding:32px;border:1px solid #e6e8f0">
-    <h1 style="margin:0 0 16px;font-size:20px;color:#111827">${escapeHtml(heading)}</h1>
+type Meta = NonNullable<EmailMessage["meta"]>;
+
+const shell = (heading: string, body: string, footnote = "FestFlow · plansphere.in — sent automatically, please do not reply."): string => `
+<div style="font-family:Inter,system-ui,-apple-system,'Segoe UI',sans-serif;background:#f4f4f8;padding:32px 16px;color:#1f2130">
+  <div style="max-width:560px;margin:0 auto;background:#ffffff;border-radius:12px;padding:32px;border:1px solid #e4e4ec">
+    <div style="font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:#7b7d90;margin:0 0 14px">FestFlow</div>
+    <h1 style="margin:0 0 16px;font-size:21px;line-height:1.25;color:#161826;letter-spacing:-.01em">${escapeHtml(heading)}</h1>
     ${body}
-    <hr style="border:none;border-top:1px solid #e6e8f0;margin:28px 0" />
-    <p style="margin:0;font-size:12px;color:#6b7280">
-      FestFlow — sent automatically, please do not reply.
-    </p>
+    <hr style="border:none;border-top:1px solid #e4e4ec;margin:28px 0 16px" />
+    <p style="margin:0;font-size:12px;color:#7b7d90">${escapeHtml(footnote)}</p>
   </div>
 </div>`;
 
+const p = (html: string) => `<p style="margin:0 0 14px;color:#374151;line-height:1.55">${html}</p>`;
+const small = (html: string) => `<p style="margin:14px 0 0;font-size:13px;color:#6b7280;line-height:1.5">${html}</p>`;
+
 const button = (href: string, label: string): string => `
-  <p style="margin:24px 0">
+  <p style="margin:22px 0 6px">
     <a href="${escapeHtml(href)}"
-       style="display:inline-block;background:#1d4ed8;color:#ffffff;text-decoration:none;
-              padding:12px 20px;border-radius:8px;font-weight:600">${escapeHtml(label)}</a>
-  </p>`;
+       style="display:inline-block;background:#5b4fcf;color:#ffffff;text-decoration:none;
+              padding:12px 20px;border-radius:8px;font-weight:600;font-size:14px">${escapeHtml(label)}</a>
+  </p>
+  <p style="margin:0 0 6px;font-size:12px;color:#9a9cad;word-break:break-all">${escapeHtml(href)}</p>`;
 
-/**
- * Invitation for a newly created organizer or admin.
- *
- * Carries a password-set link rather than a password. A password mailed in
- * plain text sits in the recipient's inbox indefinitely, and the sender has no
- * way to withdraw it; a link expires.
- */
-export const staffInviteEmail = (input: {
-  to: string;
-  fullName: string;
-  roleLabel: string;
-  setPasswordLink: string;
-  invitedBy: string;
-}): EmailMessage => {
-  const text = [
-    `Hello ${input.fullName},`,
-    "",
-    `You have been added to FestFlow as ${input.roleLabel} by ${input.invitedBy}.`,
-    "",
-    "Set your password using the link below, then sign in:",
-    input.setPasswordLink,
-    "",
-    "This link expires. If it has, ask for a new invitation.",
-    "",
-    "— FestFlow",
-  ].join("\n");
+const rows = (items: Array<[string, string | undefined]>): string => `
+  <table style="border-collapse:collapse;margin:6px 0 4px">
+    ${items
+      .filter((item): item is [string, string] => Boolean(item[1]))
+      .map(
+        ([label, value]) => `
+    <tr>
+      <td style="padding:5px 14px 5px 0;color:#6b7280;font-size:13px;vertical-align:top;white-space:nowrap">${escapeHtml(label)}</td>
+      <td style="padding:5px 0;color:#111827;font-size:13px;font-weight:600">${escapeHtml(value)}</td>
+    </tr>`,
+      )
+      .join("")}
+  </table>`;
 
-  const html = shell(
-    "You've been added to FestFlow",
-    `<p style="margin:0 0 8px;color:#374151">Hello ${escapeHtml(input.fullName)},</p>
-     <p style="margin:0;color:#374151">
-       You have been added as <strong>${escapeHtml(input.roleLabel)}</strong>
-       by ${escapeHtml(input.invitedBy)}. Set your password to activate the account.
-     </p>
-     ${button(input.setPasswordLink, "Set your password")}
-     <p style="margin:0;font-size:13px;color:#6b7280">
-       This link expires. If it no longer works, ask for a new invitation.
-     </p>`,
-  );
+const textRows = (items: Array<[string, string | undefined]>): string[] =>
+  items.filter((item): item is [string, string] => Boolean(item[1])).map(([label, value]) => `${label.padEnd(9)} ${value}`);
 
-  return { to: input.to, subject: "You've been added to FestFlow", text, html };
-};
+const signoff = ["", "— FestFlow · plansphere.in"];
 
-/** Sent once a certificate has been issued to a student. */
-export const certificateIssuedEmail = (input: {
-  to: string;
-  recipientName: string;
-  eventTitle: string;
-  festName: string;
-  type: CertificateType;
-  certificateNumber: string;
-  attachmentFilename?: string;
-}): EmailMessage => {
-  const label = CERTIFICATE_LABELS[input.type];
-  const link = `${appUrl()}/my-certificates`;
+/* ═══════════════════════════ 1. Registration confirmation ═══════════════════════════ */
 
-  const text = [
-    `Hello ${input.recipientName},`,
-    "",
-    `Your ${label} for "${input.eventTitle}" at ${input.festName} is ready.`,
-    `Certificate number: ${input.certificateNumber}`,
-    "",
-    input.attachmentFilename
-      ? "The PDF is attached, and it is also available in your FestFlow account:"
-      : "You can download it from your FestFlow account:",
-    link,
-    "",
-    "Congratulations!",
-    "— FestFlow",
-  ].join("\n");
-
-  const html = shell(
-    "Your certificate is ready",
-    `<p style="margin:0 0 8px;color:#374151">Hello ${escapeHtml(input.recipientName)},</p>
-     <p style="margin:0;color:#374151">
-       Your <strong>${escapeHtml(label)}</strong> for
-       "${escapeHtml(input.eventTitle)}" at ${escapeHtml(input.festName)} is ready.
-     </p>
-     <p style="margin:16px 0 0;font-size:13px;color:#6b7280">
-       Certificate number: <code>${escapeHtml(input.certificateNumber)}</code>
-     </p>
-     ${button(link, "View in FestFlow")}`,
-  );
-
-  return {
-    to: input.to,
-    subject: `Your ${label} — ${input.eventTitle}`,
-    text,
-    html,
-  };
-};
-
-/** Confirmation sent after a successful event registration. */
 export const registrationConfirmedEmail = (input: {
   to: string;
   recipientName: string;
@@ -141,56 +71,44 @@ export const registrationConfirmedEmail = (input: {
   venue: string;
   ticketCode: string;
   teamName?: string;
+  registrationId: string;
+  meta?: Meta;
 }): EmailMessage => {
-  const link = `${appUrl()}/my-events`;
+  const link = `${appUrl()}/registered/${input.registrationId}`;
+  const details: Array<[string, string | undefined]> = [
+    ["Event", input.eventTitle],
+    ["Fest", input.festName],
+    ["Date", `${input.date} at ${input.startTime}`],
+    ["Venue", input.venue],
+    ["Team", input.teamName],
+    ["Ticket", input.ticketCode],
+  ];
 
   const text = [
     `Hello ${input.recipientName},`,
     "",
     `You're registered for "${input.eventTitle}" at ${input.festName}.`,
     "",
-    `Date:   ${input.date} at ${input.startTime}`,
-    `Venue:  ${input.venue}`,
-    ...(input.teamName ? [`Team:   ${input.teamName}`] : []),
-    `Ticket: ${input.ticketCode}`,
+    ...textRows(details),
     "",
-    "Bring your QR ticket to the venue for check-in:",
+    "Your QR pass is in the app and works with no signal at the gate:",
     link,
-    "",
-    "— FestFlow",
+    ...signoff,
   ].join("\n");
 
-  const row = (label: string, value: string) => `
-    <tr>
-      <td style="padding:6px 12px 6px 0;color:#6b7280;font-size:13px">${escapeHtml(label)}</td>
-      <td style="padding:6px 0;color:#111827;font-size:13px;font-weight:600">${escapeHtml(value)}</td>
-    </tr>`;
-
   const html = shell(
-    "Registration confirmed",
-    `<p style="margin:0 0 16px;color:#374151">
-       Hello ${escapeHtml(input.recipientName)}, you're registered for
-       <strong>${escapeHtml(input.eventTitle)}</strong>.
-     </p>
-     <table style="border-collapse:collapse">
-       ${row("Date", `${input.date} at ${input.startTime}`)}
-       ${row("Venue", input.venue)}
-       ${input.teamName ? row("Team", input.teamName) : ""}
-       ${row("Ticket", input.ticketCode)}
-     </table>
-     ${button(link, "View your QR ticket")}`,
+    "You're in",
+    p(`Hello ${escapeHtml(input.recipientName)}, you're registered for <strong>${escapeHtml(input.eventTitle)}</strong> at ${escapeHtml(input.festName)}.`) +
+      rows(details) +
+      button(link, "Open your pass") +
+      small("The pass works offline once opened once. Show the QR at the gate; nobody needs to print anything."),
   );
 
-  return { to: input.to, subject: `Registered — ${input.eventTitle}`, text, html };
+  return { to: input.to, subject: `You're in — ${input.eventTitle}`, text, html, template: "registration_confirmed", meta: input.meta };
 };
 
-/**
- * Sent to a teammate when a leader names them on a team entry.
- *
- * Whether or not they have an account yet, the link lands on the Teams page:
- * signed-in it shows the invitation; signed-out it routes through sign-up
- * with the same email, after which the entry is linked to them.
- */
+/* ═══════════════════════════ 2. Team invitation ═══════════════════════════ */
+
 export const teamInviteEmail = (input: {
   to: string;
   recipientName: string;
@@ -199,6 +117,7 @@ export const teamInviteEmail = (input: {
   eventTitle: string;
   festName: string;
   date: string;
+  meta?: Meta;
 }): EmailMessage => {
   const link = `${appUrl()}/teams`;
 
@@ -211,23 +130,300 @@ export const teamInviteEmail = (input: {
     link,
     "",
     `Sign in — or create an account — with this address (${input.to}) so the entry is linked to you.`,
-    "",
-    "— FestFlow",
+    ...signoff,
   ].join("\n");
 
   const html = shell(
     "You've been added to a team",
-    `<p style="margin:0 0 16px;color:#374151">
-       Hello ${escapeHtml(input.recipientName)}, <strong>${escapeHtml(input.leaderName)}</strong> added you to team
-       <strong>${escapeHtml(input.teamName)}</strong> for <strong>${escapeHtml(input.eventTitle)}</strong>
-       at ${escapeHtml(input.festName)} on ${escapeHtml(input.date)}.
-     </p>
-     <p style="margin:0 0 8px;color:#374151">Accept or decline from your Teams page.</p>
-     ${button(link, "Respond to the invitation")}
-     <p style="margin:0;font-size:13px;color:#6b7280">
-       Sign in — or create an account — with <strong>${escapeHtml(input.to)}</strong> so the entry is linked to you.
-     </p>`,
+    p(`Hello ${escapeHtml(input.recipientName)}, <strong>${escapeHtml(input.leaderName)}</strong> added you to team <strong>${escapeHtml(input.teamName)}</strong> for <strong>${escapeHtml(input.eventTitle)}</strong> at ${escapeHtml(input.festName)} on ${escapeHtml(input.date)}.`) +
+      p("A seat is held for you until you answer. Accept to put the event on your pass; decline to free the seat.") +
+      button(link, "Respond to the invitation") +
+      small(`Sign in — or create an account — with <strong>${escapeHtml(input.to)}</strong> so the entry is linked to you.`),
   );
 
-  return { to: input.to, subject: `${input.leaderName} added you to ${input.teamName} — ${input.eventTitle}`, text, html };
+  return { to: input.to, subject: `${input.leaderName} added you to ${input.teamName} — ${input.eventTitle}`, text, html, template: "team_invite", meta: input.meta };
+};
+
+/* ═══════════════════════════ 3. Team update ═══════════════════════════ */
+
+export const teamUpdateEmail = (input: {
+  to: string;
+  recipientName: string;
+  teamName: string;
+  eventTitle: string;
+  change: "accepted" | "declined" | "removed" | "renamed";
+  memberName?: string;
+  newName?: string;
+  meta?: Meta;
+}): EmailMessage => {
+  const link = `${appUrl()}/teams`;
+  const line =
+    input.change === "accepted" ? `${input.memberName} accepted the invitation and is now on ${input.teamName}.`
+    : input.change === "declined" ? `${input.memberName} declined to join ${input.teamName}. Their seat was released — add a replacement from your Teams page.`
+    : input.change === "removed" ? `You were removed from team ${input.teamName} for ${input.eventTitle}. The event is no longer on your pass.`
+    : `Your team for ${input.eventTitle} is now called "${input.newName}".`;
+  const heading =
+    input.change === "accepted" ? `${input.memberName} joined your team`
+    : input.change === "declined" ? `${input.memberName} declined`
+    : input.change === "removed" ? `You were removed from ${input.teamName}`
+    : "Your team was renamed";
+
+  const text = [`Hello ${input.recipientName},`, "", line, "", link, ...signoff].join("\n");
+  const html = shell("Team update — " + input.eventTitle, p(`Hello ${escapeHtml(input.recipientName)},`) + p(escapeHtml(line)) + button(link, "Open Teams"));
+
+  return { to: input.to, subject: `${heading} — ${input.eventTitle}`, text, html, template: "team_update", meta: input.meta };
+};
+
+/* ═══════════════════════════ 4. Waitlist promotion ═══════════════════════════ */
+
+export const waitlistPromotedEmail = (input: {
+  to: string;
+  recipientName: string;
+  eventTitle: string;
+  festName: string;
+  date: string;
+  startTime: string;
+  venue: string;
+  ticketCode: string;
+  teamName?: string;
+  registrationId: string;
+  meta?: Meta;
+}): EmailMessage => {
+  const link = `${appUrl()}/registered/${input.registrationId}`;
+  const details: Array<[string, string | undefined]> = [
+    ["Event", input.eventTitle],
+    ["Fest", input.festName],
+    ["Date", `${input.date} at ${input.startTime}`],
+    ["Venue", input.venue],
+    ["Team", input.teamName],
+    ["Ticket", input.ticketCode],
+  ];
+  const text = [
+    `Hello ${input.recipientName},`,
+    "",
+    `A seat opened up: ${input.teamName ? `team ${input.teamName} is` : "you're"} now confirmed for "${input.eventTitle}" at ${input.festName}.`,
+    "",
+    ...textRows(details),
+    "",
+    "Your pass is ready:",
+    link,
+    ...signoff,
+  ].join("\n");
+  const html = shell(
+    "A seat opened up — you're in",
+    p(`Hello ${escapeHtml(input.recipientName)}, ${input.teamName ? `team <strong>${escapeHtml(input.teamName)}</strong> is` : "you're"} now <strong>confirmed</strong> for <strong>${escapeHtml(input.eventTitle)}</strong> at ${escapeHtml(input.festName)}. You were on the waitlist; someone withdrew.`) +
+      rows(details) +
+      button(link, "Open your pass"),
+  );
+  return { to: input.to, subject: `You're off the waitlist — ${input.eventTitle}`, text, html, template: "waitlist_promoted", meta: input.meta };
+};
+
+/* ═══════════════════════════ 5. Certificate issued ═══════════════════════════ */
+
+export const certificateIssuedEmail = (input: {
+  to: string;
+  recipientName: string;
+  eventTitle: string;
+  festName: string;
+  type: CertificateType;
+  certificateNumber: string;
+  attachmentFilename?: string;
+  meta?: Meta;
+}): EmailMessage => {
+  const label = CERTIFICATE_LABELS[input.type];
+  const link = `${appUrl()}/certificates`;
+  const verify = `${appUrl()}/verify/${input.certificateNumber}`;
+
+  const text = [
+    `Hello ${input.recipientName},`,
+    "",
+    `Your ${label} for "${input.eventTitle}" at ${input.festName} is ready.`,
+    `Certificate number: ${input.certificateNumber}`,
+    "",
+    input.attachmentFilename ? "The PDF is attached, and it is also in your FestFlow account:" : "Download it from your FestFlow account:",
+    link,
+    "",
+    "Anyone can check it is genuine at:",
+    verify,
+    "",
+    "Congratulations!",
+    ...signoff,
+  ].join("\n");
+
+  const html = shell(
+    "Your certificate is ready",
+    p(`Hello ${escapeHtml(input.recipientName)}, your <strong>${escapeHtml(label)}</strong> for <strong>${escapeHtml(input.eventTitle)}</strong> at ${escapeHtml(input.festName)} is ready.`) +
+      rows([
+        ["Number", input.certificateNumber],
+        ["Verify", verify],
+      ]) +
+      button(link, "View in FestFlow") +
+      small(input.attachmentFilename ? "The PDF is attached to this email too." : "Share the verification link with recruiters — it needs no account."),
+  );
+
+  return { to: input.to, subject: `Your ${label} — ${input.eventTitle}`, text, html, template: "certificate_issued", meta: input.meta };
+};
+
+/* ═══════════════════════════ 6. Password reset ═══════════════════════════ */
+
+export const passwordResetEmail = (input: { to: string; recipientName?: string; resetLink: string; meta?: Meta }): EmailMessage => {
+  const name = input.recipientName ?? "there";
+  const text = [
+    `Hello ${name},`,
+    "",
+    "Someone asked to reset the password for this FestFlow account. If it was you, use the link below; it expires in one hour.",
+    input.resetLink,
+    "",
+    "If you didn't ask for this, ignore this email — your password stays as it is.",
+    ...signoff,
+  ].join("\n");
+  const html = shell(
+    "Reset your password",
+    p(`Hello ${escapeHtml(name)}, someone asked to reset the password for this FestFlow account. If it was you, set a new one below. The link expires in one hour.`) +
+      button(input.resetLink, "Choose a new password") +
+      small("If you didn't ask for this, ignore this email — your password stays as it is."),
+  );
+  return { to: input.to, subject: "Reset your FestFlow password", text, html, template: "password_reset", meta: input.meta };
+};
+
+/* ═══════════════════════════ 7. Organizer / staff invite ═══════════════════════════ */
+
+export const staffInviteEmail = (input: { to: string; fullName: string; roleLabel: string; setPasswordLink: string; invitedBy: string; meta?: Meta }): EmailMessage => {
+  const text = [
+    `Hello ${input.fullName},`,
+    "",
+    `You have been added to FestFlow as ${input.roleLabel} by ${input.invitedBy}.`,
+    "",
+    "Set your password using the link below, then sign in:",
+    input.setPasswordLink,
+    "",
+    "This link expires. If it has, ask for a new invitation.",
+    ...signoff,
+  ].join("\n");
+
+  const html = shell(
+    "You've been added to FestFlow",
+    p(`Hello ${escapeHtml(input.fullName)}, you have been added as <strong>${escapeHtml(input.roleLabel)}</strong> by ${escapeHtml(input.invitedBy)}. Set your password to activate the account.`) +
+      button(input.setPasswordLink, "Set your password") +
+      small("This link expires. If it no longer works, ask for a new invitation."),
+  );
+
+  return { to: input.to, subject: "You've been added to FestFlow", text, html, template: "staff_invite", meta: input.meta };
+};
+
+/* ═══════════════════════════ 8. Email verification ═══════════════════════════ */
+
+export const emailVerificationEmail = (input: { to: string; recipientName?: string; verifyLink: string; meta?: Meta }): EmailMessage => {
+  const name = input.recipientName ?? "there";
+  const text = [
+    `Hello ${name},`,
+    "",
+    "Confirm this address to finish setting up your FestFlow account. Registrations, passes and certificates are sent here.",
+    input.verifyLink,
+    "",
+    "If you didn't create a FestFlow account, ignore this email.",
+    ...signoff,
+  ].join("\n");
+  const html = shell(
+    "Confirm your email",
+    p(`Hello ${escapeHtml(name)}, confirm this address to finish setting up your FestFlow account. Registrations, passes and certificates are sent here.`) +
+      button(input.verifyLink, "Confirm email") +
+      small("If you didn't create a FestFlow account, ignore this email."),
+  );
+  return { to: input.to, subject: "Confirm your email for FestFlow", text, html, template: "email_verification", meta: input.meta };
+};
+
+/* ═══════════════════════════ Event reminder / update / cancel ═══════════════════════════ */
+
+export const eventReminderEmail = (input: {
+  to: string;
+  recipientName: string;
+  eventTitle: string;
+  festName: string;
+  date: string;
+  startTime: string;
+  venue: string;
+  ticketCode: string;
+  registrationId: string;
+  meta?: Meta;
+}): EmailMessage => {
+  const link = `${appUrl()}/my-pass?r=${input.registrationId}`;
+  const details: Array<[string, string | undefined]> = [
+    ["When", `${input.date} at ${input.startTime}`],
+    ["Venue", input.venue],
+    ["Ticket", input.ticketCode],
+  ];
+  const text = [
+    `Hello ${input.recipientName},`,
+    "",
+    `Reminder: "${input.eventTitle}" at ${input.festName} is tomorrow.`,
+    "",
+    ...textRows(details),
+    "",
+    "Open your pass before you leave so it is cached for the gate:",
+    link,
+    ...signoff,
+  ].join("\n");
+  const html = shell(
+    `Tomorrow: ${input.eventTitle}`,
+    p(`Hello ${escapeHtml(input.recipientName)}, <strong>${escapeHtml(input.eventTitle)}</strong> at ${escapeHtml(input.festName)} is tomorrow.`) +
+      rows(details) +
+      button(link, "Open your pass") +
+      small("Open the pass once while online and it works at the gate with no signal."),
+  );
+  return { to: input.to, subject: `Tomorrow: ${input.eventTitle} · ${input.startTime}`, text, html, template: "event_reminder", meta: input.meta };
+};
+
+export const eventUpdatedEmail = (input: {
+  to: string;
+  recipientName: string;
+  eventTitle: string;
+  festName: string;
+  changes: string[];
+  registrationId: string;
+  meta?: Meta;
+}): EmailMessage => {
+  const link = `${appUrl()}/registered/${input.registrationId}`;
+  const text = [`Hello ${input.recipientName},`, "", `"${input.eventTitle}" at ${input.festName} has changed:`, ...input.changes.map((c) => `  • ${c}`), "", link, ...signoff].join("\n");
+  const html = shell(
+    `${input.eventTitle} has changed`,
+    p(`Hello ${escapeHtml(input.recipientName)}, the organizers updated <strong>${escapeHtml(input.eventTitle)}</strong> at ${escapeHtml(input.festName)}:`) +
+      `<ul style="margin:0 0 8px 18px;padding:0;color:#111827;font-size:14px;line-height:1.7">${input.changes.map((c) => `<li>${escapeHtml(c)}</li>`).join("")}</ul>` +
+      button(link, "See the details"),
+  );
+  return { to: input.to, subject: `Update: ${input.eventTitle}`, text, html, template: "event_updated", meta: input.meta };
+};
+
+export const eventCancelledEmail = (input: { to: string; recipientName: string; eventTitle: string; festName: string; reason?: string; meta?: Meta }): EmailMessage => {
+  const link = `${appUrl()}/my-events`;
+  const text = [
+    `Hello ${input.recipientName},`,
+    "",
+    `"${input.eventTitle}" at ${input.festName} has been cancelled by the organizers.${input.reason ? ` Reason: ${input.reason}` : ""}`,
+    "",
+    "Your entry no longer admits anyone. Any fee paid is handled by the organizers directly.",
+    link,
+    ...signoff,
+  ].join("\n");
+  const html = shell(
+    `${input.eventTitle} is cancelled`,
+    p(`Hello ${escapeHtml(input.recipientName)}, <strong>${escapeHtml(input.eventTitle)}</strong> at ${escapeHtml(input.festName)} has been cancelled by the organizers.${input.reason ? ` Reason: ${escapeHtml(input.reason)}` : ""}`) +
+      p("Your entry no longer admits anyone. Any fee paid is handled by the organizers directly.") +
+      button(link, "My events"),
+  );
+  return { to: input.to, subject: `Cancelled: ${input.eventTitle}`, text, html, template: "event_cancelled", meta: input.meta };
+};
+
+/* ═══════════════════════════ Announcement ═══════════════════════════ */
+
+export const announcementEmail = (input: { to: string; recipientName: string; festName: string; title: string; body: string; link?: string; meta?: Meta }): EmailMessage => {
+  const link = input.link ?? `${appUrl()}/my-events`;
+  const text = [`Hello ${input.recipientName},`, "", `${input.festName} — ${input.title}`, "", input.body, "", link, ...signoff].join("\n");
+  const html = shell(
+    input.title,
+    p(`Hello ${escapeHtml(input.recipientName)}, a message from the organizers of <strong>${escapeHtml(input.festName)}</strong>:`) +
+      `<div style="white-space:pre-wrap;color:#111827;font-size:14px;line-height:1.6;margin:0 0 6px">${escapeHtml(input.body)}</div>` +
+      button(link, "Open FestFlow"),
+  );
+  return { to: input.to, subject: `${input.festName}: ${input.title}`, text, html, template: "announcement", meta: input.meta };
 };

@@ -3,6 +3,9 @@ import { ApiError, handler, ok, readBody, requireFestAccess, requireRole } from 
 import { COLLECTIONS, FieldValue, adminDb } from "@/server/firebase-admin";
 import { audit } from "@/server/audit";
 import { compact, docToJson } from "@/server/serialize";
+import { emailService } from "@/server/email";
+import { eventCancelledEmail, eventUpdatedEmail } from "@/server/email/templates";
+import { activeParticipants, notifyMany } from "@/server/notify";
 
 /**
  * PATCH /api/admin/events/[id] — edit an event.
@@ -88,6 +91,40 @@ export const PATCH = handler(async (request, context) => {
     subjectId: id,
     details: { changed: Object.keys(changes) },
   });
+
+  // Tell the people holding tickets. Cancellation is its own message; a
+  // change to when or where is an update; anything else (copy, poster,
+  // capacity) is not worth an email.
+  const cancelled = input.status === "cancelled" && current.status !== "cancelled";
+  const logistics: string[] = [];
+  if (input.date !== undefined && input.date !== current.date) logistics.push(`Date: ${current.date} → ${input.date}`);
+  if (input.startTime !== undefined && input.startTime !== current.startTime) logistics.push(`Start time: ${current.startTime} → ${input.startTime}`);
+  if (input.venue !== undefined && input.venue !== current.venue) logistics.push(`Venue: ${current.venue} → ${input.venue}`);
+
+  if (cancelled || logistics.length) {
+    const festName = String((await db.collection(COLLECTIONS.fests).doc(String(current.festId)).get()).data()?.name ?? "");
+    const people = await activeParticipants({ eventId: id });
+    const title = String(current.title);
+    await notifyMany(
+      people.map((r) => ({
+        userId: r.userId,
+        type: cancelled ? ("event_cancelled" as const) : ("event_updated" as const),
+        title: cancelled ? `${title} has been cancelled` : `${title} has changed`,
+        body: cancelled ? "Your entry no longer admits anyone." : logistics.join(" · "),
+        link: cancelled ? "/my-events" : `/registered/${r.registrationId}`,
+        festId: String(current.festId),
+        eventId: id,
+      })),
+    );
+    const meta = (r: { userId: string; registrationId: string }) => ({ userId: r.userId, festId: String(current.festId), eventId: id, subjectType: "registration", subjectId: r.registrationId });
+    await emailService().sendMany(
+      people.map((r) =>
+        cancelled
+          ? eventCancelledEmail({ to: r.email, recipientName: r.name, eventTitle: title, festName, meta: meta(r) })
+          : eventUpdatedEmail({ to: r.email, recipientName: r.name, eventTitle: title, festName, changes: logistics, registrationId: r.registrationId, meta: meta(r) }),
+      ),
+    );
+  }
 
   const saved = await ref.get();
   return ok({ event: docToJson(saved) });

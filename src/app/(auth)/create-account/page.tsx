@@ -68,6 +68,11 @@ export default function CreateAccountPage() {
         emailVerified: false,
       });
 
+      // Profile exists now, so the verification email can carry the name and
+      // go through our mailer. A failure here is not fatal: the verify-email
+      // screen offers "send again".
+      await auth.sendVerificationEmail().catch(() => undefined);
+
       // If a teammate entered this address before the account existed, claim
       // those entries now so certificates can reach the right person.
       repos.registrations.linkMemberAccountsByEmail().catch(() => undefined);

@@ -9,6 +9,7 @@ import { COLLECTIONS, FieldValue, Timestamp, adminDb } from "@/server/firebase-a
 import { compact, docToJson, randomBytes } from "@/server/serialize";
 import { emailService } from "@/server/email";
 import { registrationConfirmedEmail, teamInviteEmail } from "@/server/email/templates";
+import { notify, notifyMany } from "@/server/notify";
 
 /**
  * POST /api/registrations — register for an event.
@@ -181,40 +182,34 @@ export const POST = handler(async (request) => {
   const festSnap = await db.collection(COLLECTIONS.fests).doc(String(result.event.festId)).get();
   const festName = String(festSnap.data()?.name ?? "");
 
-  await db
-    .collection(COLLECTIONS.notifications)
-    .add(
-      compact({
-        userId: caller.uid,
-        type: "registration_confirmed",
-        title: result.status === "waitlisted" ? "You're on the waitlist" : "You're in",
-        body: `${result.event.title} · ${festName}`,
-        link: `/registered/${saved.id}`,
-        festId: result.event.festId,
-        eventId: input.eventId,
-        read: false,
-        createdAt: FieldValue.serverTimestamp(),
-        updatedAt: FieldValue.serverTimestamp(),
-      }),
-    )
-    .catch(() => undefined);
+  const meta = { userId: caller.uid, festId: String(result.event.festId), eventId: input.eventId, subjectType: "registration", subjectId: saved.id };
+
+  await notify({
+    userId: caller.uid,
+    type: "registration_confirmed",
+    title: result.status === "waitlisted" ? "You're on the waitlist" : "You're in",
+    body: `${result.event.title} · ${festName}`,
+    link: `/registered/${saved.id}`,
+    festId: String(result.event.festId),
+    eventId: input.eventId,
+  });
 
   if (result.status === "confirmed") {
-    emailService()
-      .send(
-        registrationConfirmedEmail({
-          to: caller.email,
-          recipientName: leaderName,
-          eventTitle: String(result.event.title),
-          festName,
-          date: String(result.event.date),
-          startTime: String(result.event.startTime),
-          venue: String(result.event.venue),
-          ticketCode: String(registration.ticketCode),
-          ...(input.teamName ? { teamName: input.teamName } : {}),
-        }),
-      )
-      .catch(() => undefined);
+    await emailService().send(
+      registrationConfirmedEmail({
+        to: caller.email,
+        recipientName: leaderName,
+        eventTitle: String(result.event.title),
+        festName,
+        date: String(result.event.date),
+        startTime: String(result.event.startTime),
+        venue: String(result.event.venue),
+        ticketCode: String(registration.ticketCode),
+        registrationId: saved.id,
+        ...(input.teamName ? { teamName: input.teamName } : {}),
+        meta,
+      }),
+    );
   }
 
   // Invitations to teammates: an in-app notification where an account
@@ -223,39 +218,33 @@ export const POST = handler(async (request) => {
     (m) => !m.isLeader,
   );
   if (teammates.length && input.teamName) {
-    await Promise.all(
-      teammates.map(async (m) => {
-        if (m.userId) {
-          await db
-            .collection(COLLECTIONS.notifications)
-            .add({
-              userId: m.userId,
-              type: "team_invite",
-              title: `${leaderName} added you to ${input.teamName}`,
-              body: `${result.event.title} · ${festName}`,
-              link: "/teams",
-              festId: result.event.festId,
-              eventId: input.eventId,
-              read: false,
-              createdAt: FieldValue.serverTimestamp(),
-              updatedAt: FieldValue.serverTimestamp(),
-            })
-            .catch(() => undefined);
-        }
-        await emailService()
-          .send(
-            teamInviteEmail({
-              to: m.email,
-              recipientName: m.name,
-              leaderName,
-              teamName: input.teamName!,
-              eventTitle: String(result.event.title),
-              festName,
-              date: String(result.event.date),
-            }),
-          )
-          .catch(() => undefined);
-      }),
+    const teamName = input.teamName;
+    await notifyMany(
+      teammates
+        .filter((m) => m.userId)
+        .map((m) => ({
+          userId: m.userId!,
+          type: "team_invite" as const,
+          title: `${leaderName} added you to ${teamName}`,
+          body: `${result.event.title} · ${festName}`,
+          link: "/teams",
+          festId: String(result.event.festId),
+          eventId: input.eventId,
+        })),
+    );
+    await emailService().sendMany(
+      teammates.map((m) =>
+        teamInviteEmail({
+          to: m.email,
+          recipientName: m.name,
+          leaderName,
+          teamName,
+          eventTitle: String(result.event.title),
+          festName,
+          date: String(result.event.date),
+          meta: { ...meta, userId: m.userId ?? undefined },
+        }),
+      ),
     );
   }
 

@@ -51,6 +51,10 @@ export class ApiError extends Error {
     return new ApiError(400, "bad-request", message, details);
   }
 
+  static unavailable(message = "That service is not available right now. Try again shortly.") {
+    return new ApiError(503, "unavailable", message);
+  }
+
   static unprocessable(message: string) {
     return new ApiError(422, "unprocessable", message);
   }

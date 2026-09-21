@@ -1,5 +1,6 @@
 import { ApiError, handler, ok, requireRole } from "@/server/api";
-import { COLLECTIONS, adminAuth, adminDb } from "@/server/firebase-admin";
+import { COLLECTIONS, adminDb } from "@/server/firebase-admin";
+import { staffInviteLink } from "@/server/auth-links";
 import { emailService } from "@/server/email";
 import { staffInviteEmail } from "@/server/email/templates";
 
@@ -14,7 +15,7 @@ export const POST = handler(async (request, context) => {
   const data = snap.data()!;
   if (data.role === "student") throw ApiError.unprocessable("That account is a student.");
 
-  const link = await adminAuth().generatePasswordResetLink(String(data.email));
+  const link = await staffInviteLink(String(data.email));
   const mailer = emailService();
   const delivery = await mailer.send(
     staffInviteEmail({
@@ -23,6 +24,7 @@ export const POST = handler(async (request, context) => {
       roleLabel: String(data.role).replace("_", " "),
       setPasswordLink: link,
       invitedBy: caller.email,
+      meta: { userId: id, subjectType: "user", subjectId: id, ...(Array.isArray(data.organizer?.festIds) && data.organizer.festIds[0] ? { festId: String(data.organizer.festIds[0]) } : {}) },
     }),
   );
 
