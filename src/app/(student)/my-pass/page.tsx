@@ -39,7 +39,10 @@ export default function MyPassPage() {
   if (!selected) {
     return (
       <Page className="max-w-[560px] pt-2">
-        <h4 className="mb-3">My pass</h4>
+        <div className="mb-3 flex items-center justify-between">
+          <h4>My pass</h4>
+          <NotificationBell className="sm:hidden" />
+        </div>
         <EmptyState
           title="No tickets yet"
           body="Register for an event and its QR appears here, ready to show at the gate — even with no signal."
