@@ -7,6 +7,7 @@ import { AdminPage, useFest } from "@/components/shell/admin-shell";
 import { useAuth, useRepositories } from "@/components/providers";
 import { useFestEvents } from "@/components/admin/hooks";
 import { useStaff } from "@/components/admin/staff-api";
+import { EmailLog } from "@/components/admin/email-log";
 import { Button } from "@/components/ui/button";
 import { EmptyState, Kick, MetaList, MetaRow, PageHeading, Skeleton, Tag } from "@/components/ui/primitives";
 import type { Event } from "@/core/models/event";
@@ -205,6 +206,8 @@ export default function ConsolePage() {
           </div>
         </div>
       ) : null}
+
+      <EmailLog festId={fest.id} />
     </AdminPage>
   );
 }
