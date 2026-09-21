@@ -73,8 +73,10 @@ Production *and* Preview). Copy the names from `.env.example`.
 | `NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID` | optional |
 | `NEXT_PUBLIC_APP_URL` | `https://plansphere.in` — used in emailed links |
 | `FIREBASE_SERVICE_ACCOUNT` | **Secret.** Base64 of the service-account JSON. Bypasses all rules; never `NEXT_PUBLIC_` |
-| `EMAIL_PROVIDER` | `console` until an email provider is chosen |
-| `EMAIL_FROM` | e.g. `FestFlow <noreply@plansphere.in>` |
+| `EMAIL_PROVIDER` | `resend` in production; `console` logs instead of sending (every send is still recorded in `emailLog`) |
+| `RESEND_API_KEY` | **Secret.** From resend.com → API Keys, after verifying the `plansphere.in` domain (DKIM + SPF + DMARC records) |
+| `EMAIL_FROM` | Defaults to `FestFlow <noreply@plansphere.in>` |
+| `CRON_SECRET` | **Secret.** Any long random string; Vercel Cron presents it to `/api/cron/event-reminders` (daily 09:00 IST) |
 
 The build does not fail when the Firebase variables are missing — pages render
 empty and the build log prints one `[festflow] Firebase web config is missing`
