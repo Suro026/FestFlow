@@ -128,6 +128,7 @@ export const COLLECTIONS = {
   notifications: "notifications",
   shifts: "shifts",
   auditLog: "auditLog",
+  emailLog: "emailLog",
 } as const;
 
 export type CollectionName = (typeof COLLECTIONS)[keyof typeof COLLECTIONS];

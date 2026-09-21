@@ -1,6 +1,7 @@
 import { ApiError, handler, ok, requireFestAccess, requireRole } from "@/server/api";
 import { COLLECTIONS, FieldValue, adminDb } from "@/server/firebase-admin";
 import { audit } from "@/server/audit";
+import { activeParticipants, notifyMany } from "@/server/notify";
 import { docToJson } from "@/server/serialize";
 
 /**
@@ -54,34 +55,25 @@ export const POST = handler(async (request, context) => {
   batch.update(eventRef, { resultsPublishedAt: FieldValue.serverTimestamp(), updatedAt: FieldValue.serverTimestamp() });
   await batch.commit();
 
-  // Notify everyone who was there, in batches under Firestore's 500 limit.
+  // Notify everyone who was there — leaders and teammates with accounts.
   const attended = await db.collection(COLLECTIONS.attendance).where("eventId", "==", id).get();
-  let notify = db.batch();
-  let n = 0;
-  for (const a of attended.docs) {
-    notify.set(db.collection(COLLECTIONS.notifications).doc(), {
-      userId: a.data().userId,
-      type: "results_published",
+  const attendedRegIds = new Set(attended.docs.map((a) => a.id));
+  const recipients = (await activeParticipants({ eventId: id })).filter((r) => attendedRegIds.has(r.registrationId));
+  const notified = await notifyMany(
+    recipients.map((r) => ({
+      userId: r.userId,
+      type: "results_published" as const,
       title: `Results are out — ${event.title}`,
       body: "See who placed. Certificates follow once the organizers issue them.",
       link: "/my-events",
-      festId: event.festId,
+      festId: String(event.festId),
       eventId: id,
-      read: false,
-      createdAt: FieldValue.serverTimestamp(),
-      updatedAt: FieldValue.serverTimestamp(),
-    });
-    n += 1;
-    if (n % 450 === 0) {
-      await notify.commit();
-      notify = db.batch();
-    }
-  }
-  if (n % 450 !== 0) await notify.commit();
+    })),
+  );
 
   await audit(caller, {
     action: "results_published",
-    summary: `Published results for "${event.title}" · ${entries.length} placed · ${n} participants notified`,
+    summary: `Published results for "${event.title}" · ${entries.length} placed · ${notified} participants notified`,
     festId: String(event.festId),
     eventId: id,
     subjectType: "result",

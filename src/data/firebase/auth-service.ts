@@ -15,6 +15,7 @@ import { FirebaseError } from "firebase/app";
 import { USER_ROLES, type UserRole } from "@/core/models/user";
 import { AuthError, type AuthErrorCode, type AuthService, type Session } from "@/core/services/auth-service";
 import { firebaseAuth } from "./client";
+import { api } from "@/data/api-client";
 
 const CODE_MAP: Record<string, AuthErrorCode> = {
   "auth/invalid-credential": "invalid-credentials",
@@ -101,7 +102,9 @@ export class FirebaseAuthService implements AuthService {
     try {
       const credential = await createUserWithEmailAndPassword(firebaseAuth(), email.trim(), password);
       await updateProfile(credential.user, { displayName: displayName.trim() });
-      await sendEmailVerification(credential.user, { url: actionUrl("/verify-email?done=1") });
+      // The verification email is sent by the caller once the profile
+      // document exists (see sendVerificationEmail), so it goes through our
+      // own mailer and carries the person's name.
       return await toSession(credential.user);
     } catch (error) {
       throw translate(error);
@@ -112,9 +115,18 @@ export class FirebaseAuthService implements AuthService {
     await signOut(firebaseAuth());
   }
 
+  /**
+   * Our own mailer first (branded, logged, retried); Firebase's built-in
+   * mailer when no provider is configured or the API is unreachable. Either
+   * way the person gets a working link.
+   */
   async sendVerificationEmail(): Promise<void> {
     const user = firebaseAuth().currentUser;
     if (!user) throw new AuthError("user-not-found", MESSAGES["user-not-found"]);
+    const viaApi = await api<{ fallback: boolean }>("/api/auth/verification", { method: "POST" })
+      .then((r) => !r.fallback)
+      .catch(() => false);
+    if (viaApi) return;
     try {
       await sendEmailVerification(user, { url: actionUrl("/verify-email?done=1") });
     } catch (error) {
@@ -130,6 +142,10 @@ export class FirebaseAuthService implements AuthService {
   }
 
   async sendPasswordReset(email: string): Promise<void> {
+    const viaApi = await api<{ fallback: boolean }>("/api/auth/password-reset", { method: "POST", auth: false, body: { email: email.trim() } })
+      .then((r) => !r.fallback)
+      .catch(() => false);
+    if (viaApi) return;
     try {
       await sendPasswordResetEmail(firebaseAuth(), email.trim(), { url: actionUrl("/sign-in") });
     } catch (error) {

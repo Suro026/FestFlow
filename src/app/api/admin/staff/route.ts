@@ -7,6 +7,7 @@ import {
   adminDb,
 } from "@/server/firebase-admin";
 import { emailService } from "@/server/email";
+import { staffInviteLink } from "@/server/auth-links";
 import { audit } from "@/server/audit";
 import { staffInviteEmail } from "@/server/email/templates";
 
@@ -150,7 +151,7 @@ export const POST = handler(async (request) => {
 
   // A link, not a password. A password mailed in plain text lives in the
   // recipient's inbox forever and cannot be withdrawn; this expires.
-  const setPasswordLink = await auth.generatePasswordResetLink(input.email);
+  const setPasswordLink = await staffInviteLink(input.email);
 
   const mailer = emailService();
 
@@ -161,6 +162,7 @@ export const POST = handler(async (request) => {
       roleLabel: ROLE_LABELS[input.role],
       setPasswordLink,
       invitedBy: caller.email,
+      meta: { userId: created.uid, subjectType: "user", subjectId: created.uid, ...(input.festIds[0] ? { festId: input.festIds[0] } : {}) },
     }),
   );
 

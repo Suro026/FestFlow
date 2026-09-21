@@ -300,6 +300,17 @@ service cloud.firestore {
 
     // Anything not matched above is denied. Without this, a collection added
     // later would be wide open until someone remembered to write rules for it.
+    // --------------------------------------------------------------- emailLog
+
+    match /emailLog/{entryId} {
+      // Written only by the server as it sends. Read by whoever manages the
+      // fest an email concerns (and super admins for the rest), to answer
+      // "did the invite / certificate email actually go out?".
+      allow get, list: if isSuperAdmin()
+                       || (isAdmin() && resource.data.festId is string && managesFest(resource.data.festId));
+      allow create, update, delete: if serverOnly();
+    }
+
     match /{document=**} {
       allow read, write: if false;
     }

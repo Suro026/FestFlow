@@ -3,7 +3,8 @@ import { ApiError, authenticate, handler, ok, readBody } from "@/server/api";
 import { COLLECTIONS, FieldValue, Timestamp, adminDb } from "@/server/firebase-admin";
 import { compact, docToJson } from "@/server/serialize";
 import { emailService } from "@/server/email";
-import { teamInviteEmail } from "@/server/email/templates";
+import { teamInviteEmail, teamUpdateEmail } from "@/server/email/templates";
+import { notify } from "@/server/notify";
 
 type MemberDoc = Record<string, unknown> & { email: string; name: string; isLeader?: boolean; userId?: string; inviteStatus?: string };
 
@@ -157,51 +158,44 @@ export const POST = handler(async (request, context) => {
   const registration = docToJson(saved)!;
 
   // Side effects after the write; none may undo it.
-  const notify = (userId: string | undefined, type: "team_invite" | "team_update", title: string, body: string) => {
-    if (!userId) return Promise.resolve();
-    return db
-      .collection(COLLECTIONS.notifications)
-      .add({
-        userId,
-        type,
-        title,
-        body,
-        link: "/teams",
-        festId: saved.data()?.festId,
-        eventId: saved.data()?.eventId,
-        read: false,
-        createdAt: FieldValue.serverTimestamp(),
-        updatedAt: FieldValue.serverTimestamp(),
-      })
-      .then(() => undefined)
-      .catch(() => undefined);
-  };
-
+  const festId = String(saved.data()?.festId ?? "");
+  const eventId = String(saved.data()?.eventId ?? "");
   const teamName = String(saved.data()?.teamName ?? "your team");
   const eventTitle = String(saved.data()?.eventTitle ?? "");
+  const leaderName = String(saved.data()?.userName ?? "Your teammate");
+  const leaderEmail = String(saved.data()?.userEmail ?? "");
+  const leaderUid = String(saved.data()?.userId ?? "");
+  const meta = (userId?: string) => ({ ...(userId ? { userId } : {}), festId, eventId, subjectType: "registration", subjectId: saved.id });
+
+  const tell = (userId: string | undefined, type: "team_invite" | "team_update", title: string, body: string) =>
+    userId ? notify({ userId, type, title, body, link: "/teams", festId, eventId }) : Promise.resolve(null);
+
+  const mailer = emailService();
 
   if (outcome.kind === "invite") {
-    const festName = await festRefName(db, String(outcome.reg.festId));
-    await notify(outcome.member.userId, "team_invite", `${String(outcome.reg.userName ?? "Your teammate")} added you to ${teamName}`, eventTitle);
-    emailService()
-      .send(
-        teamInviteEmail({
-          to: outcome.member.email,
-          recipientName: outcome.member.name,
-          leaderName: String(outcome.reg.userName ?? "Your teammate"),
-          teamName,
-          eventTitle,
-          festName,
-          date: String(outcome.event.date ?? ""),
-        }),
-      )
-      .catch(() => undefined);
+    const festName = await festRefName(db, festId);
+    await tell(outcome.member.userId, "team_invite", `${leaderName} added you to ${teamName}`, eventTitle);
+    await mailer.send(
+      teamInviteEmail({
+        to: outcome.member.email,
+        recipientName: outcome.member.name,
+        leaderName,
+        teamName,
+        eventTitle,
+        festName,
+        date: String(outcome.event.date ?? ""),
+        meta: meta(outcome.member.userId),
+      }),
+    );
   } else if (outcome.kind === "remove") {
-    await notify(outcome.target.userId, "team_update", `You were removed from ${teamName}`, eventTitle);
+    await tell(outcome.target.userId, "team_update", `You were removed from ${teamName}`, eventTitle);
+    await mailer.send(teamUpdateEmail({ to: outcome.target.email, recipientName: outcome.target.name, teamName, eventTitle, change: "removed", meta: meta(outcome.target.userId) }));
   } else if (outcome.kind === "accept") {
-    await notify(String(outcome.reg.userId), "team_update", `${outcome.me.name} joined ${teamName}`, eventTitle);
+    await tell(leaderUid, "team_update", `${outcome.me.name} joined ${teamName}`, eventTitle);
+    if (leaderEmail) await mailer.send(teamUpdateEmail({ to: leaderEmail, recipientName: leaderName, teamName, eventTitle, change: "accepted", memberName: outcome.me.name, meta: meta(leaderUid) }));
   } else if (outcome.kind === "decline") {
-    await notify(String(outcome.reg.userId), "team_update", `${outcome.me.name} declined to join ${teamName}`, `${eventTitle} · a seat was released`);
+    await tell(leaderUid, "team_update", `${outcome.me.name} declined to join ${teamName}`, `${eventTitle} · a seat was released`);
+    if (leaderEmail) await mailer.send(teamUpdateEmail({ to: leaderEmail, recipientName: leaderName, teamName, eventTitle, change: "declined", memberName: outcome.me.name, meta: meta(leaderUid) }));
   }
 
   return ok({ registration });

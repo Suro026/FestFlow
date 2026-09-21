@@ -12,6 +12,7 @@ export const NOTIFICATION_TYPES = [
   "registration_cancelled",
   "team_invite",
   "team_update",
+  "waitlist_promoted",
   "event_reminder",
   "event_updated",
   "event_cancelled",
@@ -59,3 +60,19 @@ export const createNotificationSchema = z.object({
 });
 
 export type CreateNotification = z.infer<typeof createNotificationSchema>;
+
+/** Short labels for the notification centre's type chips. */
+export const NOTIFICATION_LABELS: Record<NotificationType, string> = {
+  registration_confirmed: "Registration",
+  registration_cancelled: "Registration",
+  team_invite: "Team",
+  team_update: "Team",
+  waitlist_promoted: "Waitlist",
+  event_reminder: "Reminder",
+  event_updated: "Event update",
+  event_cancelled: "Event cancelled",
+  attendance_recorded: "Check-in",
+  certificate_issued: "Certificate",
+  results_published: "Results",
+  announcement: "Announcement",
+};
