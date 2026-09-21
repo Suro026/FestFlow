@@ -40,6 +40,7 @@ Useful scripts:
 | `npm run grant-super-admin -- you@college.edu` | Seeds the first super admin (staff accounts are invite-only) |
 | `npm run seed:demo` | Writes demo fests/events so the pages have something to show |
 | `npm run firebase:deploy` | Deploys `firestore.rules`, `storage.rules` and indexes via the service account — no `firebase login` needed |
+| `npm run verify:infra` | Confirms the composite indexes are live, the Storage bucket exists, and the Storage rules admit/refuse the right uploads; prints one-click console links for anything missing |
 | `npm run build` | Production build; also what Vercel runs |
 
 ## Deploy (Vercel)
@@ -85,10 +86,13 @@ trigger a redeploy; `NEXT_PUBLIC_*` values are inlined at build time.
 1. Authentication → Settings → Authorized domains: add `plansphere.in`.
 2. Authentication → Templates → Customize action URL: `https://plansphere.in/auth/action`.
 3. Storage → Get started (creates the bucket), then `npm run firebase:deploy -- --rules`.
-4. For the composite indexes used by the paginated admin tables, grant the
-   service account the *Cloud Datastore Index Admin* role in Google Cloud IAM,
-   then `npm run firebase:deploy -- --indexes`. Public and student pages need
-   no composite indexes.
+4. For the composite indexes used by the paginated admin tables, either grant
+   the service account the *Cloud Datastore Index Admin* role in Google Cloud
+   IAM and run `npm run firebase:deploy -- --indexes`, or run
+   `npm run verify:infra` and click the six console links it prints. Public
+   and student pages need no composite indexes.
+5. `npm run verify:infra` until it reports 0 failed; `GET /api/health` on the
+   deployed site reports the same checks from inside Vercel.
 
 ## Security model, in one paragraph
 
