@@ -31,7 +31,7 @@ export class FirestoreNotificationRepository implements NotificationRepository {
       query(notifications(), where("userId", "==", userId)),
       notificationSchema,
       COLLECTIONS.notifications,
-      (items) => onChange(sortBy(items, [(n) => n.createdAt, "desc"]).slice(0, 30)),
+      (items) => onChange(sortBy(items, [(n) => n.createdAt, "desc"]).slice(0, 100)),
       onError,
     );
   }
