@@ -16,6 +16,9 @@ export default defineConfig({
   plugins: [react(), tsconfigPaths()],
   test: {
     globals: false,
+    // The emulator files each clear Firestore, so files must not run at the
+    // same time; `npm run test:emulator` also passes --no-file-parallelism.
+    fileParallelism: false,
     projects: [
       {
         extends: true,
@@ -35,9 +38,6 @@ export default defineConfig({
           setupFiles: ["tests/setup/emulator.ts"],
           testTimeout: 30_000,
           hookTimeout: 60_000,
-          // Rules and transaction tests share one emulator instance; keep them
-          // sequential so `clearFirestore` in one file cannot race another.
-          fileParallelism: false,
         },
       },
     ],
