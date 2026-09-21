@@ -3,9 +3,11 @@
 import * as React from "react";
 import Link from "next/link";
 import { useFest, AdminPage } from "@/components/shell/admin-shell";
-import { useRepositories } from "@/components/providers";
+import { useAuth, useRepositories } from "@/components/providers";
 import { useFestCertificateCount, useFestEvents, useFestGateFeed, useFestMealCount } from "@/components/admin/hooks";
 import { Seg } from "@/components/ui/field";
+import { AnnounceDialog } from "@/components/admin/announce-dialog";
+import { hasAtLeast } from "@/core/models/user";
 import { Button } from "@/components/ui/button";
 import {
   Bar,
@@ -45,6 +47,7 @@ const statusTag = (event: Event) => {
 /** 2d — Fest owner dashboard. The sober, institutional half. */
 export default function OverviewPage() {
   const { fest, basePath } = useFest();
+  const { session } = useAuth();
   const events = useFestEvents(fest.id);
   const feed = useFestGateFeed(fest.id, 8);
   const meals = useFestMealCount(fest.id);
@@ -88,6 +91,7 @@ export default function OverviewPage() {
           }
           actions={
             <>
+              {session && hasAtLeast(session.role, "admin") ? <AnnounceDialog festId={fest.id} festName={fest.name} events={all} /> : null}
               <Button asChild variant="secondary">
                 <Link href={`${basePath}/registrations`}>Registrations</Link>
               </Button>
