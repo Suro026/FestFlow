@@ -45,7 +45,9 @@ const uid = () => (globalThis.crypto?.randomUUID ? globalThis.crypto.randomUUID(
 /** Accepts a raw ticket code or the public /t/CODE URL the QR encodes. */
 export const parseTicketCode = (raw: string): string | null => {
   const text = raw.trim();
-  const fromUrl = text.match(/\/t\/(FF-[0-9A-HJ-NP-Z]{10})/i)?.[1];
+  // Anchored after the code so an over-long or mangled code is not silently
+  // truncated to a different, possibly valid, ticket.
+  const fromUrl = text.match(/\/t\/(FF-[0-9A-HJ-NP-Z]{10})(?![0-9A-Z])/i)?.[1];
   const code = (fromUrl ?? text).toUpperCase();
   return /^FF-[0-9A-HJ-NP-Z]{10}$/.test(code) ? code : null;
 };
