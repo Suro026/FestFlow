@@ -13,7 +13,8 @@
     "seed:demo": "node --env-file=.env.local scripts/seed-demo.mjs",
     "firebase:deploy": "node --env-file=.env.local scripts/deploy-firebase.mjs",
     "migrate:accounts": "node --env-file=.env.local scripts/migrate-accounts.mjs",
-    "inspect:accounts": "node --env-file=.env.local scripts/inspect-accounts.mjs"
+    "inspect:accounts": "node --env-file=.env.local scripts/inspect-accounts.mjs",
+    "verify:infra": "node --env-file=.env.local scripts/verify-infra.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.9.1",
