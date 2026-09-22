@@ -132,5 +132,12 @@ export const reportEnvOnce = (): EnvReport => {
   if (!report.ok) console.error("[env]", JSON.stringify(line));
   else if (line.warnings.length) console.warn("[env]", JSON.stringify(line));
   else console.info("[env]", JSON.stringify(line));
+
+  // ENV_STRICT=1 turns a misconfigured production deploy into a failed
+  // start rather than a running site that cannot register anyone. Off by
+  // default so a preview deployment without secrets still boots.
+  if (!report.ok && process.env.ENV_STRICT === "1") {
+    throw new Error(`Refusing to start: ${line.errors.join("; ")}`);
+  }
   return report;
 };

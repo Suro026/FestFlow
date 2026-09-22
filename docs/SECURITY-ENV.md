@@ -1,0 +1,96 @@
+# Secrets & environment variables
+
+Audit of 22 Sep 2026. Re-run any time with `npm run scan:secrets` (tracked
+files, also a CI step) and `npm run scan:secrets:history` (every commit on
+every ref). Neither prints a matched value.
+
+## Where values may live
+
+| Location | Contents | Reaches the browser? |
+|---|---|---|
+| Vercel project env (Production / Preview) | everything below | only `NEXT_PUBLIC_*`, inlined at build |
+| `.env.local` (gitignored) | local copy of the same | same rule |
+| `.env.example` (tracked) | **names only**, empty values | — |
+| Source code | nothing — every value is read from `process.env` | — |
+
+`next build` inlines `NEXT_PUBLIC_*` into client chunks by design. Nothing
+else is referenced from client code; `src/server/**` and `src/app/api/**` are
+the only readers of server variables, and `src/server/firebase-admin.ts`
+throws if imported into a client component.
+
+## Safe public variables (`NEXT_PUBLIC_*`, shipped to the browser)
+
+| Variable | Why it is safe |
+|---|---|
+| `NEXT_PUBLIC_FIREBASE_API_KEY` | Firebase web API keys identify the project; access is governed by Firestore/Storage rules and App Check, not by the key. **Restrict it to HTTP referrers `plansphere.in`/`*.plansphere.in` in Google Cloud → APIs & Services → Credentials.** |
+| `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN`, `_PROJECT_ID`, `_STORAGE_BUCKET`, `_MESSAGING_SENDER_ID`, `_APP_ID`, `_MEASUREMENT_ID` | Public project identifiers |
+| `NEXT_PUBLIC_APP_URL` | The canonical origin |
+| `NEXT_PUBLIC_SENTRY_DSN` | Sentry DSNs are write-only ingest addresses, public by design |
+| `NEXT_PUBLIC_RECAPTCHA_V3_SITE_KEY` | reCAPTCHA *site* key (the secret key is never used — App Check verifies server-side with Firebase) |
+| `NEXT_PUBLIC_VERCEL_ENV` | Vercel-provided environment name |
+| `NEXT_PUBLIC_FIREBASE_EMULATOR`, `NEXT_PUBLIC_*_EMULATOR_HOST`, `NEXT_PUBLIC_APPCHECK_DEBUG` | Local development switches; unset in production |
+
+## Server-only variables (never prefixed, never in client chunks)
+
+| Variable | Secret? | Used by | Validated at startup |
+|---|---|---|---|
+| `FIREBASE_SERVICE_ACCOUNT` | **yes** — bypasses all rules | `src/server/firebase-admin.ts`, scripts | required in production |
+| `RESEND_API_KEY` | **yes** | `src/server/email` | warning if provider=resend without it |
+| `EMAIL_PROVIDER`, `EMAIL_FROM` | no | `src/server/email` | enum / default |
+| `CRON_SECRET` | **yes** | `/api/cron/event-reminders` | warning in production if missing |
+| `SENTRY_AUTH_TOKEN`, `SENTRY_ORG`, `SENTRY_PROJECT` | **token yes** | build only (source-map upload) | optional |
+| `APP_CHECK_ENFORCE` | no | `src/server/app-check.ts` | must not be `true` without a site key |
+| `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN` | **token yes** | `src/server/rate-limit.ts` | both or neither |
+| `RATE_LIMIT_OVERRIDES`, `RATE_LIMIT_DISABLED` | no | rate limiting | parsed / switch |
+| `ENV_STRICT` | no | startup: refuse to boot on a required-variable error | switch |
+| `FIRESTORE_EMULATOR_HOST`, `FIREBASE_AUTH_EMULATOR_HOST`, `GCLOUD_PROJECT` | no | tests / emulator development | — |
+| `VERCEL_*` | no | provided by Vercel | — |
+
+Startup validation lives in `src/server/env.ts` and runs from
+`src/instrumentation.ts`; the same report is shown by `GET /api/health` and
+`/admin/health`.
+
+## Findings of the 22 Sep 2026 audit
+
+**Tracked files:** no secrets. No API key, token, password, private key or
+service-account material anywhere in the working tree. All credentials are
+read from the environment.
+
+**Client bundles (`.next/static`):** contain the `NEXT_PUBLIC_*` values only.
+No service-account material, private key, Resend key, cron secret, Upstash
+token or Sentry token. (The string `RESEND_API_KEY` appears once, as the
+*name* in help copy on the admin console.)
+
+**Git history (76 commits, all refs):** no service-account key was ever
+committed. Two historical items, both in code that no longer exists on
+`main`:
+
+1. The old Django backend (`legacy-history` branch, `pre-rearchitecture`
+   tag) committed `backend/config/settings.py` with Django's auto-generated
+   `django-insecure-…` development `SECRET_KEY`, and its compiled `.pyc`. The
+   backend was deleted in the rebuild and was never deployed with that key in
+   production use, so there is nothing to rotate. Delete the two refs from
+   the remote when the old code is no longer needed for reference.
+2. The Firebase **web** API key was hardcoded in the old Vite app
+   (`src/lib/firebase.ts`, built `dist/` bundles, and `_legacy/` during the
+   port). That key is public by design and is the same value now served via
+   `NEXT_PUBLIC_FIREBASE_API_KEY`; restricting it by HTTP referrer (above)
+   is the hardening step, not rotation.
+
+**Removed hardcoded secrets:** none were present in the current code. The
+audit added the scanner, the CI step, the ignore rules for key files
+(`*.pem`, `*.p12`, `*.key`, `serviceAccount*.json`, `firebase-admin-key.json`,
+`.sentryclirc`, `.vercel`) and `ENV_STRICT`.
+
+## Operational reminders
+
+- **Rotate the Firebase service-account key** if it was ever pasted into a
+  chat, ticket or terminal shared with others: Firebase console → Project
+  settings → Service accounts → Generate new private key → update
+  `FIREBASE_SERVICE_ACCOUNT` on Vercel (base64 of the JSON) → delete the old
+  key in Google Cloud IAM.
+- Rotate `CRON_SECRET`, `RESEND_API_KEY` and Upstash tokens the same way:
+  set the new value on Vercel, redeploy, revoke the old one at the provider.
+- Vercel env scopes: keep Production values out of Preview unless a preview
+  genuinely needs to send email or write to production Firestore (it should
+  not).

@@ -40,6 +40,7 @@ Useful scripts:
 | `npm run grant-super-admin -- you@college.edu` | Seeds the first super admin (staff accounts are invite-only) |
 | `npm run seed:demo` | Writes demo fests/events so the pages have something to show |
 | `npm run firebase:deploy` | Deploys `firestore.rules`, `storage.rules` and indexes via the service account — no `firebase login` needed |
+| `npm run scan:secrets` | Fails on any secret-shaped string in tracked files (also a CI step); `-- --history` scans every commit. See `docs/SECURITY-ENV.md` |
 | `npm run verify:infra` | Confirms the composite indexes are live, the Storage bucket exists, and the Storage rules admit/refuse the right uploads; prints one-click console links for anything missing |
 | `npm test` | Unit and component tests (Vitest + Testing Library, jsdom) |
 | `npm run test:emulator` | Rules, repository and API-transaction tests against the Firebase emulators (needs Java 21) |
