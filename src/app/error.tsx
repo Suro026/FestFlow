@@ -17,7 +17,7 @@ export default function ErrorPage({ error, reset }: { error: Error & { digest?: 
   }, [error]);
 
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-[720px] flex-col justify-center px-[18px] py-16 sm:px-6">
+    <main id="main" className="mx-auto flex min-h-dvh w-full max-w-[720px] flex-col justify-center px-[18px] py-16 sm:px-6">
       <Kick className="mb-2">Something broke</Kick>
       <h1 className="mb-3 text-[32px] font-medium leading-[1.05] tracking-[-0.03em] sm:text-[40px]">This page didn’t load</h1>
       <p className="mb-2 max-w-[48ch] text-[15px] text-neutral-300">

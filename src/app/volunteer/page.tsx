@@ -29,7 +29,7 @@ export default function VolunteerIndexPage() {
           <UserMenu variant="admin" />
         </nav>
       </header>
-      <main className="mx-auto w-full max-w-[720px] flex-1 px-[18px] py-6 sm:px-6">
+      <main id="main" className="mx-auto w-full max-w-[720px] flex-1 px-[18px] py-6 sm:px-6">
         <Kick className="mb-2">Your fests</Kick>
         <h4 className="mb-4">Where are you on shift?</h4>
         {fests.isPending ? (

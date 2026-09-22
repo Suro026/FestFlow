@@ -32,7 +32,7 @@ export default async function TicketPage({ params }: Params) {
   return (
     <div className="flex min-h-dvh flex-col">
       <PublicNav />
-      <main className="mx-auto w-full max-w-[720px] flex-1 px-[18px] pb-16 pt-6 sm:px-6 sm:pt-10">
+      <main id="main" className="mx-auto w-full max-w-[720px] flex-1 px-[18px] pb-16 pt-6 sm:px-6 sm:pt-10">
         {valid ? <Valid ticket={ticket} /> : <Invalid code={ticketCode.toUpperCase()} ticket={ticket} />}
       </main>
       <PublicFooter />

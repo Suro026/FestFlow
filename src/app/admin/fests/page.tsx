@@ -37,7 +37,7 @@ export default function FestsPage() {
           <UserMenu variant="admin" />
         </nav>
       </header>
-      <main className="mx-auto w-full max-w-[1180px] flex-1 px-5 pb-9 pt-[26px] lg:px-8">
+      <main id="main" className="mx-auto w-full max-w-[1180px] flex-1 px-5 pb-9 pt-[26px] lg:px-8">
         <PageHeading
           title="Fests"
           sub={`${rows.length} on the platform`}

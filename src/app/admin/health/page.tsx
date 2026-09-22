@@ -83,7 +83,7 @@ export default function HealthPage() {
         </nav>
       </header>
 
-      <main className="mx-auto w-full max-w-[920px] flex-1 px-6 pb-16 pt-6 lg:px-10">
+      <main id="main" className="mx-auto w-full max-w-[920px] flex-1 px-6 pb-16 pt-6 lg:px-10">
         <PageHeading
           kick="Platform"
           title="Health"

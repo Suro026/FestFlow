@@ -316,7 +316,7 @@
     border: 1px solid var(--color-divider); border-radius: var(--radius-md);
     transition: border-color 120ms ease;
   }
-  .input::placeholder { color: var(--color-neutral-600); }
+  .input::placeholder { color: var(--color-neutral-500); }
   .input:hover { border-color: color-mix(in srgb, var(--color-text) 45%, transparent); }
   .input:focus-visible { border-color: var(--color-accent); outline-offset: 0; }
   .input[aria-invalid="true"] { border-color: var(--color-danger); }

@@ -50,7 +50,7 @@ export default function NewFestPage() {
           <UserMenu variant="admin" />
         </nav>
       </header>
-      <main className="mx-auto grid w-full max-w-[1180px] flex-1 gap-10 px-5 pb-[38px] pt-7 lg:grid-cols-[1fr_340px] lg:px-8">
+      <main id="main" className="mx-auto grid w-full max-w-[1180px] flex-1 gap-10 px-5 pb-[38px] pt-7 lg:grid-cols-[1fr_340px] lg:px-8">
         <div>
           <Kick className="mb-2">New fest</Kick>
           <h2 className="mb-[22px] text-[28px]">Set up a fest</h2>

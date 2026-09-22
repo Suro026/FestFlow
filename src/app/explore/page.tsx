@@ -4,6 +4,7 @@ import { PublicFooter, PublicNav } from "@/components/shell/public-nav";
 import { ExploreBoard, type FestWithStats } from "@/components/fest/explore-board";
 
 export const metadata: Metadata = {
+  alternates: { canonical: "/explore" },
   title: "Explore fests",
   description: "Every published fest, filterable by city, date and category.",
 };
@@ -24,7 +25,9 @@ export default async function ExplorePage() {
   return (
     <div className="flex min-h-dvh flex-col">
       <PublicNav active="fests" />
-      <ExploreBoard items={withStats} />
+      <main id="main" className="flex flex-1 flex-col">
+        <ExploreBoard items={withStats} />
+      </main>
       <PublicFooter />
     </div>
   );

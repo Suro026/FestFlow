@@ -9,7 +9,8 @@ Sentry.init({
   dsn: process.env.NEXT_PUBLIC_SENTRY_DSN,
   enabled: Boolean(process.env.NEXT_PUBLIC_SENTRY_DSN),
   environment: process.env.NEXT_PUBLIC_VERCEL_ENV ?? process.env.NODE_ENV,
-  tracesSampleRate: 0.05,
+  // Errors only. Performance tracing is excluded from the bundle (see
+  // next.config bundleSizeOptimizations); Vercel Speed Insights covers vitals.
   sendDefaultPii: false,
   ignoreErrors: [
     // Browser noise, not application errors.
@@ -19,5 +20,3 @@ Sentry.init({
     /NotAllowedError/, // camera permission refused on the scanner
   ],
 });
-
-export const onRouterTransitionStart = Sentry.captureRouterTransitionStart;

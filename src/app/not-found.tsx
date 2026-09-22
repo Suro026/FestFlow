@@ -7,7 +7,7 @@ export default function NotFound() {
   return (
     <div className="flex min-h-dvh flex-col">
       <PublicNav />
-      <main className="mx-auto flex w-full max-w-[720px] flex-1 flex-col justify-center px-[18px] py-16 sm:px-6">
+      <main id="main" className="mx-auto flex w-full max-w-[720px] flex-1 flex-col justify-center px-[18px] py-16 sm:px-6">
         <Kick className="mb-2">404</Kick>
         <h1 className="mb-3 text-[32px] font-medium leading-[1.05] tracking-[-0.03em] sm:text-[40px]">Nothing at this address</h1>
         <p className="mb-7 max-w-[48ch] text-[15px] text-neutral-300">

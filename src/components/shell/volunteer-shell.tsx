@@ -101,7 +101,7 @@ export const VolunteerShell = ({ children, hideTapBar }: { children: React.React
         </nav>
       </header>
 
-      <main className={cn("flex-1", !hideTapBar && "pb-[76px] sm:pb-0")}>{children}</main>
+      <main id="main" className={cn("flex-1", !hideTapBar && "pb-[76px] sm:pb-0")}>{children}</main>
 
       {hideTapBar ? null : (
         <nav className="tapbar fixed inset-x-0 bottom-0 z-40 sm:hidden" aria-label="Volunteer">

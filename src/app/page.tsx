@@ -33,6 +33,7 @@ export default async function LandingPage() {
     <div className="flex min-h-dvh flex-col">
       <PublicNav />
 
+      <main id="main" className="flex flex-1 flex-col">
       {/* Hero */}
       <section className="relative overflow-hidden" style={{ minHeight: 470 }}>
         <Artwork label="full-bleed crowd photograph, dark background · .lighten" className="absolute inset-0 items-start justify-end" />
@@ -126,6 +127,7 @@ export default async function LandingPage() {
           </div>
         </div>
       </section>
+      </main>
 
       <PublicFooter />
     </div>
