@@ -1,3 +1,4 @@
+import * as Sentry from "@sentry/nextjs";
 import type { CreateNotification } from "@/core/models/notification";
 import { COLLECTIONS, FieldValue, adminDb } from "./firebase-admin";
 import { compact } from "./serialize";
@@ -27,6 +28,7 @@ export const notify = async (input: CreateNotification): Promise<string | null> 
     return ref.id;
   } catch (error) {
     console.warn("[notify] dropped notification:", error instanceof Error ? error.message : error);
+    Sentry.captureException(error, { tags: { kind: "notify" }, level: "warning", extra: { userId: input.userId, type: input.type } });
     return null;
   }
 };
@@ -62,6 +64,7 @@ export const notifyMany = async (inputs: CreateNotification[]): Promise<number> 
     }
   } catch (error) {
     console.warn("[notify] fan-out stopped early:", error instanceof Error ? error.message : error);
+    Sentry.captureException(error, { tags: { kind: "notify-fanout" }, level: "warning", extra: { written, total: unique.length } });
   }
   return written;
 };
