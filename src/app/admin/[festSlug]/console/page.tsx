@@ -73,6 +73,9 @@ export default function ConsolePage() {
         title="Console"
         actions={
           <>
+            <Button asChild variant="ghost">
+              <Link href="/admin/health">Health</Link>
+            </Button>
             <Button asChild variant="secondary">
               <Link href={`${basePath}/staff`}>Create admin</Link>
             </Button>

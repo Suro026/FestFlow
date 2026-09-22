@@ -67,6 +67,14 @@ export async function GET() {
     EMAIL_PROVIDER: process.env.EMAIL_PROVIDER ?? "console (default)",
   }));
 
+  // 2b. The env schema: what is missing, what is degraded, which features are on.
+  checks.envValidation = await step(async () => {
+    const { validateEnv } = await import("@/server/env");
+    const report = validateEnv();
+    if (!report.ok) throw new Error(report.issues.filter((i) => i.level === "error").map((i) => `${i.key}: ${i.message}`).join("; "));
+    return { features: report.features, warnings: report.issues.map((i) => `${i.key}: ${i.message}`) };
+  });
+
   // 3. Can the service account be parsed? (project id + masked email only)
   checks.serviceAccountParse = await step(async () => {
     const trimmed = raw.trim().replace(/^['"]|['"]$/g, "");
@@ -151,6 +159,20 @@ export async function GET() {
     if (!admin) throw new Error("server module did not load");
     const list = await admin.adminAuth().listUsers(1);
     return { reachable: true, sampled: list.users.length };
+  });
+
+  // 10. Observability and protection, as configured.
+  checks.monitoring = await step(async () => {
+    const { appCheckMode } = await import("@/server/app-check");
+    const { validateEnv } = await import("@/server/env");
+    const f = validateEnv().features;
+    return {
+      sentry: f.sentry ? "on" : "off (no NEXT_PUBLIC_SENTRY_DSN)",
+      appCheck: f.appCheck === "off" ? "off (no site key)" : appCheckMode(),
+      rateLimitStore: f.rateLimitStore,
+      cron: f.cron ? "armed" : "off (no CRON_SECRET)",
+      email: f.email,
+    };
   });
 
   const healthy = Object.values(checks).every((c) => c.ok);
