@@ -108,6 +108,8 @@ export const POST = handler(async (request, context) => {
       subjectId: id,
       details: { reason },
     });
+    // The entry that moved up because of this cancellation is told too.
+    if (outcome.promoted) await announcePromotion(outcome.promoted.id);
     await notify({
       userId: String(outcome.reg.userId),
       type: "registration_cancelled",

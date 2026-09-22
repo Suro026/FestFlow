@@ -191,8 +191,13 @@ service cloud.firestore {
     match /attendance/{registrationId} {
       // A student can confirm their own check-in; staff see the whole feed.
       // Teammates read it too — the check-in is the team's, not the leader's.
-      allow get: if isOwner(resource.data.userId)
-                 || managesFest(resource.data.festId)
+      //
+      // The scan transaction reads this document *before it exists* to tell a
+      // first scan from a repeat, so staff must be allowed a `get` on a
+      // missing document (`resource == null`); every other branch needs the
+      // document's fields and is guarded accordingly.
+      allow get: if (isOrganizer() && (resource == null || managesFest(resource.data.festId)))
+                 || (resource != null && isOwner(resource.data.userId))
                  || onRegistration(registrationId);
       allow list: if isOrganizer() || isOwner(resource.data.userId);
 
@@ -215,7 +220,10 @@ service cloud.firestore {
     // -------------------------------------------------------- foodCollections
 
     match /foodCollections/{collectionId} {
-      allow get: if isOwner(resource.data.userId) || managesFest(resource.data.festId);
+      // As with attendance: the meal transaction reads the slot before it
+      // exists, so staff may `get` a missing document.
+      allow get: if (isOrganizer() && (resource == null || managesFest(resource.data.festId)))
+                 || (resource != null && isOwner(resource.data.userId));
       allow list: if isOrganizer() || isOwner(resource.data.userId);
 
       // Same trick as attendance: the id encodes entry + day + meal slot, so
