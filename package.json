@@ -17,7 +17,7 @@
     "verify:infra": "node --env-file=.env.local scripts/verify-infra.mjs",
     "test": "vitest run --project unit --file-parallelism",
     "test:watch": "vitest --project unit --file-parallelism",
-    "test:emulator": "firebase emulators:exec --only firestore,auth --project festflow-test \"vitest run --project emulator\"",
+    "test:emulator": "npx firebase-tools@15 emulators:exec --only firestore,auth --project festflow-test \"vitest run --project emulator\"",
     "test:all": "npm test && npm run test:emulator"
   },
   "dependencies": {
