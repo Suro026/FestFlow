@@ -84,6 +84,12 @@ Production *and* Preview). Copy the names from `.env.example`.
 | `RESEND_API_KEY` | **Secret.** From resend.com → API Keys, after verifying the `plansphere.in` domain (DKIM + SPF + DMARC records) |
 | `EMAIL_FROM` | Defaults to `FestFlow <noreply@plansphere.in>` |
 | `CRON_SECRET` | **Secret.** Any long random string; Vercel Cron presents it to `/api/cron/event-reminders` (daily 09:00 IST) |
+| `NEXT_PUBLIC_SENTRY_DSN` | Enables Sentry (browser + server + edge). `SENTRY_AUTH_TOKEN`/`SENTRY_ORG`/`SENTRY_PROJECT` additionally upload source maps at build |
+| `NEXT_PUBLIC_RECAPTCHA_V3_SITE_KEY` | Enables Firebase App Check on the client; `APP_CHECK_ENFORCE=true` makes the API refuse calls without a valid token |
+| `UPSTASH_REDIS_REST_URL` / `_TOKEN` | Shared rate-limit store; without them limits are per serverless instance |
+
+`GET /api/health` (JSON) and `/admin/health` (super admins) report every check
+above, plus environment validation and which of these features are on.
 
 The build does not fail when the Firebase variables are missing — pages render
 empty and the build log prints one `[festflow] Firebase web config is missing`

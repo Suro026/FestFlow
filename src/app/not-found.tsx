@@ -1,6 +1,9 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { PublicFooter, PublicNav } from "@/components/shell/public-nav";
 import { Kick } from "@/components/ui/primitives";
+
+export const metadata: Metadata = { title: "Page not found", robots: { index: false } };
 
 /** Global 404 — also what `notFound()` renders for an unknown fest or event slug. */
 export default function NotFound() {

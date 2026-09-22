@@ -2,7 +2,7 @@ import * as React from "react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Brand } from "@/components/shell/brand";
-import { Artwork, Kick, Skeleton } from "@/components/ui/primitives";
+import { HeroField, Kick, Skeleton } from "@/components/ui/primitives";
 
 /**
  * Auth screens — designed to fill a gap in the canvas, in its own idiom.
@@ -13,7 +13,9 @@ import { Artwork, Kick, Skeleton } from "@/components/ui/primitives";
  * whitespace do the rest.
  */
 export const metadata: Metadata = {
-  title: "Account",
+  // A nested template so route titles keep the brand suffix (a template only
+  // applies to the segment directly below the layout that defines it).
+  title: { default: "Account", template: "%s · FestFlow" },
   description: "Sign in to FestFlow or create your student account.",
   robots: { index: false, follow: false },
 };
@@ -51,7 +53,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
 
         <aside className="hidden lg:block">
           <div className="relative h-[420px] overflow-hidden rounded-lg">
-            <Artwork label="fest cover photograph — dark background, .lighten" className="absolute inset-0 items-start justify-end" />
+            <HeroField className="absolute inset-0 h-full w-full" seed={11} />
             <div
               className="absolute inset-0"
               style={{

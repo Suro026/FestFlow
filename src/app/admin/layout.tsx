@@ -7,7 +7,9 @@ import { GuardSkeleton, RequireRole } from "@/components/shell/require-role";
  * an account may open is decided one level down, by the fest-scoped layout.
  */
 export const metadata: Metadata = {
-  title: "Admin",
+  // A nested template so route titles keep the brand suffix (a template only
+  // applies to the segment directly below the layout that defines it).
+  title: { default: "Admin", template: "%s · FestFlow" },
   description: "Run your fest: events, registrations, gate, results, certificates and staff.",
   robots: { index: false, follow: false },
 };
