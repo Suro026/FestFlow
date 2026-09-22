@@ -1,3 +1,4 @@
+import * as Sentry from "@sentry/nextjs";
 import { randomUUID } from "node:crypto";
 import { COLLECTIONS, FieldValue, adminDb, isAdminConfigured } from "@/server/firebase-admin";
 import type { EmailMessage, EmailResult, EmailService } from "./types";
@@ -165,6 +166,9 @@ class LoggedEmailService implements EmailService {
       result = { ok: false, error: error instanceof Error ? error.message : String(error), retryable: false };
     }
     await this.record(message, result);
+    if (!result.ok && this.inner.canSend) {
+      Sentry.captureMessage(`Email delivery failed: ${message.template}`, { level: "warning", tags: { kind: "email", template: message.template }, extra: { error: result.error, attempts: result.attempts, retryable: result.retryable } });
+    }
     return result;
   }
 
@@ -199,6 +203,7 @@ class LoggedEmailService implements EmailService {
         });
     } catch (error) {
       console.warn("[email] could not write emailLog:", error instanceof Error ? error.message : error);
+      Sentry.captureException(error, { tags: { kind: "email-log" }, level: "warning" });
     }
   }
 }
