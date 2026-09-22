@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import { repositories } from "@/data/repositories";
 import { PublicFooter, PublicNav } from "@/components/shell/public-nav";
 import { FestCard } from "@/components/fest/fest-card";
-import { Artwork, EmptyState, Kick, Kpi, KpiStrip, Tag } from "@/components/ui/primitives";
+import { EmptyState, HeroField, Kick, Kpi, KpiStrip, Tag } from "@/components/ui/primitives";
 import { formatCount } from "@/lib/utils";
 
 export const metadata: Metadata = {
@@ -36,7 +36,7 @@ export default async function LandingPage() {
       <main id="main" className="flex flex-1 flex-col">
       {/* Hero */}
       <section className="relative overflow-hidden" style={{ minHeight: 470 }}>
-        <Artwork label="full-bleed crowd photograph, dark background · .lighten" className="absolute inset-0 items-start justify-end" />
+        <HeroField className="absolute inset-0 h-full w-full" />
         <div
           className="absolute inset-0"
           style={{

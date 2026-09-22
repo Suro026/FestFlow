@@ -9,7 +9,9 @@ import { StudentShell } from "@/components/shell/student-shell";
  * staff hold tickets too.
  */
 export const metadata: Metadata = {
-  title: "My FestFlow",
+  // A nested template so route titles keep the brand suffix (a template only
+  // applies to the segment directly below the layout that defines it).
+  title: { default: "My FestFlow", template: "%s · FestFlow" },
   description: "Your passes, events, teams, certificates and notifications.",
   robots: { index: false, follow: false },
 };

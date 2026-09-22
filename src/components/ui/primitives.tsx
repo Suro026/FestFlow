@@ -165,14 +165,53 @@ export const Artwork = ({ label, src, alt = "", lighten = true, className, style
     );
   }
 
+  // The label is a design-time annotation; it never renders in production.
+  const showLabel = Boolean(label) && process.env.NODE_ENV !== "production";
   return (
     <div className={cn("ph", className)} style={style} aria-hidden {...props}>
-      {label ? (
+      {showLabel ? (
         <div className="px-2.5 py-2 font-mono text-[10px] leading-none tracking-[0.04em] text-neutral-500">
           {label}
         </div>
       ) : null}
     </div>
+  );
+};
+
+/**
+ * Generated hero artwork for pages without a photograph: a quiet field of
+ * accent-tinted "crowd" dots that fades into the ground. Pure SVG, no asset,
+ * decorative only.
+ */
+export const HeroField = ({ className, seed = 7 }: { className?: string; seed?: number }) => {
+  const dots: Array<{ x: number; y: number; r: number; o: number }> = [];
+  let v = seed;
+  const rnd = () => ((v = (v * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff);
+  for (let i = 0; i < 260; i += 1) {
+    const x = rnd() * 1200;
+    const y = 120 + rnd() * 360 + (x / 1200) * -40;
+    dots.push({ x, y, r: 1.2 + rnd() * 2.6, o: 0.18 + rnd() * 0.5 });
+  }
+  return (
+    <svg className={className} viewBox="0 0 1200 470" preserveAspectRatio="xMidYMid slice" aria-hidden focusable="false">
+      <defs>
+        <radialGradient id="hero-glow" cx="78%" cy="40%" r="60%">
+          <stop offset="0%" stopColor="var(--color-accent)" stopOpacity="0.28" />
+          <stop offset="60%" stopColor="var(--color-accent)" stopOpacity="0.06" />
+          <stop offset="100%" stopColor="var(--color-bg)" stopOpacity="0" />
+        </radialGradient>
+        <linearGradient id="hero-fade" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="var(--color-bg)" stopOpacity="0" />
+          <stop offset="100%" stopColor="var(--color-bg)" stopOpacity="1" />
+        </linearGradient>
+      </defs>
+      <rect width="1200" height="470" fill="var(--color-bg)" />
+      <rect width="1200" height="470" fill="url(#hero-glow)" />
+      {dots.map((d, i) => (
+        <circle key={i} cx={d.x} cy={d.y} r={d.r} fill="var(--color-accent)" opacity={d.o} />
+      ))}
+      <rect y="300" width="1200" height="170" fill="url(#hero-fade)" />
+    </svg>
   );
 };
 
