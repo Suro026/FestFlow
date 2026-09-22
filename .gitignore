@@ -50,3 +50,6 @@ yarn-error.log*
 
 # Vercel
 .vercel
+
+# Claude Code project configuration (local tooling, not part of the app)
+.claude/
