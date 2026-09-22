@@ -10,7 +10,18 @@ import {
   adminDb,
 } from "./firebase-admin";
 import { appCheckMode, verifyAppCheck } from "./app-check";
-import { clientIp, rateLimit, rateLimitHeaders, type RateLimitRule } from "./rate-limit";
+import {
+  accountSubject,
+  clientIp,
+  ipSubject,
+  logRateLimited,
+  rateLimitAll,
+  rateLimitHeaders,
+  rateLimitPolicy,
+  retryMessage,
+  uidSubject,
+  type RateLimitRule,
+} from "./rate-limit";
 
 /**
  * Shared plumbing for the privileged API routes.
@@ -200,12 +211,58 @@ export const fieldErrors = (error: ZodError): Record<string, string> => {
   return out;
 };
 
+/**
+ * How a route is rate limited. A single rule is keyed by uid when signed in,
+ * else by IP. Auth routes pass several checks — per IP and per account — and
+ * the account subject usually comes out of the request body.
+ */
+export type RateLimitSpec =
+  | RateLimitRule
+  | Array<{
+      rule: RateLimitRule;
+      by: "ip" | "uid" | "uid-or-ip" | ((request: Request) => Promise<string | null> | string | null);
+    }>
+  | false;
+
 export interface HandlerOptions {
-  /** Apply this rate-limit rule; the subject is the uid when signed in, else the IP. */
-  rateLimit?: RateLimitRule;
+  /**
+   * Rate limiting for the route. Omitted → the tier default applies
+   * (`authenticated.default` keyed by uid for signed-in calls, else
+   * `public.default` keyed by IP). `false` opts out (nothing does).
+   */
+  rateLimit?: RateLimitSpec;
   /** Check the App Check token (monitor or enforce per APP_CHECK_ENFORCE). Default: on for POST/PATCH/DELETE. */
   appCheck?: boolean;
 }
+
+/** Reads `email` out of a JSON body without consuming it — for per-account auth limits. */
+export const emailFromBody = async (request: Request): Promise<string | null> => {
+  try {
+    const body = (await request.clone().json()) as { email?: unknown };
+    return typeof body.email === "string" && body.email.includes("@") ? accountSubject(body.email) : null;
+  } catch {
+    return null;
+  }
+};
+
+const resolveChecks = async (spec: RateLimitSpec | undefined, request: Request, uid: string | null) => {
+  if (spec === false) return [];
+  const policy = rateLimitPolicy();
+  if (spec === undefined) {
+    return uid ? [{ rule: policy.authenticated.default, subject: uidSubject(uid) }] : [{ rule: policy.public.default, subject: ipSubject(request) }];
+  }
+  if (!Array.isArray(spec)) return [{ rule: spec, subject: uid ? uidSubject(uid) : ipSubject(request) }];
+  const out: Array<{ rule: RateLimitRule; subject: string | null }> = [];
+  for (const { rule, by } of spec) {
+    const subject =
+      by === "ip" ? ipSubject(request)
+      : by === "uid" ? (uid ? uidSubject(uid) : null)
+      : by === "uid-or-ip" ? (uid ? uidSubject(uid) : ipSubject(request))
+      : await by(request);
+    out.push({ rule, subject });
+  }
+  return out;
+};
 
 /** gRPC codes from the Admin SDK that mean "Firestore is having a moment", not "we have a bug". */
 const TRANSIENT_FIRESTORE = new Set([4, 8, 10, 13, 14]); // DEADLINE_EXCEEDED, RESOURCE_EXHAUSTED, ABORTED, INTERNAL, UNAVAILABLE
@@ -254,19 +311,23 @@ export const handler = (
     let response: Response;
     let extra: Record<string, unknown> = {};
 
+    let budgetHeaders: Record<string, string> = {};
     const finish = (res: Response): Response => {
       res.headers.set("x-request-id", requestId);
+      for (const [k, v] of Object.entries(budgetHeaders)) if (!res.headers.has(k)) res.headers.set(k, v);
       const line = { at: "api", id: requestId, method: request.method, path: url.pathname, status: res.status, ms: Date.now() - started, uid, ip: clientIp(request), ...extra };
       (res.status >= 500 ? console.error : res.status >= 400 ? console.warn : console.info)("[api]", JSON.stringify(line));
       return res;
     };
 
     try {
-      if (options.rateLimit) {
-        const result = await rateLimit(options.rateLimit, uid ?? clientIp(request));
-        extra = { ...extra, rl: `${result.remaining}/${result.limit}` };
-        if (!result.allowed) {
-          response = NextResponse.json({ error: "Too many requests. Slow down and try again shortly.", code: "rate-limited" }, { status: 429, headers: rateLimitHeaders(result) });
+      const budget = await rateLimitAll(await resolveChecks(options.rateLimit, request, uid));
+      if (budget) {
+        extra = { ...extra, rl: `${budget.bucket} ${budget.remaining}/${budget.limit}` };
+        budgetHeaders = rateLimitHeaders(budget);
+        if (!budget.allowed) {
+          logRateLimited(budget, request, requestId);
+          response = NextResponse.json({ error: retryMessage(budget), code: "rate-limited", retryAfter: budget.retryAfter }, { status: 429, headers: rateLimitHeaders(budget) });
           return finish(response);
         }
       }

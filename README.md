@@ -87,6 +87,7 @@ Production *and* Preview). Copy the names from `.env.example`.
 | `NEXT_PUBLIC_SENTRY_DSN` | Enables Sentry (browser + server + edge). `SENTRY_AUTH_TOKEN`/`SENTRY_ORG`/`SENTRY_PROJECT` additionally upload source maps at build |
 | `NEXT_PUBLIC_RECAPTCHA_V3_SITE_KEY` | Enables Firebase App Check on the client; `APP_CHECK_ENFORCE=true` makes the API refuse calls without a valid token |
 | `UPSTASH_REDIS_REST_URL` / `_TOKEN` | Shared rate-limit store; without them limits are per serverless instance |
+| `RATE_LIMIT_OVERRIDES` | JSON per-bucket overrides for the rate-limit policy (`{"auth.login":{"limit":10}}`); `RATE_LIMIT_DISABLED=1` switches limiting off in an incident |
 
 `GET /api/health` (JSON) and `/admin/health` (super admins) report every check
 above, plus environment validation and which of these features are on.

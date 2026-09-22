@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { handler, ok } from "@/server/api";
+import { RATE_LIMITS } from "@/server/rate-limit";
 import { COLLECTIONS, FieldValue, adminDb } from "@/server/firebase-admin";
 import { emailService } from "@/server/email";
 import { eventReminderEmail } from "@/server/email/templates";
@@ -82,4 +83,4 @@ export const GET = handler(async (request) => {
   }
 
   return ok({ date: tomorrow, events: summary });
-});
+}, { rateLimit: RATE_LIMITS.public.cron, appCheck: false });
