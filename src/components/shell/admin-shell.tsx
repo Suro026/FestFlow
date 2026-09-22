@@ -184,7 +184,7 @@ export const AdminShell = ({ children }: { children: React.ReactNode }) => {
           </div>
         </nav>
       </header>
-      <main className="flex-1">{children}</main>
+      <main id="main" className="flex-1">{children}</main>
     </div>
   );
 };

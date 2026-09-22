@@ -38,7 +38,7 @@ export default async function VerifyCertificatePage({ params }: Params) {
   return (
     <div className="flex min-h-dvh flex-col">
       <PublicNav active="verify" />
-      <main className="mx-auto w-full max-w-[1180px] flex-1 px-[18px] pb-16 pt-6 sm:px-6 sm:pt-10 lg:px-10">
+      <main id="main" className="mx-auto w-full max-w-[1180px] flex-1 px-[18px] pb-16 pt-6 sm:px-6 sm:pt-10 lg:px-10">
         {cert ? <Found cert={cert} /> : <NotFound number={number.toUpperCase()} reason={lookup.reason} />}
       </main>
       <PublicFooter />

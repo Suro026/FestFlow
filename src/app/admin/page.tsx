@@ -43,7 +43,7 @@ export default function AdminIndexPage() {
           <Brand href="/admin" role="ADMIN" />
         </nav>
       </header>
-      <main className="mx-auto w-full max-w-[720px] px-5 py-16">
+      <main id="main" className="mx-auto w-full max-w-[720px] px-5 py-16">
         <EmptyState
           title="No fest assigned yet"
           body="Your account is staff, but it isn't scoped to any fest. A super admin adds fests to your scope from Staff → Edit."

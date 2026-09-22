@@ -1,4 +1,5 @@
 import * as React from "react";
+import type { Metadata } from "next";
 import Link from "next/link";
 import { Brand } from "@/components/shell/brand";
 import { Artwork, Kick, Skeleton } from "@/components/ui/primitives";
@@ -11,6 +12,12 @@ import { Artwork, Kick, Skeleton } from "@/components/ui/primitives";
  * for. No card, no centred box: Nocturne's layouts hug the left edge and let
  * whitespace do the rest.
  */
+export const metadata: Metadata = {
+  title: "Account",
+  description: "Sign in to FestFlow or create your student account.",
+  robots: { index: false, follow: false },
+};
+
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex min-h-dvh flex-col">
@@ -24,7 +31,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
         </nav>
       </header>
 
-      <main className="mx-auto grid w-full max-w-[1180px] flex-1 grid-cols-1 gap-12 px-[18px] pb-16 pt-6 sm:px-6 sm:pt-12 lg:grid-cols-[minmax(0,420px)_1fr] lg:gap-20 lg:px-10">
+      <main id="main" className="mx-auto grid w-full max-w-[1180px] flex-1 grid-cols-1 gap-12 px-[18px] pb-16 pt-6 sm:px-6 sm:pt-12 lg:grid-cols-[minmax(0,420px)_1fr] lg:gap-20 lg:px-10">
         <div className="w-full">
           {/* useSearchParams() in the pages bails out of static prerender;
               Suspense gives the shell something to render meanwhile. */}

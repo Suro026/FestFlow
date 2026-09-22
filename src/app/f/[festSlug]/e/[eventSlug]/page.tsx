@@ -2,6 +2,9 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { repositories } from "@/data/repositories";
+import { absoluteUrl } from "@/lib/site";
+import type { Fest } from "@/core/models/fest";
+import type { Event } from "@/core/models/event";
 import { StudentShell, Page } from "@/components/shell/student-shell";
 import { RegisterPanel } from "@/components/event/register-panel";
 import { CATEGORY_LABELS } from "@/components/event/event-card";
@@ -24,12 +27,45 @@ const load = async ({ festSlug, eventSlug }: Params) => {
 export async function generateMetadata({ params }: { params: Promise<Params> }): Promise<Metadata> {
   const data = await load(await params);
   if (!data) return { title: "Event not found" };
+  const path = `/f/${data.fest.slug}/e/${data.event.slug}`;
+  const description = data.event.description?.slice(0, 160) || `${data.event.title} at ${data.fest.name} · ${formatCalendarDate(data.event.date)} · ${data.event.venue}`;
   return {
     title: `${data.event.title} · ${data.fest.name}`,
-    description: data.event.description?.slice(0, 160),
-    openGraph: { images: data.event.posterUrl ? [data.event.posterUrl] : [] },
+    description,
+    alternates: { canonical: absoluteUrl(path) },
+    openGraph: {
+      type: "website",
+      url: absoluteUrl(path),
+      title: `${data.event.title} · ${data.fest.name}`,
+      description,
+      images: data.event.posterUrl ? [{ url: data.event.posterUrl, alt: `${data.event.title} poster` }] : [`/f/${data.fest.slug}/opengraph-image`],
+    },
+    twitter: { card: "summary_large_image", title: `${data.event.title} · ${data.fest.name}`, description },
   };
 }
+
+/** schema.org Event — lets search engines show date, venue and free/paid entry. */
+const eventJsonLd = (fest: Fest, event: Event) => ({
+  "@context": "https://schema.org",
+  "@type": "Event",
+  name: event.title,
+  description: event.description,
+  startDate: `${event.date}T${event.startTime}:00+05:30`,
+  ...(event.endTime ? { endDate: `${event.date}T${event.endTime}:00+05:30` } : {}),
+  eventStatus: event.status === "cancelled" ? "https://schema.org/EventCancelled" : "https://schema.org/EventScheduled",
+  eventAttendanceMode: "https://schema.org/OfflineEventAttendanceMode",
+  location: { "@type": "Place", name: event.venue, address: { "@type": "PostalAddress", addressLocality: fest.city, addressCountry: "IN" } },
+  image: event.posterUrl ? [event.posterUrl] : [absoluteUrl(`/f/${fest.slug}/opengraph-image`)],
+  organizer: { "@type": "Organization", name: fest.organizationName, url: absoluteUrl(`/f/${fest.slug}`) },
+  superEvent: { "@type": "Festival", name: fest.name, url: absoluteUrl(`/f/${fest.slug}`) },
+  offers: {
+    "@type": "Offer",
+    url: absoluteUrl(`/f/${fest.slug}/e/${event.slug}`),
+    price: event.entryFee,
+    priceCurrency: "INR",
+    availability: event.capacity > 0 && event.registeredCount >= event.capacity ? "https://schema.org/SoldOut" : "https://schema.org/InStock",
+  },
+});
 
 /** 2a — event detail. Poster card on a phone, 52px headline with a two-column body on desktop. */
 export default async function EventPage({ params }: { params: Promise<Params> }) {
@@ -41,6 +77,7 @@ export default async function EventPage({ params }: { params: Promise<Params> })
 
   return (
     <StudentShell>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(eventJsonLd(fest, event)) }} />
       <Page className="pb-[150px] pt-1.5 sm:pt-[30px] lg:pb-11">
         <div className="grid gap-11 lg:grid-cols-[1fr_372px]">
           <div>

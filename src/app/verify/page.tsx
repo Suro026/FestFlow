@@ -4,6 +4,7 @@ import { VerifySearch } from "@/components/verify/verify-search";
 import { Kick } from "@/components/ui/primitives";
 
 export const metadata: Metadata = {
+  alternates: { canonical: "/verify" },
   title: "Verify a certificate",
   description: "Check a FestFlow certificate against the issuing college’s record. No account needed.",
 };
@@ -13,7 +14,7 @@ export default function VerifyIndexPage() {
   return (
     <div className="flex min-h-dvh flex-col">
       <PublicNav active="verify" />
-      <main className="mx-auto w-full max-w-[720px] flex-1 px-[18px] pb-16 pt-8 sm:px-6 sm:pt-14">
+      <main id="main" className="mx-auto w-full max-w-[720px] flex-1 px-[18px] pb-16 pt-8 sm:px-6 sm:pt-14">
         <Kick className="mb-2">Public verification · no account needed</Kick>
         <h1 className="mb-2.5 text-[32px] font-medium leading-[1.05] tracking-[-0.03em] sm:text-[40px]">Verify a certificate</h1>
         <p className="mb-7 max-w-[52ch] text-[15px] text-neutral-300">

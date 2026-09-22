@@ -97,7 +97,7 @@ export default function SignInPage() {
         New to FestFlow?{" "}
         <Link href={next ? `/create-account?next=${encodeURIComponent(next)}` : "/create-account"}>Create an account</Link>
       </p>
-      <p className="mt-2 text-[12px] text-neutral-600">
+      <p className="mt-2 text-[12px] text-neutral-500">
         Staff accounts are created by a super admin and arrive by email — there is no separate admin sign-up.
       </p>
     </>

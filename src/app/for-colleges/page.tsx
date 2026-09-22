@@ -4,6 +4,7 @@ import { PublicFooter, PublicNav } from "@/components/shell/public-nav";
 import { Kick, MetaList, MetaRow, Tag, Timeline, TimelineItem } from "@/components/ui/primitives";
 
 export const metadata: Metadata = {
+  alternates: { canonical: "/for-colleges" },
   title: "For colleges",
   description: "Run a fest end to end — events, teams, gate scanning, meals, results and certificates — from one admin.",
 };

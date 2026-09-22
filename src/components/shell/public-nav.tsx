@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Brand } from "./brand";
 import { PublicAuthControls } from "./signed-out-only";
+import { ConsentSettingsLink } from "@/components/consent";
 
 /**
  * The header for pages seen before sign-in: landing, explorer, public verify.
@@ -43,6 +44,10 @@ export const PublicFooter = () => (
         <Link href="/privacy" className="text-inherit no-underline hover:text-accent">
           Privacy
         </Link>
+        <Link href="/terms" className="text-inherit no-underline hover:text-accent">
+          Terms
+        </Link>
+        <ConsentSettingsLink className="text-inherit hover:text-accent" />
       </div>
     </div>
   </footer>

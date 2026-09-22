@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { repositories } from "@/data/repositories";
+import { absoluteUrl } from "@/lib/site";
 import { StudentShell, Page } from "@/components/shell/student-shell";
 import { EventLineup, PassCta } from "@/components/event/event-lineup";
 import { festPhase } from "@/components/fest/fest-card";
@@ -15,10 +16,13 @@ export async function generateMetadata({ params }: { params: Promise<Params> }):
   const { festSlug } = await params;
   const fest = await repositories().fests.getBySlug(festSlug).catch(() => null);
   if (!fest) return { title: "Fest not found" };
+  const description = fest.tagline ?? `${fest.organizationName} · ${formatDateRange(fest.startDate, fest.endDate)}`;
   return {
     title: fest.name,
-    description: fest.tagline ?? `${fest.organizationName} · ${formatDateRange(fest.startDate, fest.endDate)}`,
-    openGraph: { title: fest.name, description: fest.tagline ?? fest.organizationName, images: fest.bannerUrl ? [fest.bannerUrl] : [] },
+    description,
+    alternates: { canonical: absoluteUrl(`/f/${fest.slug}`) },
+    openGraph: { type: "website", url: absoluteUrl(`/f/${fest.slug}`), title: fest.name, description, images: fest.bannerUrl ? [{ url: fest.bannerUrl, alt: `${fest.name} banner` }] : undefined },
+    twitter: { card: "summary_large_image", title: fest.name, description },
   };
 }
 
