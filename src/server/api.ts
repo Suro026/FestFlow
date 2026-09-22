@@ -267,8 +267,15 @@ const resolveChecks = async (spec: RateLimitSpec | undefined, request: Request, 
 /** gRPC codes from the Admin SDK that mean "Firestore is having a moment", not "we have a bug". */
 const TRANSIENT_FIRESTORE = new Set([4, 8, 10, 13, 14]); // DEADLINE_EXCEEDED, RESOURCE_EXHAUSTED, ABORTED, INTERNAL, UNAVAILABLE
 
-const isTransientFirestore = (error: unknown): boolean =>
-  typeof error === "object" && error !== null && "code" in error && TRANSIENT_FIRESTORE.has(Number((error as { code: unknown }).code));
+const isTransientFirestore = (error: unknown): boolean => {
+  if (typeof error !== "object" || error === null) return false;
+  const code = "code" in error ? Number((error as { code: unknown }).code) : NaN;
+  if (TRANSIENT_FIRESTORE.has(code)) return true;
+  // A transaction that lost every retry under contention comes back as
+  // INVALID_ARGUMENT with this message; it is a "try again", not a bug.
+  const message = error instanceof Error ? error.message : "";
+  return /Transaction is invalid or closed|too much contention/i.test(message);
+};
 
 /** The uid from a bearer token without verifying it — for logs and rate-limit keys only. */
 const unverifiedUid = (request: Request): string | null => {

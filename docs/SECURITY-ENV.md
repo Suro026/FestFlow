@@ -94,3 +94,21 @@ audit added the scanner, the CI step, the ignore rules for key files
 - Vercel env scopes: keep Production values out of Preview unless a preview
   genuinely needs to send email or write to production Firestore (it should
   not).
+
+## Dependency audit (22 Sep 2026)
+
+`npm audit`: **0 vulnerabilities** after this pass (was 12: 1 high, 11 moderate).
+
+| Advisory | Where | Action |
+|---|---|---|
+| `uuid` <11.1.1 buffer bounds (moderate) and the 7 advisories chained through it (`google-gax`, `gaxios`, `teeny-request`, `retry-request`, `@google-cloud/{firestore,storage}`, `firebase-admin`) | firebase-admin 13.x tree | `overrides.uuid = ^11.1.1`. firebase-admin stays on 13.x: 14.x pulls an ESM-only `jose` that the Vercel runtime cannot `require()` (production 500, fixed in Sprint 1). |
+| `postcss` ≤8.5.22 XSS / source-map file read (high) | pinned 8.4.31 inside `next` | `overrides.postcss = ^8.5.28`; build verified. Next stays on 15.5.x — 16 is a major. |
+| `@vitest/mocker` path traversal (moderate, dev only) | vitest 3 | upgraded to vitest 5 |
+| `gaxios` (moderate) | transitive | `npm audit fix` |
+
+Unused packages removed: eight `@radix-ui/*` components and `date-fns`
+(never imported). `sharp` and `google-auth-library`, used by scripts but only
+installed transitively, are now declared devDependencies.
+
+Re-check after any `firebase-admin` or `next` upgrade: if a future version
+requires a newer `uuid`/`postcss` than the override, remove the override.
