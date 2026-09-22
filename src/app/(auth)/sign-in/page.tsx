@@ -1,105 +1,110 @@
 "use client";
 
 import * as React from "react";
-import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { signInSchema, type SignIn } from "@/core/models/user";
-import { AuthError } from "@/core/services/auth-service";
 import { useAuth } from "@/components/providers";
 import { AuthHeading } from "@/components/auth/auth-heading";
-import { Field, Input } from "@/components/ui/field";
-import { Button } from "@/components/ui/button";
-import { homeFor } from "@/components/shell/require-role";
+import { CreateAccountForm, ForgotPasswordForm, SignInForm } from "@/components/auth/auth-forms";
+import { postAuthDestination } from "@/components/auth/destination";
+import { Seg } from "@/components/ui/field";
 import { safeRedirect } from "@/lib/utils";
 
 /**
- * One sign-in for everyone. Where you land afterwards depends on the role on
- * your token, not on which page you used — the design's console text says it
- * plainly: "Admins sign in through the normal login page".
+ * The single authentication page.
+ *
+ * One system, one URL: students, volunteers, admins and super admins all
+ * sign in through the same form against the same endpoint. The tabs change
+ * the copy and — for "Create account" — the form, never the mechanism. There
+ * is deliberately no organizer sign-up: those accounts are created by a super
+ * admin (admins) or an admin (volunteers) and arrive by email.
+ *
+ * Where you land afterwards comes from the claim on your token, not from the
+ * tab you chose.
  */
-export default function SignInPage() {
-  const { auth, status, session } = useAuth();
+
+const TABS = [
+  { value: "student", label: "Student" },
+  { value: "organizer", label: "Organizer" },
+  { value: "create", label: "Create account" },
+  { value: "forgot", label: "Forgot password" },
+] as const;
+
+type Tab = (typeof TABS)[number]["value"];
+
+const COPY: Record<Tab, { kick: string; title: string; sub: string }> = {
+  student: {
+    kick: "Welcome back",
+    title: "Sign in",
+    sub: "Your passes, teams and certificates are here. New to FestFlow? Create an account — it takes a minute.",
+  },
+  organizer: {
+    kick: "Organizers & volunteers",
+    title: "Sign in",
+    sub: "The same sign-in as everyone else. Use the email your fest's admin invited you with.",
+  },
+  create: {
+    kick: "Students",
+    title: "Create your account",
+    sub: "One account for every fest you attend. Tickets, meal slots and certificates all land here.",
+  },
+  forgot: {
+    kick: "Account",
+    title: "Forgot your password?",
+    sub: "Enter the address you signed up with and we'll send a link to set a new one.",
+  },
+};
+
+const isTab = (value: string | null): value is Tab => TABS.some((t) => t.value === value);
+
+export default function AuthPage() {
+  const { status, session, profile } = useAuth();
   const router = useRouter();
   const params = useSearchParams();
   const next = safeRedirect(params.get("next"), "");
-  const [formError, setFormError] = React.useState<string | null>(null);
 
-  const form = useForm<SignIn>({
-    resolver: zodResolver(signInSchema),
-    defaultValues: { email: "", password: "" },
-  });
+  const requested = params.get("tab");
+  const [tab, setTab] = React.useState<Tab>(isTab(requested) ? requested : "student");
 
-  // Already signed in — send them where they were going, or home.
+  // Deep links (?tab=create from the landing page, or the old /create-account
+  // and /forgot-password URLs) select the tab without a reload.
   React.useEffect(() => {
-    if (status === "signed-in" && session) router.replace(next || homeFor(session.role));
-  }, [status, session, next, router]);
+    if (isTab(requested)) setTab(requested);
+  }, [requested]);
 
-  const onSubmit = form.handleSubmit(async (values) => {
-    setFormError(null);
-    try {
-      const created = await auth.signIn(values.email, values.password);
-      router.replace(next || homeFor(created.role));
-    } catch (error) {
-      setFormError(error instanceof AuthError ? error.message : "Something went wrong. Please try again.");
-    }
-  });
+  // Already signed in — send them wherever they belong.
+  React.useEffect(() => {
+    if (status === "signed-in" && session) router.replace(postAuthDestination(session, profile, next));
+  }, [status, session, profile, next, router]);
+
+  const copy = COPY[tab];
 
   return (
     <>
-      <AuthHeading kick="Welcome back" title="Sign in" sub="Students, organizers and admins all sign in here." />
+      <AuthHeading kick={copy.kick} title={copy.title} sub={copy.sub} />
 
-      <form onSubmit={onSubmit} noValidate className="flex flex-col gap-4">
-        <Field label="Email" htmlFor="email" error={form.formState.errors.email?.message}>
-          <Input
-            id="email"
-            type="email"
-            autoComplete="email"
-            inputMode="email"
-            placeholder="you@college.edu"
-            invalid={Boolean(form.formState.errors.email)}
-            {...form.register("email")}
-          />
-        </Field>
+      <Seg
+        className="mb-6"
+        fill
+        options={TABS.map((t) => ({ value: t.value, label: t.label }))}
+        value={tab}
+        onChange={(value) => {
+          setTab(value);
+          // Keep the URL honest so a refresh or a shared link lands back here.
+          const query = new URLSearchParams(params.toString());
+          if (value === "student") query.delete("tab");
+          else query.set("tab", value);
+          router.replace(`/sign-in${query.size ? `?${query}` : ""}`, { scroll: false });
+        }}
+        aria-label="Authentication"
+      />
 
-        <Field
-          label="Password"
-          htmlFor="password"
-          error={form.formState.errors.password?.message}
-          labelEnd={
-            <Link href="/forgot-password" className="text-[12px] no-underline hover:underline">
-              Forgot?
-            </Link>
-          }
-        >
-          <Input
-            id="password"
-            type="password"
-            autoComplete="current-password"
-            invalid={Boolean(form.formState.errors.password)}
-            {...form.register("password")}
-          />
-        </Field>
-
-        {formError ? (
-          <div role="alert" className="rounded-md px-3 py-2.5 text-[13px] text-neutral-200 shadow-[inset_0_0_0_1px_var(--color-danger)]">
-            {formError}
-          </div>
-        ) : null}
-
-        <Button type="submit" variant="primary" size="lg" block loading={form.formState.isSubmitting} className="mt-1">
-          Sign in
-        </Button>
-      </form>
-
-      <p className="mt-6 text-[13px] text-neutral-500">
-        New to FestFlow?{" "}
-        <Link href={next ? `/create-account?next=${encodeURIComponent(next)}` : "/create-account"}>Create an account</Link>
-      </p>
-      <p className="mt-2 text-[12px] text-neutral-500">
-        Staff accounts are created by a super admin and arrive by email — there is no separate admin sign-up.
-      </p>
+      {tab === "create" ? (
+        <CreateAccountForm next={next} />
+      ) : tab === "forgot" ? (
+        <ForgotPasswordForm />
+      ) : (
+        <SignInForm audience={tab} next={next} />
+      )}
     </>
   );
 }

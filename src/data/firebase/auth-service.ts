@@ -49,8 +49,13 @@ const translate = (error: unknown): AuthError => {
   return new AuthError(code, MESSAGES[code]);
 };
 
+/** "organizer" is the pre-refactor name for "volunteer"; tokens outlive deploys. */
 const roleFromClaim = (value: unknown): UserRole =>
-  typeof value === "string" && (USER_ROLES as readonly string[]).includes(value) ? (value as UserRole) : "student";
+  value === "organizer"
+    ? "volunteer"
+    : typeof value === "string" && (USER_ROLES as readonly string[]).includes(value)
+      ? (value as UserRole)
+      : "student";
 
 const toSession = async (user: FirebaseUser, forceRefresh = false): Promise<Session> => {
   const token = await user.getIdTokenResult(forceRefresh);
@@ -65,6 +70,7 @@ const toSession = async (user: FirebaseUser, forceRefresh = false): Promise<Sess
     displayName: user.displayName,
     role: roleFromClaim(token.claims.role),
     festIds,
+    mustChangePassword: token.claims.mustChangePassword === true,
   };
 };
 

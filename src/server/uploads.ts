@@ -36,15 +36,15 @@ export interface UploadPolicy {
   maxBytes: number;
   /** Longest side after processing. */
   maxDimension: number;
-  /** Minimum role needed (checked by the route). */
-  role: "admin" | "organizer" | "self";
+  /** Which capability the route must check before calling in. */
+  permission: "upload:festArtwork" | "upload:eventPoster" | "self";
 }
 
 export const UPLOAD_POLICY: Record<UploadKind, UploadPolicy> = {
-  festBanner: { owner: "fest", folder: "banners", maxBytes: 5 * 1024 * 1024, maxDimension: 2400, role: "admin" },
-  festLogo: { owner: "fest", folder: "logos", maxBytes: 2 * 1024 * 1024, maxDimension: 1024, role: "admin" },
-  eventPoster: { owner: "fest", folder: "posters", maxBytes: 5 * 1024 * 1024, maxDimension: 2400, role: "organizer" },
-  profilePhoto: { owner: "user", folder: "photo", maxBytes: 3 * 1024 * 1024, maxDimension: 1024, role: "self" },
+  festBanner: { owner: "fest", folder: "banners", maxBytes: 5 * 1024 * 1024, maxDimension: 2400, permission: "upload:festArtwork" },
+  festLogo: { owner: "fest", folder: "logos", maxBytes: 2 * 1024 * 1024, maxDimension: 1024, permission: "upload:festArtwork" },
+  eventPoster: { owner: "fest", folder: "posters", maxBytes: 5 * 1024 * 1024, maxDimension: 2400, permission: "upload:eventPoster" },
+  profilePhoto: { owner: "user", folder: "photo", maxBytes: 3 * 1024 * 1024, maxDimension: 1024, permission: "self" },
 };
 
 /** The largest any request body may be, whatever the kind. Checked first. */

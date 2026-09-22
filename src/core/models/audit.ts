@@ -31,6 +31,7 @@ export const AUDIT_ACTIONS = [
   "results_published",
   "announcement_sent",
   "file_uploaded",
+  "password_changed",
   "results_unpublished",
   "certificates_generated",
   "certificate_revoked",
@@ -55,7 +56,7 @@ export const auditEntrySchema = z.object({
 
   actorId: idSchema,
   actorName: shortTextSchema,
-  actorRole: z.enum(["student", "organizer", "admin", "super_admin"]),
+  actorRole: z.enum(["student", "volunteer", "admin", "super_admin"]),
 
   /** Reference the entry is about, for filtering a row's history. */
   subjectType: z.enum(["registration", "event", "fest", "user", "result", "certificate", "shift"]).optional(),
@@ -87,6 +88,7 @@ export const AUDIT_ACTION_LABELS: Record<AuditAction, string> = {
   results_published: "Results published",
   announcement_sent: "Announcement sent",
   file_uploaded: "File uploaded",
+  password_changed: "Password changed",
   results_unpublished: "Results unpublished",
   certificates_generated: "Certificates generated",
   certificate_revoked: "Certificate revoked",

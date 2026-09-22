@@ -288,7 +288,8 @@ export const passwordResetEmail = (input: { to: string; recipientName?: string; 
 
 /* ═══════════════════════════ 7. Organizer / staff invite ═══════════════════════════ */
 
-export const staffInviteEmail = (input: { to: string; fullName: string; roleLabel: string; setPasswordLink: string; invitedBy: string; meta?: Meta }): EmailMessage => {
+export const staffInviteEmail = (input: { to: string; fullName: string; roleLabel: string; setPasswordLink: string; temporaryPassword?: string; invitedBy: string; meta?: Meta }): EmailMessage => {
+  const signIn = `${appUrl()}/sign-in`;
   const text = [
     `Hello ${input.fullName},`,
     "",
@@ -296,16 +297,35 @@ export const staffInviteEmail = (input: { to: string; fullName: string; roleLabe
     "",
     "Set your password using the link below, then sign in:",
     input.setPasswordLink,
-    "",
-    "This link expires. If it has, ask for a new invitation.",
+    ...(input.temporaryPassword
+      ? [
+          "",
+          "If that link has expired, sign in with the credentials below instead —",
+          "you will be asked to choose your own password straight away:",
+          `  ${signIn}`,
+          `  Email:    ${input.to}`,
+          `  Password: ${input.temporaryPassword}`,
+          "",
+          "The temporary password works only until you change it, and it cannot be",
+          "used for anything else in the meantime.",
+        ]
+      : ["", "This link expires. If it has, ask for a new invitation."]),
     ...signoff,
   ].join("\n");
+
+  const credentials = input.temporaryPassword
+    ? rows([
+        ["Sign in at", signIn],
+        ["Email", input.to],
+        ["Temporary password", input.temporaryPassword],
+      ]) + small("Use the button above if you can. The temporary password is a fallback, works only until you change it, and you will be asked to choose your own the first time you sign in.")
+    : small("This link expires. If it no longer works, ask for a new invitation.");
 
   const html = shell(
     "You've been added to FestFlow",
     p(`Hello ${escapeHtml(input.fullName)}, you have been added as <strong>${escapeHtml(input.roleLabel)}</strong> by ${escapeHtml(input.invitedBy)}. Set your password to activate the account.`) +
       button(input.setPasswordLink, "Set your password") +
-      small("This link expires. If it no longer works, ask for a new invitation."),
+      credentials,
   );
 
   return { to: input.to, subject: "You've been added to FestFlow", text, html, template: "staff_invite", meta: input.meta };

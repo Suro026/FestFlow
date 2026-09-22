@@ -72,7 +72,12 @@ describe("POST /api/registrations", () => {
   it("gives exactly one of two simultaneous requests the last seat", async () => {
     await seedEvent({ capacity: 1 });
     const [r1, r2] = await Promise.all([solo(a), solo(b)]);
-    expect([r1.status, r2.status].sort()).toEqual([201, 422]);
+    const statuses = [r1.status, r2.status].sort();
+    // One seat, one winner. The loser is told the event is full (422), or —
+    // when the emulator gives up retrying the contended transaction rather
+    // than replaying it — asked to try again (503). Never two seats.
+    expect(statuses[0]).toBe(201);
+    expect([422, 503]).toContain(statuses[1]);
     expect((await eventDoc()).registeredCount).toBe(1);
     const active = await adminDb().collection(COLLECTIONS.registrations).where("eventId", "==", "ev1").get();
     expect(active.size).toBe(1);

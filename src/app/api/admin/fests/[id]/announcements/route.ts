@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { idSchema, shortTextSchema } from "@/core/models/common";
-import { ApiError, handler, ok, readBody, requireFestAccess, requireRole } from "@/server/api";
+import { ApiError, handler, ok, readBody, requireFestAccess, requirePermission } from "@/server/api";
 import { RATE_LIMITS } from "@/server/rate-limit";
 import { COLLECTIONS, adminDb } from "@/server/firebase-admin";
 import { audit } from "@/server/audit";
@@ -26,7 +26,7 @@ const announcementSchema = z.object({
  * participant's inbox at once.
  */
 export const POST = handler(async (request, context) => {
-  const caller = await requireRole(request, "admin");
+  const caller = await requirePermission(request, "announcement:send");
   const { id: festId } = await context.params;
   if (!festId) throw ApiError.badRequest("Missing fest id.");
   requireFestAccess(caller, festId);

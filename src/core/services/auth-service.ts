@@ -15,7 +15,13 @@ export interface Session {
   displayName: string | null;
   /** From the ID token's custom claims; "student" when absent. */
   role: UserRole;
+  /** Fests this account may act on. Empty for students and super admins. */
   festIds: string[];
+  /**
+   * True while a temporary password is in force. The app routes such a
+   * session to /change-password and the API refuses everything else.
+   */
+  mustChangePassword: boolean;
 }
 
 export type AuthErrorCode =

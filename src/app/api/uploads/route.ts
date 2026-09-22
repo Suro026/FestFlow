@@ -3,7 +3,7 @@ import { ApiError, authenticate, handler, ok, requireFestAccess, type Caller } f
 import { COLLECTIONS, adminDb } from "@/server/firebase-admin";
 import { RATE_LIMITS } from "@/server/rate-limit";
 import { MAX_UPLOAD_BYTES, UPLOAD_POLICY, acceptImageUpload, type UploadKind } from "@/server/uploads";
-import { hasAtLeast } from "@/core/models/user";
+import { can } from "@/core/permissions";
 import { audit } from "@/server/audit";
 
 // Multipart bodies need the Node runtime and a body-size ceiling.
@@ -19,9 +19,9 @@ const querySchema = z.object({
 /** Who may write under which owner. The policy says what; this says who. */
 const authorize = async (caller: Caller, kind: UploadKind, id: string | undefined): Promise<string> => {
   const policy = UPLOAD_POLICY[kind];
-  if (policy.owner === "user" || policy.role === "self") return caller.uid;
+  if (policy.owner === "user" || policy.permission === "self") return caller.uid;
   if (!id) throw ApiError.badRequest("Missing fest id.");
-  if (!hasAtLeast(caller.role, policy.role)) throw ApiError.forbidden();
+  if (!can(caller.role, policy.permission)) throw ApiError.forbidden();
   requireFestAccess(caller, id);
   const fest = await adminDb().collection(COLLECTIONS.fests).doc(id).get();
   if (!fest.exists) throw ApiError.notFound("No such fest.");

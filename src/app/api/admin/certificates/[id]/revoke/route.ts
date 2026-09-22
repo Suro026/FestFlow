@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { ApiError, handler, ok, readBody, requireFestAccess, requireRole } from "@/server/api";
+import { ApiError, handler, ok, readBody, requireFestAccess, requirePermission } from "@/server/api";
 import { COLLECTIONS, FieldValue, adminDb } from "@/server/firebase-admin";
 import { audit } from "@/server/audit";
 
@@ -13,7 +13,7 @@ const bodySchema = z.object({ reason: z.string().trim().min(3, "Say why").max(50
  * from the holder's list and the PDF renders with a banner.
  */
 export const POST = handler(async (request, context) => {
-  const caller = await requireRole(request, "admin");
+  const caller = await requirePermission(request, "certificate:revoke");
   const { id } = await context.params;
   if (!id) throw ApiError.badRequest("Missing certificate id.");
   const { reason } = await readBody(request, bodySchema);

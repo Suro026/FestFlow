@@ -16,7 +16,8 @@ import {
 } from "firebase/firestore";
 import type { ZodType } from "zod";
 import type { Page, PageRequest, Unsubscribe } from "@/core/models/common";
-import { firestore, type CollectionName } from "./client";
+import { normalizeUserDoc } from "@/core/models/user";
+import { COLLECTIONS, firestore, type CollectionName } from "./client";
 import { snapshotData, toRepositoryError } from "./mapping";
 
 /**
@@ -38,7 +39,10 @@ export const parseDoc = <T>(
   const raw = snapshotData(snapshot);
   if (!raw) return null;
 
-  const result = schema.safeParse(raw);
+  // Accounts written before the unified user schema keep their name under
+  // `fullName` and their student fields in a nested block. Normalise on read
+  // so a document the migration has not reached still parses.
+  const result = schema.safeParse(label === COLLECTIONS.users ? normalizeUserDoc(raw as Record<string, unknown>) : raw);
 
   if (!result.success) {
     console.warn(`[firestore] ${label}/${snapshot.id} failed validation`, result.error.issues);

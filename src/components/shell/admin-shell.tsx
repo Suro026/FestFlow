@@ -108,10 +108,10 @@ export const FestProvider = ({ festSlug, children }: { festSlug: string; childre
 /* ───────────── shell ───────────── */
 
 const NAV = [
-  { seg: "overview", label: "Overview", min: "organizer" },
-  { seg: "events", label: "Events", min: "organizer" },
-  { seg: "registrations", label: "Registrations", min: "organizer" },
-  { seg: "gate", label: "Gate", min: "organizer" },
+  { seg: "overview", label: "Overview", min: "volunteer" },
+  { seg: "events", label: "Events", min: "volunteer" },
+  { seg: "registrations", label: "Registrations", min: "volunteer" },
+  { seg: "gate", label: "Gate", min: "volunteer" },
   { seg: "certificates", label: "Certificates", min: "admin" },
   { seg: "volunteers", label: "Volunteers", min: "admin" },
   { seg: "staff", label: "Staff", min: "admin" },

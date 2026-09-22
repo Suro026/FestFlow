@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { ApiError, handler, ok, readBody, requireFestAccess, requireRole } from "@/server/api";
+import { ApiError, handler, ok, readBody, requireFestAccess, requirePermission } from "@/server/api";
 import { RATE_LIMITS } from "@/server/rate-limit";
 import { COLLECTIONS, adminDb } from "@/server/firebase-admin";
 import { audit } from "@/server/audit";
@@ -15,7 +15,7 @@ const bodySchema = z.object({ dryRun: z.boolean().default(false) });
  * once issued it is emailed and cannot be un-sent.
  */
 export const POST = handler(async (request, context) => {
-  const caller = await requireRole(request, "admin");
+  const caller = await requirePermission(request, "certificate:issue");
   const { id } = await context.params;
   if (!id) throw ApiError.badRequest("Missing event id.");
   const { dryRun } = await readBody(request, bodySchema);

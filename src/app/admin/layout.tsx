@@ -3,8 +3,9 @@ import type { Metadata } from "next";
 import { GuardSkeleton, RequireRole } from "@/components/shell/require-role";
 
 /**
- * Everything under /admin needs at least an organizer account. Which fests
- * an account may open is decided one level down, by the fest-scoped layout.
+ * Everything under /admin needs an admin account — volunteers scan at /scan
+ * and have nothing to run here. Which fests an admin may open is decided one
+ * level down, by the fest-scoped layout.
  */
 export const metadata: Metadata = {
   // A nested template so route titles keep the brand suffix (a template only
@@ -16,7 +17,7 @@ export const metadata: Metadata = {
 
 export default function AdminRootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <RequireRole minimum="organizer" fallback="/explore">
+    <RequireRole minimum="admin" fallback="/explore">
       <React.Suspense fallback={<GuardSkeleton />}>{children}</React.Suspense>
     </RequireRole>
   );

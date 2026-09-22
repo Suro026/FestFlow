@@ -14,22 +14,22 @@ import { Button } from "@/components/ui/button";
 import { AlertDialog, AlertDialogContent, Dialog, DialogActions, DialogContent } from "@/components/ui/overlays";
 import { EmptyState, Kick, MetaList, MetaRow, Note, PageHeading, Skeleton, Tag } from "@/components/ui/primitives";
 import { emailSchema, shortTextSchema } from "@/core/models/common";
-import { hasAtLeast, type UserRole } from "@/core/models/user";
+import { creatableRoles, hasAtLeast, type UserRole } from "@/core/permissions";
 import { ApiClientError } from "@/data/api-client";
 import { formatRelative } from "@/lib/utils";
 
-const ROLE_LABEL: Record<UserRole, string> = { student: "Student", organizer: "Organizer", admin: "Admin", super_admin: "Super admin" };
+const ROLE_LABEL: Record<UserRole, string> = { student: "Student", volunteer: "Volunteer", admin: "Admin", super_admin: "Super admin" };
 
 const createSchema = z.object({
-  fullName: shortTextSchema,
+  name: shortTextSchema,
   email: emailSchema,
   designation: z.string().trim().max(200).optional(),
-  role: z.enum(["organizer", "admin", "super_admin"]),
+  role: z.enum(["volunteer", "admin", "super_admin"]),
   festIds: z.array(z.string()),
 });
 type CreateValues = z.input<typeof createSchema>;
 
-type Filter = "all" | "admins" | "organizers" | "pending";
+type Filter = "all" | "admins" | "volunteers" | "pending";
 
 /**
  * 3c — Staff & roles. The list, the create panel, and the manage dialog.
@@ -45,14 +45,17 @@ export default function StaffPage() {
   const [invite, setInvite] = React.useState<{ email: string; result: InviteResult } | null>(null);
 
   const isSuper = session ? hasAtLeast(session.role, "super_admin") : false;
+  // Admins create volunteers for the fests they manage; super admins create
+  // anything. The matrix decides, not a role comparison written here.
+  const canCreate = session ? creatableRoles(session.role) : [];
   const festName = React.useCallback((ids: string[]) => (ids.length === 0 ? "All fests" : ids.map((id) => fests.find((f) => f.id === id)?.name ?? "…").join(", ")), [fests]);
 
   const rows = React.useMemo(() => {
     const term = search.trim().toLowerCase();
     return (staff.data ?? [])
-      .filter((s) => (filter === "admins" ? s.role !== "organizer" : filter === "organizers" ? s.role === "organizer" : filter === "pending" ? !s.activated : true))
-      .filter((s) => !term || s.fullName.toLowerCase().includes(term) || s.email.toLowerCase().includes(term))
-      .sort((a, b) => (a.role === b.role ? a.fullName.localeCompare(b.fullName) : rank(b.role) - rank(a.role)));
+      .filter((s) => (filter === "admins" ? s.role !== "volunteer" : filter === "volunteers" ? s.role === "volunteer" : filter === "pending" ? !s.activated : true))
+      .filter((s) => !term || s.name.toLowerCase().includes(term) || s.email.toLowerCase().includes(term))
+      .sort((a, b) => (a.role === b.role ? a.name.localeCompare(b.name) : rank(b.role) - rank(a.role)));
   }, [staff.data, filter, search]);
 
   return (
@@ -70,7 +73,7 @@ export default function StaffPage() {
             options={[
               { value: "all", label: "All" },
               { value: "admins", label: "Admins" },
-              { value: "organizers", label: "Organizers" },
+              { value: "volunteers", label: "Volunteers" },
               { value: "pending", label: "Pending" },
             ]}
             aria-label="Filter staff"
@@ -99,7 +102,7 @@ export default function StaffPage() {
                 {rows.map((s) => (
                   <tr key={s.id}>
                     <td>
-                      {s.activated ? s.fullName : s.email}
+                      {s.activated ? s.name : s.email}
                       {s.activated ? <div className="text-[11.5px] text-neutral-500">{s.email}</div> : null}
                     </td>
                     <td>{ROLE_LABEL[s.role]}</td>
@@ -126,16 +129,19 @@ export default function StaffPage() {
       </div>
 
       <div className="flex flex-col gap-3.5">
-        {isSuper ? <CreateStaffCard defaultFestId={fest.id} onInvited={setInvite} /> : (
-          <Note title="Only a super admin can grant a role above student">
-            You can see who has access. Ask a super admin to add or change accounts.
+        {canCreate.length ? (
+          <CreateStaffCard defaultFestId={fest.id} allowed={canCreate} onInvited={setInvite} />
+        ) : (
+          <Note title="You cannot grant roles">
+            You can see who has access. Ask an admin or a super admin to add or change accounts.
           </Note>
         )}
         <Note title="Four roles, one scope rule">
-          Student, organizer, admin, super admin — ordered least to most privileged, so a check reads “at least admin” rather than a list.
+          Student, volunteer, admin, super admin. A volunteer scans entry and meals and nothing else; an admin runs the
+          fests assigned to them; only a super admin is unscoped and only a super admin creates admins.
           Every request is checked against role and fest on the server; no query crosses fests.
           <div className="mt-2.5 text-text">Staff here, volunteers next door</div>
-          This page owns the accounts that configure a fest. Day-of scanning staff are organizer accounts too, but they are rostered by post and shift on Volunteers — one account, managed where the work is.
+          This page owns the accounts that configure a fest. Day-of scanning staff are volunteer accounts too, but they are rostered by post and shift on Volunteers — one account, managed where the work is.
         </Note>
       </div>
 
@@ -172,14 +178,14 @@ export default function StaffPage() {
   );
 }
 
-const rank = (r: UserRole) => ({ student: 0, organizer: 1, admin: 2, super_admin: 3 })[r];
+const rank = (r: UserRole) => ({ student: 0, volunteer: 1, admin: 2, super_admin: 3 })[r];
 
-const CreateStaffCard = ({ defaultFestId, onInvited }: { defaultFestId: string; onInvited: (i: { email: string; result: InviteResult }) => void }) => {
+const CreateStaffCard = ({ defaultFestId, allowed, onInvited }: { defaultFestId: string; allowed: UserRole[]; onInvited: (i: { email: string; result: InviteResult }) => void }) => {
   const { fests } = useFest();
   const create = useCreateStaff();
   const form = useForm<CreateValues>({
     resolver: zodResolver(createSchema),
-    defaultValues: { fullName: "", email: "", designation: "", role: "organizer", festIds: [defaultFestId] },
+    defaultValues: { name: "", email: "", designation: "", role: "volunteer", festIds: [defaultFestId] },
   });
   const role = form.watch("role");
   const err = form.formState.errors;
@@ -187,15 +193,15 @@ const CreateStaffCard = ({ defaultFestId, onInvited }: { defaultFestId: string; 
   const submit = form.handleSubmit(async (v) => {
     try {
       const result = await create.mutateAsync({
-        fullName: v.fullName,
+        name: v.name,
         email: v.email,
         designation: v.designation || undefined,
         role: v.role,
         festIds: v.role === "super_admin" ? [] : v.festIds,
       });
-      toast.success(`${v.fullName} added as ${ROLE_LABEL[v.role].toLowerCase()}`);
+      toast.success(`${v.name} added as ${ROLE_LABEL[v.role].toLowerCase()}`);
       onInvited({ email: v.email, result: result.invite });
-      form.reset({ fullName: "", email: "", designation: "", role: "organizer", festIds: [defaultFestId] });
+      form.reset({ name: "", email: "", designation: "", role: "volunteer", festIds: [defaultFestId] });
     } catch (error) {
       toast.error(error instanceof ApiClientError ? error.message : "Couldn't create the account");
     }
@@ -205,10 +211,12 @@ const CreateStaffCard = ({ defaultFestId, onInvited }: { defaultFestId: string; 
     <form onSubmit={submit} noValidate className="card elev-sm gap-3.5 p-[17px]">
       <div>
         <div className="text-[18px] font-medium">Create staff account</div>
-        <div className="mt-[3px] text-[12px] text-neutral-500">Only a super admin can grant a role above student.</div>
+        <div className="mt-[3px] text-[12px] text-neutral-500">
+          {allowed.includes("admin") ? "Only a super admin can grant a role above student." : "You can invite volunteers for the fests you manage."}
+        </div>
       </div>
-      <Field label="Full name" htmlFor="st-name" error={err.fullName?.message}>
-        <Input id="st-name" placeholder="Meena R. Kumar" {...form.register("fullName")} />
+      <Field label="Full name" htmlFor="st-name" error={err.name?.message}>
+        <Input id="st-name" placeholder="Meena R. Kumar" {...form.register("name")} />
       </Field>
       <Field label="Email" htmlFor="st-email" error={err.email?.message}>
         <Input id="st-email" type="email" placeholder="name@college.edu" {...form.register("email")} />
@@ -218,9 +226,15 @@ const CreateStaffCard = ({ defaultFestId, onInvited }: { defaultFestId: string; 
       </Field>
       <div>
         <Kick className="mb-[9px]">Role</Kick>
-        <RadioOption block label="Admin — runs a fest end to end" value="admin" {...form.register("role")} />
-        <RadioOption block label="Organizer — runs assigned events" value="organizer" {...form.register("role")} />
-        <RadioOption block label="Super admin — every fest, creates staff" value="super_admin" {...form.register("role")} />
+        {allowed.includes("volunteer") ? (
+          <RadioOption block label="Volunteer — scans entry and meals" value="volunteer" {...form.register("role")} />
+        ) : null}
+        {allowed.includes("admin") ? (
+          <RadioOption block label="Admin — runs the assigned fests end to end" value="admin" {...form.register("role")} />
+        ) : null}
+        {allowed.includes("super_admin") ? (
+          <RadioOption block label="Super admin — every fest, creates admins" value="super_admin" {...form.register("role")} />
+        ) : null}
       </div>
       {role !== "super_admin" ? (
         <div>
@@ -249,7 +263,7 @@ const ManageDialog = ({ row, onClose, onInvite }: { row: StaffRow; onClose: () =
   const update = useUpdateStaff();
   const remove = useDeleteStaff();
   const resend = useResendInvite();
-  const [role, setRole] = React.useState<"organizer" | "admin" | "super_admin">(row.role === "student" ? "organizer" : row.role);
+  const [role, setRole] = React.useState<"volunteer" | "admin" | "super_admin">(row.role === "student" ? "volunteer" : row.role);
   const [festIds, setFestIds] = React.useState<string[]>(row.festIds);
   const [confirmDelete, setConfirmDelete] = React.useState(false);
   const self = row.id === session?.uid;
@@ -276,7 +290,7 @@ const ManageDialog = ({ row, onClose, onInvite }: { row: StaffRow; onClose: () =
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent title={row.fullName || row.email} description={row.email} size="md">
+      <DialogContent title={row.name || row.email} description={row.email} size="md">
         <MetaList>
           <MetaRow label="Status">{row.disabled ? "Disabled" : row.activated ? "Active" : "Invite not used yet"}</MetaRow>
           <MetaRow label="Last active">{row.lastSignInAt ? formatRelative(new Date(row.lastSignInAt)) : "Never"}</MetaRow>
@@ -305,7 +319,7 @@ const ManageDialog = ({ row, onClose, onInvite }: { row: StaffRow; onClose: () =
         <div>
           <Kick className="mb-[9px]">Role</Kick>
           <RadioOption block name="m-role" label="Admin" checked={role === "admin"} onChange={() => setRole("admin")} disabled={self} />
-          <RadioOption block name="m-role" label="Organizer" checked={role === "organizer"} onChange={() => setRole("organizer")} disabled={self} />
+          <RadioOption block name="m-role" label="Volunteer" checked={role === "volunteer"} onChange={() => setRole("volunteer")} disabled={self} />
           <RadioOption block name="m-role" label="Super admin" checked={role === "super_admin"} onChange={() => setRole("super_admin")} disabled={self} />
           {self ? <div className="field-hint">You can't change your own role — ask another super admin.</div> : null}
         </div>
@@ -338,7 +352,7 @@ const ManageDialog = ({ row, onClose, onInvite }: { row: StaffRow; onClose: () =
                   Delete
                 </Button>
                 <AlertDialogContent
-                  title={`Delete ${row.fullName || row.email}?`}
+                  title={`Delete ${row.name || row.email}?`}
                   description="Removes the sign-in and the profile. Their scan history and audit entries are kept."
                   confirmLabel="Delete account"
                   destructive

@@ -11,7 +11,7 @@ import { clientSignIn, clientSignOut, mintUser, resetAuth, resetFirestore, seedE
 
 let student: TestUser;
 let mate: TestUser;
-let organizer: TestUser;
+let volunteer: TestUser;
 const repos = repositories();
 
 const seedRegistration = async (id: string, over: Record<string, unknown> = {}) => {
@@ -47,7 +47,7 @@ beforeAll(async () => {
   await resetAuth();
   student = await mintUser({ name: "Student One" });
   mate = await mintUser({ name: "Student Two" });
-  organizer = await mintUser({ role: "organizer", festIds: ["fest1"], name: "Vol" });
+  volunteer = await mintUser({ role: "volunteer", festIds: ["fest1"], name: "Vol" });
 });
 afterAll(() => clientSignOut());
 
@@ -74,7 +74,7 @@ describe("FestRepository / EventRepository (public reads)", () => {
   });
 
   it("reports slug availability to signed-in staff (the fest form)", async () => {
-    await clientSignIn(organizer);
+    await clientSignIn(volunteer);
     expect(await repos.fests.isSlugAvailable("bits2bytes")).toBe(false);
     expect(await repos.fests.isSlugAvailable("brand-new")).toBe(true);
   });
@@ -84,7 +84,7 @@ describe("RegistrationRepository.listForUserWithEvents", () => {
   it("returns entries the student created and team entries that name them, joined with events and attendance", async () => {
     await seedRegistration("reg1");
     await seedRegistration("reg2", { userId: mate.uid, userName: mate.name, userEmail: mate.email, teamName: "Mate's", members: [{ name: mate.name, email: mate.email, userId: mate.uid, isLeader: true, inviteStatus: "accepted" }], memberEmails: [mate.email], seats: 1, ticketCode: "FF-AAAAAAAAAA" });
-    await adminDb().collection(COLLECTIONS.attendance).doc("reg1").set({ id: "reg1", registrationId: "reg1", eventId: "ev1", festId: "fest1", userId: student.uid, userName: student.name, userEmail: student.email, ticketCode: "FF-7K2M9QX4TB", scannedAt: new Date(), scannedBy: organizer.uid, method: "qr", createdAt: new Date(), updatedAt: new Date() });
+    await adminDb().collection(COLLECTIONS.attendance).doc("reg1").set({ id: "reg1", registrationId: "reg1", eventId: "ev1", festId: "fest1", userId: student.uid, userName: student.name, userEmail: student.email, ticketCode: "FF-7K2M9QX4TB", scannedAt: new Date(), scannedBy: volunteer.uid, method: "qr", createdAt: new Date(), updatedAt: new Date() });
 
     await clientSignIn(student);
     const own = await repos.registrations.listForUserWithEvents(student.uid, student.email);
@@ -106,7 +106,7 @@ describe("RegistrationRepository.listForUserWithEvents", () => {
     expect(await repos.registrations.existsForUserAndEvent(student.uid, "ev1")).toBe(true);
     expect(await repos.registrations.existsForUserAndEvent(student.uid, "ev-draft")).toBe(false);
     await expect(repos.registrations.getByTicketCode("FF-7K2M9QX4TB")).rejects.toBeInstanceOf(RepositoryError);
-    await clientSignIn(organizer);
+    await clientSignIn(volunteer);
     expect((await repos.registrations.getByTicketCode("FF-7K2M9QX4TB"))?.id).toBe("reg1");
   });
 });
@@ -136,17 +136,17 @@ describe("NotificationRepository", () => {
   });
 });
 
-describe("AttendanceRepository.recordScan (organizer, online)", () => {
+describe("AttendanceRepository.recordScan (volunteer, online)", () => {
   it("checks a ticket in once, bumps the fest counter, then reports the duplicate", async () => {
     await seedRegistration("reg1");
-    await clientSignIn(organizer);
+    await clientSignIn(volunteer);
 
-    const first = await repos.attendance.recordScan({ ticketCode: "FF-7K2M9QX4TB", eventId: "ev1", scannedBy: organizer.uid, gate: "Gate A" });
+    const first = await repos.attendance.recordScan({ ticketCode: "FF-7K2M9QX4TB", eventId: "ev1", scannedBy: volunteer.uid, gate: "Gate A" });
     expect(first).toMatchObject({ result: "ok", registration: { id: "reg1", teamName: "Null Pointers", memberCount: 2 } });
     const fest = (await adminDb().collection(COLLECTIONS.fests).doc("fest1").get()).data()!;
     expect(fest.stats.checkIns).toBe(1);
 
-    const second = await repos.attendance.recordScan({ ticketCode: "FF-7K2M9QX4TB", eventId: "ev1", scannedBy: organizer.uid });
+    const second = await repos.attendance.recordScan({ ticketCode: "FF-7K2M9QX4TB", eventId: "ev1", scannedBy: volunteer.uid });
     expect(second.result).toBe("already-recorded");
     expect(await repos.attendance.countByEvent("ev1")).toBe(1);
     expect((await repos.attendance.attendedRegistrationIds("ev1")).has("reg1")).toBe(true);
@@ -155,10 +155,10 @@ describe("AttendanceRepository.recordScan (organizer, online)", () => {
   it("refuses unknown codes, wrong events and cancelled entries", async () => {
     await seedRegistration("reg1");
     await seedRegistration("reg-x", { status: "cancelled", ticketCode: "FF-CANCELLED1" });
-    await clientSignIn(organizer);
-    expect(await repos.attendance.recordScan({ ticketCode: "FF-NOTINROSTR", eventId: "ev1", scannedBy: organizer.uid })).toEqual({ result: "not-found" });
-    expect((await repos.attendance.recordScan({ ticketCode: "FF-7K2M9QX4TB", eventId: "ev-draft", scannedBy: organizer.uid })).result).toBe("wrong-event");
-    expect((await repos.attendance.recordScan({ ticketCode: "FF-CANCELLED1", eventId: "ev1", scannedBy: organizer.uid })).result).toBe("cancelled");
+    await clientSignIn(volunteer);
+    expect(await repos.attendance.recordScan({ ticketCode: "FF-NOTINROSTR", eventId: "ev1", scannedBy: volunteer.uid })).toEqual({ result: "not-found" });
+    expect((await repos.attendance.recordScan({ ticketCode: "FF-7K2M9QX4TB", eventId: "ev-draft", scannedBy: volunteer.uid })).result).toBe("wrong-event");
+    expect((await repos.attendance.recordScan({ ticketCode: "FF-CANCELLED1", eventId: "ev1", scannedBy: volunteer.uid })).result).toBe("cancelled");
   });
 
   it("a student cannot record a scan", async () => {

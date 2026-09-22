@@ -32,9 +32,9 @@ export interface UserRepository {
   createStudentProfile(input: {
     id: string;
     email: string;
-    fullName: string;
+    name: string;
     phone?: string;
-    studentId: string;
+    studentId?: string;
     college: string;
     department?: string;
     year?: number;
@@ -48,7 +48,7 @@ export interface UserRepository {
 
   list(options?: PageRequest & { role?: UserRole; festId?: string; search?: string }): Promise<Page<User>>;
 
-  /** Live view of the staff list, for the super admin's organizer screen. */
+  /** Live view of the staff list, for the super admin's staff screen. */
   subscribeToStaff(
     onChange: (users: User[]) => void,
     onError: (error: unknown) => void,

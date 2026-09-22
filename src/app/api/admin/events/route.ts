@@ -1,5 +1,5 @@
 import { createEventSchema } from "@/core/models/event";
-import { ApiError, handler, ok, readBody, requireFestAccess, requireRole } from "@/server/api";
+import { ApiError, handler, ok, readBody, requireFestAccess, requirePermission } from "@/server/api";
 import { COLLECTIONS, FieldValue, adminDb } from "@/server/firebase-admin";
 import { audit } from "@/server/audit";
 import { compact, docToJson } from "@/server/serialize";
@@ -12,7 +12,7 @@ import { compact, docToJson } from "@/server/serialize";
  * against the live collection rather than a client's stale view.
  */
 export const POST = handler(async (request) => {
-  const caller = await requireRole(request, "organizer");
+  const caller = await requirePermission(request, "event:create");
   const input = await readBody(request, createEventSchema);
   requireFestAccess(caller, input.festId);
 

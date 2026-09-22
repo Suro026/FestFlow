@@ -1,4 +1,4 @@
-import { ApiError, handler, ok, requireRole } from "@/server/api";
+import { ApiError, handler, ok, requirePermission } from "@/server/api";
 import { RATE_LIMITS } from "@/server/rate-limit";
 import { COLLECTIONS, adminDb } from "@/server/firebase-admin";
 import { staffInviteLink } from "@/server/auth-links";
@@ -7,7 +7,7 @@ import { staffInviteEmail } from "@/server/email/templates";
 
 /** POST /api/admin/staff/[id]/invite — re-send the password-set link. */
 export const POST = handler(async (request, context) => {
-  const caller = await requireRole(request, "admin");
+  const caller = await requirePermission(request, "staff:manage");
   const { id } = await context.params;
   if (!id) throw ApiError.badRequest("Missing staff id.");
 

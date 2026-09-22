@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { handler, ok, readBody, requireFestAccess, requireRole } from "@/server/api";
+import { handler, ok, readBody, requireFestAccess, requirePermission } from "@/server/api";
 import { COLLECTIONS, FieldValue, adminDb } from "@/server/firebase-admin";
 import { audit } from "@/server/audit";
 import { compact } from "@/server/serialize";
@@ -21,7 +21,7 @@ const bodySchema = z.object({
  * from the scanner, which is the point.
  */
 export const POST = handler(async (request) => {
-  const caller = await requireRole(request, "admin");
+  const caller = await requirePermission(request, "attendance:manual");
   const input = await readBody(request, bodySchema);
   const db = adminDb();
 

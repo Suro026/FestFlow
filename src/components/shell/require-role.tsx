@@ -2,8 +2,9 @@
 
 import * as React from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { hasAtLeast, type UserRole } from "@/core/models/user";
+import { hasAtLeast, homeForRole, type UserRole } from "@/core/permissions";
 import { useAuth } from "@/components/providers";
+import { postAuthDestination } from "@/components/auth/destination";
 import { Skeleton } from "@/components/ui/primitives";
 
 /**
@@ -16,16 +17,8 @@ import { Skeleton } from "@/components/ui/primitives";
  * not care what the URL bar says.
  */
 
-export const homeFor = (role: UserRole): string => {
-  switch (role) {
-    case "super_admin":
-    case "admin":
-    case "organizer":
-      return "/admin";
-    default:
-      return "/explore";
-  }
-};
+/** Re-exported so existing imports keep working; the matrix owns the mapping. */
+export const homeFor = homeForRole;
 
 export interface RequireRoleProps {
   minimum: UserRole;
@@ -37,7 +30,7 @@ export interface RequireRoleProps {
 }
 
 export const RequireRole = ({ minimum, fallback, verified = false, children }: RequireRoleProps) => {
-  const { status, session, ready } = useAuth();
+  const { status, session, profile, ready } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
 
@@ -45,6 +38,7 @@ export const RequireRole = ({ minimum, fallback, verified = false, children }: R
     status === "signed-in" &&
     session !== null &&
     hasAtLeast(session.role, minimum) &&
+    !session.mustChangePassword &&
     (!verified || session.emailVerified);
 
   React.useEffect(() => {
@@ -53,6 +47,16 @@ export const RequireRole = ({ minimum, fallback, verified = false, children }: R
     if (status === "signed-out") {
       router.replace(`/sign-in?next=${encodeURIComponent(pathname)}`);
       return;
+    }
+
+    // A temporary password, an unverified address or an unfinished profile
+    // each have one place to go, and it is not this page.
+    if (session) {
+      const destination = postAuthDestination(session, profile, pathname);
+      if (destination !== pathname && (session.mustChangePassword || (session.role === "student" && profile && !profile.profileCompleted))) {
+        router.replace(destination);
+        return;
+      }
     }
 
     // A signed-in account without the role sees an explicit "no access"
@@ -66,7 +70,7 @@ export const RequireRole = ({ minimum, fallback, verified = false, children }: R
     if (session && verified && !session.emailVerified) {
       router.replace(`/verify-email?next=${encodeURIComponent(pathname)}`);
     }
-  }, [ready, status, session, minimum, verified, fallback, pathname, router]);
+  }, [ready, status, session, profile, minimum, verified, fallback, pathname, router]);
 
   if (ready && session && !hasAtLeast(session.role, minimum) && !fallback) return <AccessDenied />;
   if (!ready || !allowed) return <GuardSkeleton />;
