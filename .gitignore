@@ -53,3 +53,13 @@ yarn-error.log*
 
 # Claude Code project configuration (local tooling, not part of the app)
 .claude/
+
+# Credentials that must never be committed
+firebase-admin-key.json
+serviceAccount*.json
+*-service-account*.json
+*.pem
+*.p12
+*.key
+.sentryclirc
+.vercel

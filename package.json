@@ -18,7 +18,9 @@
     "test": "vitest run --project unit --file-parallelism",
     "test:watch": "vitest --project unit --file-parallelism",
     "test:emulator": "npx firebase-tools@15 emulators:exec --only firestore,auth --project festflow-test \"vitest run --project emulator\"",
-    "test:all": "npm test && npm run test:emulator"
+    "test:all": "npm test && npm run test:emulator",
+    "scan:secrets": "node scripts/scan-secrets.mjs",
+    "scan:secrets:history": "node scripts/scan-secrets.mjs --history"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.9.1",
