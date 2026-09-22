@@ -99,6 +99,11 @@ export const clientIp = (request: Request): string => {
 };
 
 export const rateLimit = async (rule: RateLimitRule, subject: string): Promise<RateLimitResult> => {
+  // RATE_LIMIT_DISABLED=1 switches limiting off: the test suite hammers one
+  // user from one process, and an operator may need it during an incident.
+  if (process.env.RATE_LIMIT_DISABLED === "1") {
+    return { allowed: true, limit: rule.limit, remaining: rule.limit, retryAfter: rule.windowSeconds, store: "memory" };
+  }
   const key = `rl:${rule.bucket}:${subject}`;
   return (await upstashHit(key, rule)) ?? memoryHit(key, rule, Date.now());
 };
