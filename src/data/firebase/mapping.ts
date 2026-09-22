@@ -122,11 +122,13 @@ export const toRepositoryError = (error: unknown, context: string): RepositoryEr
     return new RepositoryError(code, message, error);
   }
 
-  if (error instanceof Error) {
-    return new RepositoryError("unknown", error.message || `${context} failed.`, error);
+  // Anything else — a FirebaseError from Auth/Storage, a parse failure, a
+  // network stack message — is an internal detail. The person gets the
+  // context they were in; the raw error rides along in `cause` for logs.
+  if (process.env.NODE_ENV !== "production") {
+    console.warn(`[repository] ${context}:`, error);
   }
-
-  return new RepositoryError("unknown", `${context} failed.`, error);
+  return new RepositoryError("unknown", `${context} failed. Please try again.`, error);
 };
 
 /** Wraps an async repository call so callers only ever see `RepositoryError`. */

@@ -112,3 +112,31 @@ installed transitively, are now declared devDependencies.
 
 Re-check after any `firebase-admin` or `next` upgrade: if a future version
 requires a newer `uuid`/`postcss` than the override, remove the override.
+
+## Error handling (22 Sep 2026)
+
+All API routes run through `handler()` in `src/server/api.ts`, which delegates
+to `src/server/errors.ts`:
+
+| Thrown | Client gets | Logged as |
+|---|---|---|
+| `ApiError` (deliberate: 400/401/403/404/409/422/429/503) | its message and code; `Retry-After` on 429 | warning |
+| `ZodError` | 400 + field names → messages | warning |
+| `AdminNotConfiguredError` | 503 generic (production) / message naming the variable (development) | error + Sentry |
+| transient Firestore (`UNAVAILABLE`, `DEADLINE_EXCEEDED`, `ABORTED`, lost transaction…) | 503 generic + `Retry-After: 3` | warning + Sentry |
+| anything else | 500 generic + `requestId` | error + Sentry, full stack and context |
+
+The `requestId` in a 500 matches the `[error]` log line and the Sentry event.
+In development only, responses carry `debug: {name, message}` — never a stack.
+Client-side, `toRepositoryError` replaces raw SDK/parse messages with the
+operation context; browser camera errors are translated by name.
+
+`GET /api/health` is redacted (pass/fail per check) unless the caller is a
+super admin. Page-level: signed-out → sign-in; wrong role → 403 screen
+(`AccessDenied`) or the fallback the layout chose; unknown URL → 404;
+render failure → `error.tsx` / `global-error.tsx` with a digest, no message.
+
+Regression suite: `tests/unit/error-handling.test.ts` throws hostile errors
+(stack traces, filesystem paths, service-account strings, gRPC failures,
+non-Error values) through the real `handler()` in production and development
+mode and asserts none of a list of sensitive markers reaches the response.

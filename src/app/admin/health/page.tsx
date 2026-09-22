@@ -9,6 +9,7 @@ import { UserMenu } from "@/components/shell/user-menu";
 import { Button } from "@/components/ui/button";
 import { EmptyState, Kick, MetaList, MetaRow, PageHeading, Skeleton, Tag } from "@/components/ui/primitives";
 import { hasAtLeast } from "@/core/models/user";
+import { firebaseAuth } from "@/data/firebase/client";
 import { formatRelative } from "@/lib/utils";
 
 interface Step {
@@ -51,8 +52,12 @@ export default function HealthPage() {
     queryKey: ["health"],
     enabled: isSuper,
     refetchInterval: 60_000,
+    // Through api() so the ID token goes along: the endpoint only shows
+    // messages and facts to a super admin, pass/fail to everyone else.
     queryFn: async (): Promise<Health> => {
-      const res = await fetch("/api/health", { cache: "no-store" });
+      const user = firebaseAuth().currentUser;
+      const token = user ? await user.getIdToken() : null;
+      const res = await fetch("/api/health", { cache: "no-store", headers: token ? { authorization: `Bearer ${token}` } : {} });
       return (await res.json()) as Health;
     },
   });

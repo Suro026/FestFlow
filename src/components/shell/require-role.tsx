@@ -55,8 +55,11 @@ export const RequireRole = ({ minimum, fallback, verified = false, children }: R
       return;
     }
 
+    // A signed-in account without the role sees an explicit "no access"
+    // screen (below) rather than a silent redirect, unless the caller asked
+    // for a fallback — the admin/volunteer roots send students to Explore.
     if (session && !hasAtLeast(session.role, minimum)) {
-      router.replace(fallback ?? homeFor(session.role));
+      if (fallback) router.replace(fallback);
       return;
     }
 
@@ -65,10 +68,25 @@ export const RequireRole = ({ minimum, fallback, verified = false, children }: R
     }
   }, [ready, status, session, minimum, verified, fallback, pathname, router]);
 
+  if (ready && session && !hasAtLeast(session.role, minimum) && !fallback) return <AccessDenied />;
   if (!ready || !allowed) return <GuardSkeleton />;
 
   return <>{children}</>;
 };
+
+/** The 403 page for a signed-in account whose role is too low. */
+export const AccessDenied = () => (
+  <div className="mx-auto w-full max-w-[720px] px-5 py-16 sm:px-10">
+    <div className="kick mb-2">403</div>
+    <h1 className="mb-3 text-[32px] font-medium leading-[1.05] tracking-[-0.03em]">You don’t have access to this</h1>
+    <p className="mb-6 max-w-[48ch] text-[15px] text-neutral-300">
+      This area is for a role your account doesn’t hold. If you were expecting access, ask the fest’s admin to add you.
+    </p>
+    <a href="/explore" className="btn btn-primary">
+      Back to Explore
+    </a>
+  </div>
+);
 
 /** A quiet placeholder while the session resolves — no spinner, no flash. */
 export const GuardSkeleton = () => (

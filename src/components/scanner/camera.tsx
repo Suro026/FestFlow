@@ -76,7 +76,18 @@ export const Camera = React.forwardRef<CameraHandle, CameraProps>(({ active, onD
           setTorchSupported(false);
         }
       } catch (error) {
-        onError?.(error instanceof Error ? error.message : "Camera unavailable. Check permissions, or enter the code manually.");
+        // Browser errors are DOMExceptions with internal names; translate the
+        // ones that mean something to a volunteer and hide the rest.
+        const name = error instanceof Error ? error.name : "";
+        onError?.(
+          name === "NotAllowedError" || name === "PermissionDeniedError"
+            ? "Camera permission was refused. Allow the camera in your browser settings, or enter the code manually."
+            : name === "NotFoundError" || name === "OverconstrainedError"
+              ? "No usable camera was found on this device. Enter the code manually."
+              : name === "NotReadableError"
+                ? "The camera is in use by another app. Close it and try again, or enter the code manually."
+                : "Camera unavailable. Check permissions, or enter the code manually.",
+        );
       }
     };
 
