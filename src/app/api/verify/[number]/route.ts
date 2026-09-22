@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { handler, ok } from "@/server/api";
+import { RATE_LIMITS } from "@/server/rate-limit";
 import { lookupCertificate } from "@/server/public-lookup";
 
 /**
@@ -19,4 +20,4 @@ export const GET = handler(async (_request, context) => {
   const response = NextResponse.json(result);
   response.headers.set("Cache-Control", "public, max-age=60, s-maxage=300");
   return response;
-});
+}, { rateLimit: RATE_LIMITS.verify });

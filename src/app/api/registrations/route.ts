@@ -5,6 +5,7 @@ import {
 } from "@/core/models/registration";
 import { isRegistrationOpen } from "@/core/models/event";
 import { ApiError, authenticate, handler, ok, readBody } from "@/server/api";
+import { RATE_LIMITS } from "@/server/rate-limit";
 import { COLLECTIONS, FieldValue, Timestamp, adminDb } from "@/server/firebase-admin";
 import { compact, docToJson, randomBytes } from "@/server/serialize";
 import { emailService } from "@/server/email";
@@ -249,4 +250,4 @@ export const POST = handler(async (request) => {
   }
 
   return ok({ registration }, 201);
-});
+}, { rateLimit: RATE_LIMITS.registration });

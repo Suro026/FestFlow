@@ -1,4 +1,5 @@
 import { ApiError, authenticate, handler, ok } from "@/server/api";
+import { RATE_LIMITS } from "@/server/rate-limit";
 import { COLLECTIONS, adminDb } from "@/server/firebase-admin";
 import { emailVerificationLink } from "@/server/auth-links";
 import { emailService } from "@/server/email";
@@ -28,4 +29,4 @@ export const POST = handler(async (request) => {
   );
   if (!result.ok) throw ApiError.unavailable("We couldn't send the email just now. Try again in a minute.");
   return ok({ fallback: false });
-});
+}, { rateLimit: RATE_LIMITS.verification });

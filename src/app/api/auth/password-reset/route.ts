@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { emailSchema } from "@/core/models/common";
 import { handler, ok, readBody } from "@/server/api";
+import { RATE_LIMITS } from "@/server/rate-limit";
 import { COLLECTIONS, adminAuth, adminDb } from "@/server/firebase-admin";
 import { passwordResetLink } from "@/server/auth-links";
 import { emailService } from "@/server/email";
@@ -36,4 +37,4 @@ export const POST = handler(async (request) => {
     // Unknown address, disabled account, or provider failure: same answer.
   }
   return ok({ fallback: false });
-});
+}, { rateLimit: RATE_LIMITS.passwordReset });

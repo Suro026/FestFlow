@@ -1,5 +1,6 @@
 import { teamActionSchema } from "@/core/models/registration";
 import { ApiError, authenticate, handler, ok, readBody } from "@/server/api";
+import { RATE_LIMITS } from "@/server/rate-limit";
 import { COLLECTIONS, FieldValue, Timestamp, adminDb } from "@/server/firebase-admin";
 import { compact, docToJson } from "@/server/serialize";
 import { emailService } from "@/server/email";
@@ -199,7 +200,7 @@ export const POST = handler(async (request, context) => {
   }
 
   return ok({ registration });
-});
+}, { rateLimit: RATE_LIMITS.registration });
 
 const festRefName = async (db: FirebaseFirestore.Firestore, festId: string): Promise<string> =>
   String((await db.collection(COLLECTIONS.fests).doc(festId).get()).data()?.name ?? "");

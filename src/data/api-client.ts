@@ -1,4 +1,5 @@
 import { firebaseAuth } from "@/data/firebase/client";
+import { appCheckToken } from "@/data/firebase/app-check";
 import { RepositoryError, type RepositoryErrorCode } from "@/core/models/common";
 
 /**
@@ -58,6 +59,11 @@ export const api = async <T>(
     if (!user) throw new RepositoryError("permission-denied", "Sign in to continue.");
     requestHeaders.set("Authorization", `Bearer ${await user.getIdToken()}`);
   }
+
+  // App Check proves the call came from the real app; absent when App Check
+  // is not configured, in which case the server monitors rather than refuses.
+  const attestation = await appCheckToken();
+  if (attestation) requestHeaders.set("X-Firebase-AppCheck", attestation);
 
   let response: Response;
 

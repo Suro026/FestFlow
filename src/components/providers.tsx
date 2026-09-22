@@ -8,6 +8,7 @@ import type { User } from "@/core/models/user";
 import { repositories as createRepositories } from "@/data/repositories";
 import { authService as firebaseAuthService } from "@/data/firebase/auth-service";
 import { Toaster, TooltipProvider } from "@/components/ui/overlays";
+import { appCheck } from "@/data/firebase/app-check";
 
 /* ───────────── repositories ───────────── */
 
@@ -63,6 +64,12 @@ const AuthProvider = ({
   const [session, setSession] = React.useState<Session | null>(null);
   const [profile, setProfile] = React.useState<User | null>(null);
   const [profileSettled, setProfileSettled] = React.useState(false);
+
+  // App Check must be initialised before the first Firestore/Auth request so
+  // its token rides along from the start. No-op without a site key.
+  React.useEffect(() => {
+    appCheck();
+  }, []);
 
   React.useEffect(() => {
     try {
