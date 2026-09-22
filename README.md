@@ -41,7 +41,14 @@ Useful scripts:
 | `npm run seed:demo` | Writes demo fests/events so the pages have something to show |
 | `npm run firebase:deploy` | Deploys `firestore.rules`, `storage.rules` and indexes via the service account — no `firebase login` needed |
 | `npm run verify:infra` | Confirms the composite indexes are live, the Storage bucket exists, and the Storage rules admit/refuse the right uploads; prints one-click console links for anything missing |
+| `npm test` | Unit and component tests (Vitest + Testing Library, jsdom) |
+| `npm run test:emulator` | Rules, repository and API-transaction tests against the Firebase emulators (needs Java 21) |
 | `npm run build` | Production build; also what Vercel runs |
+
+CI (`.github/workflows/ci.yml`) runs typecheck → lint → unit tests → emulator
+tests → `next build` on every pull request and push to `main`. Make the
+`ci` check required in GitHub → Settings → Branches → `main` so nothing
+merges red.
 
 ## Deploy (Vercel)
 
