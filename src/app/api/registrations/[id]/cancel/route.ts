@@ -1,4 +1,5 @@
 import { ApiError, authenticate, handler, ok } from "@/server/api";
+import { RATE_LIMITS } from "@/server/rate-limit";
 import { COLLECTIONS, FieldValue, adminDb } from "@/server/firebase-admin";
 import { announcePromotion } from "@/server/waitlist";
 
@@ -75,4 +76,4 @@ export const POST = handler(async (request, context) => {
   if (promoted) await announcePromotion(promoted.id);
 
   return ok({ cancelled: true, promoted: promoted?.id ?? null });
-});
+}, { rateLimit: RATE_LIMITS.registration });

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { handler } from "@/server/api";
+import { RATE_LIMITS } from "@/server/rate-limit";
 import { COLLECTIONS, adminDb } from "@/server/firebase-admin";
 import { renderCertificatePdf } from "@/server/certificates/pdf";
 import type { CertificateType } from "@/core/models/certificate";
@@ -48,4 +49,4 @@ export const GET = handler(async (request, context) => {
       "Cache-Control": "public, max-age=300",
     },
   });
-});
+}, { rateLimit: RATE_LIMITS.verify });

@@ -1,4 +1,6 @@
+import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
+import * as Sentry from "@sentry/nextjs";
 import { ZodError, type ZodType } from "zod";
 import { hasAtLeast, type UserRole } from "@/core/models/user";
 import {
@@ -7,6 +9,8 @@ import {
   adminAuth,
   adminDb,
 } from "./firebase-admin";
+import { appCheckMode, verifyAppCheck } from "./app-check";
+import { clientIp, rateLimit, rateLimitHeaders, type RateLimitRule } from "./rate-limit";
 
 /**
  * Shared plumbing for the privileged API routes.
@@ -196,56 +200,125 @@ export const fieldErrors = (error: ZodError): Record<string, string> => {
   return out;
 };
 
+export interface HandlerOptions {
+  /** Apply this rate-limit rule; the subject is the uid when signed in, else the IP. */
+  rateLimit?: RateLimitRule;
+  /** Check the App Check token (monitor or enforce per APP_CHECK_ENFORCE). Default: on for POST/PATCH/DELETE. */
+  appCheck?: boolean;
+}
+
+/** gRPC codes from the Admin SDK that mean "Firestore is having a moment", not "we have a bug". */
+const TRANSIENT_FIRESTORE = new Set([4, 8, 10, 13, 14]); // DEADLINE_EXCEEDED, RESOURCE_EXHAUSTED, ABORTED, INTERNAL, UNAVAILABLE
+
+const isTransientFirestore = (error: unknown): boolean =>
+  typeof error === "object" && error !== null && "code" in error && TRANSIENT_FIRESTORE.has(Number((error as { code: unknown }).code));
+
+/** The uid from a bearer token without verifying it — for logs and rate-limit keys only. */
+const unverifiedUid = (request: Request): string | null => {
+  const header = request.headers.get("authorization") ?? "";
+  const token = header.toLowerCase().startsWith("bearer ") ? header.slice(7) : "";
+  const payload = token.split(".")[1];
+  if (!payload) return null;
+  try {
+    const json = JSON.parse(Buffer.from(payload.replace(/-/g, "+").replace(/_/g, "/"), "base64").toString("utf8")) as { sub?: string };
+    return typeof json.sub === "string" ? json.sub : null;
+  } catch {
+    return null;
+  }
+};
+
 /**
- * Wraps a handler so no route has to write the same try/catch.
+ * Wraps a route handler so no route has to write the same plumbing:
  *
- * Unexpected errors are logged server-side and answered with a generic 500:
- * an Admin SDK stack trace can name collections, document ids and the service
- * account, none of which belongs in a client response.
+ *  - a request id (`x-request-id`, honoured if the client sent one)
+ *  - rate limiting and App Check, when asked for
+ *  - one structured JSON log line per request (method, path, status, ms,
+ *    uid, request id) — what Vercel's log search and alerts key on
+ *  - error mapping: ApiError → its status; Admin SDK not configured → 503;
+ *    transient Firestore failures → 503 with Retry-After; Zod → 400;
+ *    anything else → 500, logged and reported to Sentry with the request id
+ *
+ * An Admin SDK stack trace can name collections, document ids and the
+ * service account, none of which belongs in a client response, so the
+ * 500 body is always generic and the request id is the way to find it.
  */
 export const handler = (
   fn: (request: Request, context: { params: Promise<Record<string, string>> }) => Promise<Response>,
+  options: HandlerOptions = {},
 ) => {
-  return async (
-    request: Request,
-    context: { params: Promise<Record<string, string>> },
-  ): Promise<Response> => {
+  return async (request: Request, context: { params: Promise<Record<string, string>> }): Promise<Response> => {
+    const started = Date.now();
+    const requestId = request.headers.get("x-request-id")?.slice(0, 64) || randomUUID();
+    const url = new URL(request.url);
+    const uid = unverifiedUid(request);
+    let response: Response;
+    let extra: Record<string, unknown> = {};
+
+    const finish = (res: Response): Response => {
+      res.headers.set("x-request-id", requestId);
+      const line = { at: "api", id: requestId, method: request.method, path: url.pathname, status: res.status, ms: Date.now() - started, uid, ip: clientIp(request), ...extra };
+      (res.status >= 500 ? console.error : res.status >= 400 ? console.warn : console.info)("[api]", JSON.stringify(line));
+      return res;
+    };
+
     try {
-      return await fn(request, context);
+      if (options.rateLimit) {
+        const result = await rateLimit(options.rateLimit, uid ?? clientIp(request));
+        extra = { ...extra, rl: `${result.remaining}/${result.limit}` };
+        if (!result.allowed) {
+          response = NextResponse.json({ error: "Too many requests. Slow down and try again shortly.", code: "rate-limited" }, { status: 429, headers: rateLimitHeaders(result) });
+          return finish(response);
+        }
+      }
+
+      const checkApp = options.appCheck ?? request.method !== "GET";
+      if (checkApp) {
+        const verdict = await verifyAppCheck(request);
+        extra = { ...extra, appCheck: verdict };
+        if (appCheckMode() === "enforced" && verdict !== "valid" && verdict !== "skipped") {
+          response = NextResponse.json({ error: "This request did not come from the FestFlow app.", code: "app-check" }, { status: 401 });
+          return finish(response);
+        }
+      }
+
+      response = await fn(request, context);
+      return finish(response);
     } catch (error) {
       if (error instanceof ApiError) {
-        return NextResponse.json(
-          { error: error.message, code: error.code, ...(error.details ? { details: error.details } : {}) },
-          { status: error.status },
+        return finish(
+          NextResponse.json({ error: error.message, code: error.code, ...(error.details ? { details: error.details } : {}) }, { status: error.status }),
         );
       }
 
       if (error instanceof AdminNotConfiguredError) {
-        console.error("[api] admin not configured:", error.message);
-        return NextResponse.json(
-          {
-            error:
-              "The server is not configured to perform this action. " +
-              "FIREBASE_SERVICE_ACCOUNT is missing or invalid.",
-            code: "not-configured",
-          },
-          { status: 503 },
+        extra = { ...extra, error: "admin-not-configured" };
+        Sentry.captureException(error, { tags: { requestId, kind: "config" } });
+        return finish(
+          NextResponse.json(
+            { error: "The server is not configured to perform this action. FIREBASE_SERVICE_ACCOUNT is missing or invalid.", code: "not-configured" },
+            { status: 503 },
+          ),
         );
       }
 
       if (error instanceof ZodError) {
-        return NextResponse.json(
-          { error: "Some fields need fixing.", code: "bad-request", details: fieldErrors(error) },
-          { status: 400 },
+        return finish(NextResponse.json({ error: "Some fields need fixing.", code: "bad-request", details: fieldErrors(error) }, { status: 400 }));
+      }
+
+      if (isTransientFirestore(error)) {
+        extra = { ...extra, error: `firestore-transient:${(error as { code: number }).code}` };
+        Sentry.captureException(error, { tags: { requestId, kind: "firestore-transient" }, level: "warning" });
+        return finish(
+          NextResponse.json(
+            { error: "The database is briefly unavailable. Nothing was changed — try again in a few seconds.", code: "unavailable" },
+            { status: 503, headers: { "Retry-After": "3" } },
+          ),
         );
       }
 
-      console.error("[api] unhandled error:", error);
-
-      return NextResponse.json(
-        { error: "Something went wrong. Please try again.", code: "internal" },
-        { status: 500 },
-      );
+      extra = { ...extra, error: error instanceof Error ? `${error.name}: ${error.message}` : String(error) };
+      Sentry.captureException(error, { tags: { requestId, kind: "unhandled" } });
+      return finish(NextResponse.json({ error: "Something went wrong. Please try again.", code: "internal", requestId }, { status: 500 }));
     }
   };
 };
