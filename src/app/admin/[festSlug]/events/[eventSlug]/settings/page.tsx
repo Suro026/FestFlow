@@ -138,7 +138,7 @@ export default function EventSettingsPage() {
         />
 
         <form onSubmit={(e) => e.preventDefault()} noValidate>
-          {section === "details" ? <BasicsFields form={form} lockSlug={hasEntries} /> : null}
+          {section === "details" ? <BasicsFields form={form} lockSlug={hasEntries} festId={fest.id} /> : null}
 
           {section === "registration" ? (
             <div className="flex flex-col gap-6">

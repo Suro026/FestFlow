@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
+import { ImageUploadField } from "@/components/ui/image-upload";
 import { useQuery } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -161,6 +162,7 @@ export default function ProfilePage() {
               studentId: profile.student?.studentId ?? "",
               department: profile.student?.department ?? "",
             }}
+            photoUrl={profile.photoUrl}
             onSaved={async () => {
               await refresh();
               setEditing(false);
@@ -172,11 +174,12 @@ export default function ProfilePage() {
   );
 }
 
-const EditForm = ({ defaults, onSaved }: { defaults: EditValues; onSaved: () => Promise<void> }) => {
+const EditForm = ({ defaults, photoUrl: initialPhoto, onSaved }: { defaults: EditValues; photoUrl?: string; onSaved: () => Promise<void> }) => {
   const { session } = useAuth();
   const repos = useRepositories();
   const form = useForm<EditValues>({ resolver: zodResolver(editSchema), defaultValues: defaults });
   const err = form.formState.errors;
+  const [photoUrl, setPhotoUrl] = React.useState(initialPhoto ?? "");
 
   const submit = form.handleSubmit(async (v) => {
     if (!session) return;
@@ -184,6 +187,7 @@ const EditForm = ({ defaults, onSaved }: { defaults: EditValues; onSaved: () => 
       await repos.users.update(session.uid, {
         fullName: v.fullName,
         phone: v.phone,
+        ...(photoUrl ? { photoUrl } : {}),
         student: { college: v.college, studentId: v.studentId, department: v.department || undefined },
       });
       toast.success("Profile saved");
@@ -195,6 +199,7 @@ const EditForm = ({ defaults, onSaved }: { defaults: EditValues; onSaved: () => 
 
   return (
     <form onSubmit={submit} noValidate className="flex flex-col gap-3.5">
+      <ImageUploadField id="e-photo" label="Photo" kind="profilePhoto" aspect="1/1" value={photoUrl} onChange={setPhotoUrl} allowUrl={false} hint="Square works best · PNG, JPEG or WebP up to 3 MB" />
       <Field label="Full name" htmlFor="e-name" error={err.fullName?.message}>
         <Input id="e-name" {...form.register("fullName")} />
       </Field>

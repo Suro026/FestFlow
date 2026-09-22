@@ -7,6 +7,7 @@ import { z } from "zod";
 import type { CreateFest, Fest, UpdateFest } from "@/core/models/fest";
 import { calendarDateSchema, emailSchema, shortTextSchema } from "@/core/models/common";
 import { Field, Input, Textarea } from "@/components/ui/field";
+import { ImageUploadField } from "@/components/ui/image-upload";
 import { slugify } from "@/lib/utils";
 
 /**
@@ -24,8 +25,8 @@ export const festFormSchema = z
     city: shortTextSchema,
     startDate: calendarDateSchema,
     endDate: calendarDateSchema,
-    bannerUrl: z.union([z.string().url("Enter a full URL"), z.literal("")]).optional(),
-    logoUrl: z.union([z.string().url("Enter a full URL"), z.literal("")]).optional(),
+    bannerUrl: z.union([z.string().url("Enter a full URL").refine((v) => v.toLowerCase().startsWith("https://"), "Enter an https:// URL"), z.literal("")]).optional(),
+    logoUrl: z.union([z.string().url("Enter a full URL").refine((v) => v.toLowerCase().startsWith("https://"), "Enter an https:// URL"), z.literal("")]).optional(),
     contactEmail: z.union([emailSchema, z.literal("")]).optional(),
     contactPhone: z.string().trim().max(20).optional(),
   })
@@ -86,7 +87,7 @@ export const useFestForm = (defaults: FestFormValues) =>
 
 type Form = UseFormReturn<FestFormValues, unknown, FestFormOutput>;
 
-export const FestFields = ({ form, lockSlug }: { form: Form; lockSlug?: boolean }) => {
+export const FestFields = ({ form, lockSlug, festId }: { form: Form; lockSlug?: boolean; festId?: string }) => {
   const err = form.formState.errors;
   const name = form.watch("name");
   const touched = React.useRef(false);
@@ -124,12 +125,28 @@ export const FestFields = ({ form, lockSlug }: { form: Form; lockSlug?: boolean 
       <Field label="Ends" htmlFor="f-end" error={err.endDate?.message}>
         <Input id="f-end" type="date" {...form.register("endDate")} />
       </Field>
-      <Field label="Cover image URL" htmlFor="f-banner" error={err.bannerUrl?.message} hint="1080×1350 for the marquee.">
-        <Input id="f-banner" type="url" placeholder="https://…" {...form.register("bannerUrl")} />
-      </Field>
-      <Field label="Logo URL" htmlFor="f-logo" error={err.logoUrl?.message}>
-        <Input id="f-logo" type="url" placeholder="https://…" {...form.register("logoUrl")} />
-      </Field>
+      <ImageUploadField
+        id="f-banner"
+        label="Cover image"
+        kind="festBanner"
+        ownerId={festId}
+        aspect="1080/1350"
+        value={form.watch("bannerUrl") ?? ""}
+        onChange={(url) => form.setValue("bannerUrl", url, { shouldDirty: true, shouldValidate: true })}
+        error={err.bannerUrl?.message}
+        hint="1080×1350 for the marquee · PNG, JPEG or WebP up to 5 MB"
+      />
+      <ImageUploadField
+        id="f-logo"
+        label="Logo"
+        kind="festLogo"
+        ownerId={festId}
+        aspect="1/1"
+        value={form.watch("logoUrl") ?? ""}
+        onChange={(url) => form.setValue("logoUrl", url, { shouldDirty: true, shouldValidate: true })}
+        error={err.logoUrl?.message}
+        hint="Square · PNG, JPEG or WebP up to 2 MB"
+      />
       <Field label="Contact email" htmlFor="f-email" error={err.contactEmail?.message}>
         <Input id="f-email" type="email" placeholder="fest@college.edu" {...form.register("contactEmail")} />
       </Field>

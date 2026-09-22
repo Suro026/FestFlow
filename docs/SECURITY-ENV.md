@@ -140,3 +140,30 @@ Regression suite: `tests/unit/error-handling.test.ts` throws hostile errors
 (stack traces, filesystem paths, service-account strings, gRPC failures,
 non-Error values) through the real `handler()` in production and development
 mode and asserts none of a list of sensitive markers reaches the response.
+
+## File uploads (22 Sep 2026)
+
+One server path accepts every file: `POST /api/uploads?kind=…&id=…`
+(`src/server/uploads.ts`). Storage rules deny **all** client writes; reads
+are limited to fest artwork and profile photos (public), certificates
+(recipient + staff) and result sheets (staff).
+
+| Control | How |
+|---|---|
+| Type | magic-number sniffing (PNG/JPEG/WebP/GIF); the filename and declared Content-Type are ignored. SVG, HTML, executables, archives, scripts → 415 with a reason |
+| Size | per-kind caps (2–5 MB) checked on the declared length, the received bytes and the processed output → 413 |
+| Content | decoded and re-encoded with sharp: EXIF/XMP/IPTC/ICC dropped, orientation applied, longest side bounded, GIF flattened; polyglots come out as plain images |
+| Names | `{fests|users}/{ownerId}/{folder}/{uuid}.{ext}` — owner id validated against `[A-Za-z0-9_-]{1,128}`, extension from the detected type, UUID name; nothing from the client |
+| Authorization | fest banner/logo: admin managing the fest; event poster: organizer of the fest; profile photo: always the caller (the id parameter is ignored) |
+| Location | Firebase Storage only, via the Admin SDK, with `uploadedBy`, `kind` and `sha256` metadata and an audit-log entry for fest artwork |
+| Rate | `authenticated.uploads`: 20 per 10 minutes per account |
+| Links typed by hand | `posterUrl`, `bannerUrl`, `logoUrl`, `photoUrl` accept `https://` only |
+
+Certificates are written by the server only (`certificates/{uid}/{number}.pdf`).
+
+Tests: `tests/unit/uploads.test.ts` (sniffing, spoofed extension, executables,
+SVG/HTML, oversize, EXIF stripping with orientation, bounding, GIF flattening,
+random names, traversal ids) and `tests/emulator/uploads-api.test.ts`
+(401/403 by role and fest, spoofed EXE → 415, oversize → 413, empty/missing
+→ 400, stored object has random name, detected type, no EXIF, provenance
+metadata, audit row).

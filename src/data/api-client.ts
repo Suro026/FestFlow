@@ -98,3 +98,34 @@ export const api = async <T>(
 
   return parsed as T;
 };
+
+/**
+ * Multipart upload to /api/uploads. Same auth and App Check headers as
+ * `api()`, but the body is FormData and the browser sets the boundary.
+ */
+export const apiUpload = async <T>(path: string, file: File, field = "file"): Promise<T> => {
+  const user = firebaseAuth().currentUser;
+  if (!user) throw new RepositoryError("permission-denied", "Sign in to continue.");
+  const headers = new Headers({ Authorization: `Bearer ${await user.getIdToken()}` });
+  const attestation = await appCheckToken();
+  if (attestation) headers.set("X-Firebase-AppCheck", attestation);
+
+  const form = new FormData();
+  form.append(field, file, file.name);
+
+  let response: Response;
+  try {
+    response = await fetch(path, { method: "POST", headers, body: form });
+  } catch (error) {
+    throw new RepositoryError("unavailable", "Could not reach the server. Check your connection and try again.", error);
+  }
+  const text = await response.text();
+  let parsed: unknown = null;
+  try {
+    parsed = text ? JSON.parse(text) : null;
+  } catch {
+    parsed = null;
+  }
+  if (!response.ok) throw new ApiClientError(response.status, (parsed as ApiErrorBody) ?? {});
+  return parsed as T;
+};

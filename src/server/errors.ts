@@ -222,12 +222,13 @@ export interface ErrorContext {
  */
 export const logError = (error: unknown, context: ErrorContext, kind: ClientError["kind"]): void => {
   const described = describeError(error);
-  const line = JSON.stringify({ at: "error", kind, ...context, error: described });
   if (kind === "expected" || kind === "validation") {
-    // Not our bug; a warning-level line is enough to see patterns.
-    console.warn("[error]", line);
+    // Not our bug; a warning-level line without the stack is enough to see patterns.
+    const brief = { name: described.name, message: described.message, ...(described.code !== undefined ? { code: described.code } : {}), ...(described.status !== undefined ? { status: described.status } : {}) };
+    console.warn("[error]", JSON.stringify({ at: "error", kind, ...context, error: brief }));
     return;
   }
+  const line = JSON.stringify({ at: "error", kind, ...context, error: described });
   console.error("[error]", line);
   Sentry.captureException(error, {
     tags: { kind, ...(context.requestId ? { requestId: context.requestId } : {}) },

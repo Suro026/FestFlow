@@ -10,8 +10,9 @@
  *      that is missing
  *   2. the default Storage bucket exists
  *   3. the Admin SDK can write and delete a certificate PDF (server path)
- *   4. the Storage *rules* behave: an admin may upload an event poster and a
- *      fest banner, a student may not — tested through the client REST API
+ *   4. the Storage *rules* behave: no client may write anything directly
+ *      (uploads go through POST /api/uploads), while server-written fest
+ *      artwork is publicly readable — tested through the client REST API
  *      with real ID tokens, since that is what the rules see
  *
  * Creates two throwaway Auth users and deletes them on exit. Needs
@@ -130,13 +131,15 @@ if (!exists) {
   const student = await mint("ff-infra-student@festflow.test", { role: "student", festIds: [] });
   const stamp = Date.now();
   try {
+    // Every upload goes through POST /api/uploads (Admin SDK). The rules must
+    // refuse direct client writes of any kind, from any role.
     const cases = [
-      ["admin uploads event poster", admin.idToken, `events/_probe/${stamp}.png`, 200],
-      ["admin uploads fest banner", admin.idToken, `fests/_probe/${stamp}.png`, 200],
-      ["student cannot upload event poster", student.idToken, `events/_probe/${stamp}-s.png`, 403],
-      ["student cannot upload fest banner", student.idToken, `fests/_probe/${stamp}-s.png`, 403],
-      ["student uploads own profile photo", student.idToken, `users/${student.uid}/${stamp}.png`, 200],
+      ["admin cannot write a fest banner directly", admin.idToken, `fests/_probe/banners/${stamp}.png`, 403],
+      ["admin cannot write an event poster directly", admin.idToken, `fests/_probe/posters/${stamp}.png`, 403],
+      ["student cannot write a fest banner directly", student.idToken, `fests/_probe/banners/${stamp}-s.png`, 403],
+      ["student cannot write their own photo directly", student.idToken, `users/${student.uid}/photo/${stamp}.png`, 403],
       ["student cannot write certificates/", student.idToken, `certificates/${student.uid}/${stamp}.pdf`, 403],
+      ["admin cannot write results/ directly", admin.idToken, `results/_probe/${stamp}.csv`, 403],
     ];
     for (const [label, token, path, expected] of cases) {
       const status = await upload(token, path, path.endsWith(".pdf") ? Buffer.from("%PDF-1.4") : png, path.endsWith(".pdf") ? "application/pdf" : "image/png");
@@ -144,11 +147,16 @@ if (!exists) {
       else bad(label, `expected ${expected}, got ${status}${status === 403 && expected === 200 ? " — are the Storage rules deployed?" : ""}`);
       if (status === 200) await bucket.file(path).delete().catch(() => undefined);
     }
-    // Oversize / wrong type must be refused even for admins.
-    const big = await upload(admin.idToken, `events/_probe/${stamp}-big.png`, Buffer.alloc(5 * 1024 * 1024 + 1), "image/png");
-    if (big === 403) ok("admin cannot upload a >5 MB image", "(403)"); else { bad("admin oversize image", `got ${big}`); await bucket.file(`events/_probe/${stamp}-big.png`).delete().catch(() => undefined); }
-    const wrong = await upload(admin.idToken, `events/_probe/${stamp}.txt`, Buffer.from("hi"), "text/plain");
-    if (wrong === 403) ok("admin cannot upload a non-image as a poster", "(403)"); else { bad("admin wrong type", `got ${wrong}`); await bucket.file(`events/_probe/${stamp}.txt`).delete().catch(() => undefined); }
+    // The server path works: write and read back a probe under the fest layout.
+    const probe = bucket.file(`fests/_probe/banners/${stamp}.png`);
+    try {
+      await probe.save(png, { contentType: "image/png", resumable: false });
+      const res = await fetch(`https://firebasestorage.googleapis.com/v0/b/${bucket.name}/o/${encodeURIComponent(probe.name)}`);
+      if (res.status === 200) ok("server-written fest artwork is publicly readable"); else bad("public read of fest artwork", `got ${res.status} — are the Storage rules deployed?`);
+      await probe.delete();
+    } catch (error) {
+      bad("server write under fests/", String(error.message ?? error).slice(0, 160));
+    }
   } finally {
     await Promise.all([auth.deleteUser(admin.uid), auth.deleteUser(student.uid)]);
   }
