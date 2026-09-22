@@ -133,3 +133,27 @@ describe("authenticated tier", () => {
     expect(statuses[3]).toBe(429);
   });
 });
+
+describe("GET /api/health redaction", () => {
+  it("shows pass/fail only to anonymous callers and details to a super admin", async () => {
+    const { GET: health } = await import("@/app/api/health/route");
+    const anon = await callRoute(health, { path: "/api/health", method: "GET" });
+    expect(anon.body.detail).toBe("redacted");
+    const anonText = JSON.stringify(anon.body);
+    expect(anonText).not.toContain("project_id");
+    expect(anonText).not.toContain("client_email");
+    expect(anonText).not.toContain("message");
+    for (const check of Object.values(anon.body.checks as Record<string, Record<string, unknown>>)) {
+      expect(Object.keys(check).sort()).toEqual(["ms", "ok"]);
+    }
+
+    const superAdmin = await mintUser({ role: "super_admin", name: "Root" });
+    const full = await callRoute(health, { path: "/api/health", method: "GET", token: superAdmin.idToken });
+    expect(full.body.detail).toBe("full");
+    expect((full.body.checks as Record<string, { detail?: unknown }>).runtime?.detail).toBeDefined();
+
+    // A signed-in student gets the redacted view too.
+    const asStudent = await callRoute(health, { path: "/api/health", method: "GET", token: student.idToken });
+    expect(asStudent.body.detail).toBe("redacted");
+  });
+});

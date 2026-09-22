@@ -42,8 +42,30 @@ const mask = (email: string) => {
   return `${user.slice(0, 4)}…@${domain}`;
 };
 
-export async function GET() {
+/**
+ * Who may see details. Anonymous callers (uptime monitors) get pass/fail per
+ * check; a verified super admin gets the messages and facts behind them.
+ * Resolved defensively — this route must answer even when auth is broken.
+ */
+const detailAllowed = async (request: Request): Promise<boolean> => {
+  if (!request.headers.get("authorization")) return false;
+  try {
+    const { authenticate } = await import("@/server/api");
+    const { hasAtLeast } = await import("@/core/models/user");
+    const caller = await authenticate(request);
+    return hasAtLeast(caller.role, "super_admin");
+  } catch {
+    return false;
+  }
+};
+
+/** Strip everything but pass/fail and timing. */
+const redact = (checks: Record<string, Step>): Record<string, Pick<Step, "ok" | "ms">> =>
+  Object.fromEntries(Object.entries(checks).map(([k, v]) => [k, { ok: v.ok, ms: v.ms }]));
+
+export async function GET(request: Request) {
   const checks: Record<string, Step> = {};
+  const verbose = await detailAllowed(request);
 
   // 1. Runtime facts — the first thing to compare against a working machine.
   checks.runtime = await step(async () => ({
@@ -176,7 +198,10 @@ export async function GET() {
   });
 
   const healthy = Object.values(checks).every((c) => c.ok);
-  const response = NextResponse.json({ ok: healthy, checkedAt: new Date().toISOString(), checks }, { status: healthy ? 200 : 503 });
+  const response = NextResponse.json(
+    { ok: healthy, checkedAt: new Date().toISOString(), detail: verbose ? "full" : "redacted", checks: verbose ? checks : redact(checks) },
+    { status: healthy ? 200 : 503 },
+  );
   response.headers.set("Cache-Control", "no-store");
   return response;
 }

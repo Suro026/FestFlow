@@ -1,7 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
-import * as Sentry from "@sentry/nextjs";
-import { ZodError, type ZodType } from "zod";
+import type { ZodType } from "zod";
 import { hasAtLeast, type UserRole } from "@/core/models/user";
 import {
   AdminNotConfiguredError,
@@ -10,6 +9,7 @@ import {
   adminDb,
 } from "./firebase-admin";
 import { appCheckMode, verifyAppCheck } from "./app-check";
+import { ApiError, describeError, fieldErrors, logError, toClientError } from "./errors";
 import {
   accountSubject,
   clientIp,
@@ -33,47 +33,7 @@ import {
  * runs.
  */
 
-export class ApiError extends Error {
-  readonly status: number;
-  readonly code: string;
-  readonly details?: unknown;
-
-  constructor(status: number, code: string, message: string, details?: unknown) {
-    super(message);
-    this.name = "ApiError";
-    this.status = status;
-    this.code = code;
-    this.details = details;
-  }
-
-  static unauthorized(message = "Sign in to continue.") {
-    return new ApiError(401, "unauthenticated", message);
-  }
-
-  static forbidden(message = "You do not have permission to do that.") {
-    return new ApiError(403, "forbidden", message);
-  }
-
-  static notFound(message = "Not found.") {
-    return new ApiError(404, "not-found", message);
-  }
-
-  static conflict(message: string) {
-    return new ApiError(409, "conflict", message);
-  }
-
-  static badRequest(message: string, details?: unknown) {
-    return new ApiError(400, "bad-request", message, details);
-  }
-
-  static unavailable(message = "That service is not available right now. Try again shortly.") {
-    return new ApiError(503, "unavailable", message);
-  }
-
-  static unprocessable(message: string) {
-    return new ApiError(422, "unprocessable", message);
-  }
-}
+export { ApiError, PUBLIC_MESSAGES } from "./errors";
 
 export interface Caller {
   uid: string;
@@ -199,18 +159,6 @@ export const readBody = async <T>(request: Request, schema: ZodType<T>): Promise
   return parsed.data;
 };
 
-/** Flattens Zod issues into `{ field: message }` for the form to display. */
-export const fieldErrors = (error: ZodError): Record<string, string> => {
-  const out: Record<string, string> = {};
-
-  for (const issue of error.issues) {
-    const path = issue.path.join(".") || "_";
-    if (!out[path]) out[path] = issue.message;
-  }
-
-  return out;
-};
-
 /**
  * How a route is rate limited. A single rule is keyed by uid when signed in,
  * else by IP. Auth routes pass several checks — per IP and per account — and
@@ -264,18 +212,7 @@ const resolveChecks = async (spec: RateLimitSpec | undefined, request: Request, 
   return out;
 };
 
-/** gRPC codes from the Admin SDK that mean "Firestore is having a moment", not "we have a bug". */
-const TRANSIENT_FIRESTORE = new Set([4, 8, 10, 13, 14]); // DEADLINE_EXCEEDED, RESOURCE_EXHAUSTED, ABORTED, INTERNAL, UNAVAILABLE
 
-const isTransientFirestore = (error: unknown): boolean => {
-  if (typeof error !== "object" || error === null) return false;
-  const code = "code" in error ? Number((error as { code: unknown }).code) : NaN;
-  if (TRANSIENT_FIRESTORE.has(code)) return true;
-  // A transaction that lost every retry under contention comes back as
-  // INVALID_ARGUMENT with this message; it is a "try again", not a bug.
-  const message = error instanceof Error ? error.message : "";
-  return /Transaction is invalid or closed|too much contention/i.test(message);
-};
 
 /** The uid from a bearer token without verifying it — for logs and rate-limit keys only. */
 const unverifiedUid = (request: Request): string | null => {
@@ -352,41 +289,10 @@ export const handler = (
       response = await fn(request, context);
       return finish(response);
     } catch (error) {
-      if (error instanceof ApiError) {
-        return finish(
-          NextResponse.json({ error: error.message, code: error.code, ...(error.details ? { details: error.details } : {}) }, { status: error.status }),
-        );
-      }
-
-      if (error instanceof AdminNotConfiguredError) {
-        extra = { ...extra, error: "admin-not-configured" };
-        Sentry.captureException(error, { tags: { requestId, kind: "config" } });
-        return finish(
-          NextResponse.json(
-            { error: "The server is not configured to perform this action. FIREBASE_SERVICE_ACCOUNT is missing or invalid.", code: "not-configured" },
-            { status: 503 },
-          ),
-        );
-      }
-
-      if (error instanceof ZodError) {
-        return finish(NextResponse.json({ error: "Some fields need fixing.", code: "bad-request", details: fieldErrors(error) }, { status: 400 }));
-      }
-
-      if (isTransientFirestore(error)) {
-        extra = { ...extra, error: `firestore-transient:${(error as { code: number }).code}` };
-        Sentry.captureException(error, { tags: { requestId, kind: "firestore-transient" }, level: "warning" });
-        return finish(
-          NextResponse.json(
-            { error: "The database is briefly unavailable. Nothing was changed — try again in a few seconds.", code: "unavailable" },
-            { status: 503, headers: { "Retry-After": "3" } },
-          ),
-        );
-      }
-
-      extra = { ...extra, error: error instanceof Error ? `${error.name}: ${error.message}` : String(error) };
-      Sentry.captureException(error, { tags: { requestId, kind: "unhandled" } });
-      return finish(NextResponse.json({ error: "Something went wrong. Please try again.", code: "internal", requestId }, { status: 500 }));
+      const client = toClientError(error, requestId);
+      extra = { ...extra, error: client.kind === "expected" ? `${client.body.code}` : describeError(error).name };
+      logError(error, { requestId, method: request.method, path: url.pathname, uid, ip: clientIp(request) }, client.kind);
+      return finish(NextResponse.json(client.body, { status: client.status, headers: client.headers }));
     }
   };
 };
