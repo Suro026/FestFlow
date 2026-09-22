@@ -46,6 +46,18 @@ export const phoneSchema = z
 
 /** Free text that ends up rendered in the UI or in a PDF. */
 export const shortTextSchema = z.string().trim().min(1).max(200);
+
+/**
+ * An image or link URL a person supplied. https only: `javascript:` and
+ * `data:` pass a plain `.url()` check, and neither belongs in an <img src>
+ * or an <a href> we render.
+ */
+export const httpsUrlSchema = z
+  .string()
+  .trim()
+  .max(2000)
+  .url()
+  .refine((value) => value.toLowerCase().startsWith("https://"), "Enter an https:// URL");
 export const longTextSchema = z.string().trim().max(5000);
 
 /** `YYYY-MM-DD`, stored as a string so a date has no timezone attached. */

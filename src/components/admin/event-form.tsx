@@ -14,6 +14,7 @@ import {
 } from "@/core/models/event";
 import { calendarDateSchema, clockTimeSchema, emailSchema } from "@/core/models/common";
 import { CheckOption, Field, Input, NativeSelect, RadioOption, Textarea } from "@/components/ui/field";
+import { ImageUploadField } from "@/components/ui/image-upload";
 import { Button } from "@/components/ui/button";
 import { Kick } from "@/components/ui/primitives";
 import { CATEGORY_LABELS, EventCard } from "@/components/event/event-card";
@@ -44,7 +45,7 @@ export const eventFormSchema = z
     date: calendarDateSchema,
     startTime: clockTimeSchema,
     endTime: z.union([clockTimeSchema, z.literal("")]).optional(),
-    posterUrl: z.union([z.string().url("Enter a full URL"), z.literal("")]).optional(),
+    posterUrl: z.union([z.string().url("Enter a full URL").refine((v) => v.toLowerCase().startsWith("https://"), "Enter an https:// URL"), z.literal("")]).optional(),
     rulesText: z.string().max(10000).optional(),
     prizesText: z.string().max(4000).optional(),
     coordinators: z
@@ -196,7 +197,7 @@ type Form = UseFormReturn<EventFormValues, unknown, EventFormOutput>;
 
 /* ───────────── sections ───────────── */
 
-export const BasicsFields = ({ form, lockSlug }: { form: Form; lockSlug?: boolean }) => {
+export const BasicsFields = ({ form, lockSlug, festId }: { form: Form; lockSlug?: boolean; festId?: string }) => {
   const err = form.formState.errors;
   const title = form.watch("title");
   const slugTouched = React.useRef(false);
@@ -253,9 +254,18 @@ export const BasicsFields = ({ form, lockSlug }: { form: Form; lockSlug?: boolea
           <Input id="ev-end" type="time" {...form.register("endTime")} />
         </Field>
       </div>
-      <Field label="Poster URL" htmlFor="ev-poster" error={err.posterUrl?.message} hint="1200×630 works best. Upload support arrives with Storage." className="sm:col-span-2">
-        <Input id="ev-poster" type="url" placeholder="https://…" {...form.register("posterUrl")} />
-      </Field>
+      <ImageUploadField
+        id="ev-poster"
+        label="Poster"
+        kind="eventPoster"
+        ownerId={festId}
+        aspect="1200/630"
+        value={form.watch("posterUrl") ?? ""}
+        onChange={(url) => form.setValue("posterUrl", url, { shouldDirty: true, shouldValidate: true })}
+        error={err.posterUrl?.message}
+        hint="1200×630 works best · PNG, JPEG or WebP up to 5 MB"
+        className="sm:col-span-2"
+      />
       <Field label="Rules" htmlFor="ev-rules" hint="One per line." className="sm:col-span-2">
         <Textarea id="ev-rules" rows={4} {...form.register("rulesText")} />
       </Field>

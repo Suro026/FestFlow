@@ -4,8 +4,7 @@ import {
   calendarDateSchema,
   idSchema,
   longTextSchema,
-  shortTextSchema,
-} from "./common";
+  shortTextSchema, httpsUrlSchema } from "./common";
 
 /**
  * A fest is the top-level container. Events belong to exactly one fest, and
@@ -38,8 +37,8 @@ export const festSchema = z
     startDate: calendarDateSchema,
     endDate: calendarDateSchema,
 
-    bannerUrl: z.string().url().max(2000).optional(),
-    logoUrl: z.string().url().max(2000).optional(),
+    bannerUrl: httpsUrlSchema.optional(),
+    logoUrl: httpsUrlSchema.optional(),
 
     /**
      * Only `published` fests appear in the student-facing explorer. Students
@@ -93,8 +92,8 @@ export const createFestSchema = z
     city: shortTextSchema,
     startDate: calendarDateSchema,
     endDate: calendarDateSchema,
-    bannerUrl: z.string().url().max(2000).optional(),
-    logoUrl: z.string().url().max(2000).optional(),
+    bannerUrl: httpsUrlSchema.optional(),
+    logoUrl: httpsUrlSchema.optional(),
     contactEmail: z.string().email().optional(),
     contactPhone: z.string().max(20).optional(),
   })
@@ -118,8 +117,8 @@ export const updateFestSchema = z.object({
   city: shortTextSchema.optional(),
   startDate: calendarDateSchema.optional(),
   endDate: calendarDateSchema.optional(),
-  bannerUrl: z.string().url().max(2000).optional(),
-  logoUrl: z.string().url().max(2000).optional(),
+  bannerUrl: httpsUrlSchema.optional(),
+  logoUrl: httpsUrlSchema.optional(),
   status: festStatusSchema.optional(),
   contactEmail: z.string().email().optional(),
   contactPhone: z.string().max(20).optional(),

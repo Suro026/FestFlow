@@ -133,7 +133,7 @@ export default function NewEventPage() {
         <form onSubmit={(e) => e.preventDefault()} noValidate>
           {step === 0 ? (
             <div className="flex flex-col gap-6">
-              <BasicsFields form={form} />
+              <BasicsFields form={form} festId={fest.id} />
               <CoordinatorsFields form={form} />
             </div>
           ) : null}

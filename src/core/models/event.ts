@@ -5,8 +5,7 @@ import {
   clockTimeSchema,
   idSchema,
   longTextSchema,
-  shortTextSchema,
-} from "./common";
+  shortTextSchema, httpsUrlSchema } from "./common";
 
 export const EVENT_TYPES = ["solo", "team"] as const;
 export const eventTypeSchema = z.enum(EVENT_TYPES);
@@ -115,7 +114,7 @@ export const eventSchema = z
     /** In rupees. 0 is free entry. */
     entryFee: z.number().int().min(0).max(1000000).default(0),
 
-    posterUrl: z.string().url().max(2000).optional(),
+    posterUrl: httpsUrlSchema.optional(),
     rules: z.array(z.string().trim().max(500)).max(50).default([]),
     prizes: z.array(z.string().trim().max(200)).max(20).default([]),
     coordinators: z.array(coordinatorSchema).max(10).default([]),
@@ -182,7 +181,7 @@ const eventWritableFields = {
   registrationDeadline: calendarDateSchema.optional(),
   waitlistEnabled: z.boolean().default(false),
   entryFee: z.number().int().min(0).max(1000000).default(0),
-  posterUrl: z.string().url().max(2000).optional(),
+  posterUrl: httpsUrlSchema.optional(),
   rules: z.array(z.string().trim().max(500)).max(50).default([]),
   prizes: z.array(z.string().trim().max(200)).max(20).default([]),
   coordinators: z.array(coordinatorSchema).max(10).default([]),

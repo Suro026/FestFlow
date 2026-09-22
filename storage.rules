@@ -2,8 +2,17 @@ rules_version = '2';
 
 // Firebase Storage rules.
 //
-// Same principle as Firestore: these are the boundary, not the upload widget.
-// Every path is denied by default and opened deliberately.
+// Every write goes through POST /api/uploads (images) or the certificate
+// pipeline (PDFs), where the bytes are sniffed, re-encoded, size-capped and
+// given a random name before the Admin SDK stores them. The Admin SDK
+// bypasses these rules, so the rules' job is simple: nobody else writes,
+// and reads are as narrow as the product allows.
+//
+// Object layout (all names are server-generated UUIDs):
+//   fests/{festId}/banners|logos|posters/{uuid}.{png|jpg|webp}   public read
+//   users/{uid}/photo/{uuid}.{png|jpg|webp}                       public read
+//   certificates/{uid}/{certificateNumber}.pdf                    owner + staff
+//   results/{eventId}/{file}                                      staff only
 
 service firebase.storage {
   match /b/{bucket}/o {
@@ -19,53 +28,30 @@ service firebase.storage {
     }
 
     function isOrganizer() { return role() in ['organizer', 'admin', 'super_admin']; }
-    function isAdmin()     { return role() in ['admin', 'super_admin']; }
 
-    // Uploads are capped and type-checked here rather than in the UI, because
-    // the UI is not what an attacker uses. Without a size cap, one request can
-    // put a multi-gigabyte file on a pay-as-you-go bill.
-    function isImage() {
-      return request.resource.contentType.matches('image/(png|jpeg|jpg|webp|gif)')
-        && request.resource.size < 5 * 1024 * 1024;
+    // Fest artwork: banners, logos, event posters. Shown on public pages.
+    match /fests/{festId}/{folder}/{fileName} {
+      allow read: if folder in ['banners', 'logos', 'posters'];
+      allow write: if false;
     }
 
-    function isPdf() {
-      return request.resource.contentType == 'application/pdf'
-        && request.resource.size < 10 * 1024 * 1024;
-    }
-
-    // Fest banners and logos. Public to read, staff to write.
-    match /fests/{festId}/{fileName} {
+    // Profile photos. Shown to teammates and staff; public read keeps the
+    // <img> simple and the photo is chosen by its owner for that purpose.
+    match /users/{userId}/photo/{fileName} {
       allow read: if true;
-      allow write: if isAdmin() && isImage();
+      allow write: if false;
     }
 
-    // Event posters.
-    match /events/{eventId}/{fileName} {
-      allow read: if true;
-      allow write: if isOrganizer() && isImage();
-    }
-
-    // Profile photos, written only by their owner.
-    match /users/{userId}/{fileName} {
-      allow read: if true;
-      allow write: if signedIn() && request.auth.uid == userId && isImage();
-    }
-
-    // Generated certificate PDFs.
-    //
-    // Read is restricted to the recipient and to staff. Write is server-only:
-    // the Admin SDK bypasses these rules, so a client can never place a file
-    // where a certificate is expected to be.
+    // Generated certificate PDFs: the recipient and staff. Never client-written.
     match /certificates/{userId}/{fileName} {
       allow read: if signedIn() && (request.auth.uid == userId || isOrganizer());
       allow write: if false;
     }
 
-    // Uploaded result sheets (CSV/XLSX) kept for audit.
+    // Uploaded result sheets kept for audit: staff only, server-written.
     match /results/{eventId}/{fileName} {
       allow read: if isOrganizer();
-      allow write: if isAdmin() && request.resource.size < 5 * 1024 * 1024;
+      allow write: if false;
     }
 
     match /{allPaths=**} {

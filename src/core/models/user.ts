@@ -4,8 +4,7 @@ import {
   emailSchema,
   idSchema,
   phoneSchema,
-  shortTextSchema,
-} from "./common";
+  shortTextSchema, httpsUrlSchema } from "./common";
 
 /**
  * Roles are ordered least- to most-privileged. `roleRank` below turns that
@@ -62,7 +61,7 @@ export const userSchema = z
     email: emailSchema,
     fullName: shortTextSchema,
     phone: phoneSchema.optional(),
-    photoUrl: z.string().url().max(2000).optional(),
+    photoUrl: httpsUrlSchema.optional(),
 
     /**
      * Mirrors the `role` custom claim on the user's Auth token.
@@ -143,7 +142,7 @@ export type CreateStaff = z.infer<typeof createStaffSchema>;
 export const updateUserSchema = z.object({
   fullName: shortTextSchema.optional(),
   phone: phoneSchema.optional(),
-  photoUrl: z.string().url().max(2000).optional(),
+  photoUrl: httpsUrlSchema.optional(),
   student: studentProfileSchema.partial().optional(),
 });
 

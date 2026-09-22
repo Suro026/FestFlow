@@ -98,7 +98,7 @@ export default function FestSettingsPage() {
       />
 
       <form onSubmit={(e) => e.preventDefault()} noValidate>
-        <FestFields form={form} lockSlug={fest.status !== "draft"} />
+        <FestFields form={form} lockSlug={fest.status !== "draft"} festId={fest.id} />
       </form>
 
       {dirty ? (

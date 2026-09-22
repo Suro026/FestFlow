@@ -63,7 +63,7 @@ jobs:
           key: firebase-emulators-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
 
       - name: Emulator tests (rules · repositories · API transactions)
-        run: npx firebase-tools@15 emulators:exec --only firestore,auth --project festflow-test "npx vitest run --project emulator"
+        run: npx firebase-tools@15 emulators:exec --only firestore,auth,storage --project festflow-test "npx vitest run --project emulator"
 
       - name: Next.js build
         run: npm run build
