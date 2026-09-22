@@ -20,7 +20,7 @@ import { RepositoryError } from "@/core/models/common";
 import { formatCalendarDate, formatClock, formatRelative } from "@/lib/utils";
 
 const createSchema = z.object({
-  fullName: shortTextSchema,
+  name: shortTextSchema,
   email: emailSchema,
   phone: z.union([phoneSchema, z.literal("")]).optional(),
   duty: z.enum(["entry", "meal", "crowd"]),
@@ -37,7 +37,7 @@ type Filter = "all" | "on" | "unassigned" | "pending";
 /**
  * 5b — Volunteer management. The roster by post and shift, live scan counts
  * per volunteer, post coverage for the next four hours, and the create panel
- * that issues an organizer account pre-set to a duty.
+ * that issues an volunteer account pre-set to a duty.
  */
 export default function VolunteersPage() {
   const { fest } = useFest();
@@ -118,7 +118,7 @@ export default function VolunteersPage() {
       <AdminPage className="pb-[18px] pt-[26px]">
         <PageHeading
           title="Volunteers"
-          sub={`${volunteers.size} organizer accounts rostered by post · ${onNow.length} on shift now · created by an admin, never self sign-up`}
+          sub={`${volunteers.size} volunteer accounts rostered by post · ${onNow.length} on shift now · created by an admin, never self sign-up`}
         />
       </AdminPage>
 
@@ -293,7 +293,7 @@ const CreateVolunteerCard = ({ onInvited }: { onInvited: (i: { email: string; re
 
   const form = useForm<CreateValues>({
     resolver: zodResolver(createSchema),
-    defaultValues: { fullName: "", email: "", phone: "", duty: "entry", post: "", date: fest.startDate >= today ? fest.startDate : today, startTime: "08:00", endTime: "13:00", eventIds: [] },
+    defaultValues: { name: "", email: "", phone: "", duty: "entry", post: "", date: fest.startDate >= today ? fest.startDate : today, startTime: "08:00", endTime: "13:00", eventIds: [] },
   });
   const err = form.formState.errors;
 
@@ -305,7 +305,7 @@ const CreateVolunteerCard = ({ onInvited }: { onInvited: (i: { email: string; re
       let userId = (staff.data ?? []).find((s) => s.email === v.email.toLowerCase())?.id;
       let inviteResult: InviteResult | null = null;
       if (!userId) {
-        const created = await create.mutateAsync({ fullName: v.fullName, email: v.email, phone: v.phone || undefined, role: "organizer", festIds: [fest.id] });
+        const created = await create.mutateAsync({ name: v.name, email: v.email, phone: v.phone || undefined, role: "volunteer", festIds: [fest.id] });
         userId = created.user.id;
         inviteResult = created.invite;
       }
@@ -313,9 +313,9 @@ const CreateVolunteerCard = ({ onInvited }: { onInvited: (i: { email: string; re
         { festId: fest.id, userId, post: v.post, duty: v.duty as ShiftDuty, date: v.date, startTime: v.startTime, endTime: v.endTime, eventIds: v.eventIds },
         session!.uid,
       );
-      toast.success(`${v.fullName} rostered at ${v.post}`);
+      toast.success(`${v.name} rostered at ${v.post}`);
       if (inviteResult) onInvited({ email: v.email, result: inviteResult });
-      form.reset({ ...form.getValues(), fullName: "", email: "", phone: "", ...(again ? {} : { post: "", eventIds: [] }) });
+      form.reset({ ...form.getValues(), name: "", email: "", phone: "", ...(again ? {} : { post: "", eventIds: [] }) });
     } catch (error) {
       toast.error(error instanceof ApiClientError || error instanceof RepositoryError ? error.message : "Couldn't create the volunteer");
     }
@@ -325,10 +325,10 @@ const CreateVolunteerCard = ({ onInvited }: { onInvited: (i: { email: string; re
     <form onSubmit={submit} noValidate className="card elev-sm gap-3.5 p-[17px]">
       <div>
         <div className="text-[18px] font-medium">Create volunteer</div>
-        <div className="mt-[3px] text-[12px] text-neutral-500">Creates an organizer account scoped to a post. Same route as Staff, pre-set to the volunteer duty.</div>
+        <div className="mt-[3px] text-[12px] text-neutral-500">Creates an volunteer account scoped to a post. Same route as Staff, pre-set to the volunteer duty.</div>
       </div>
-      <Field label="Full name" htmlFor="v-name" error={err.fullName?.message}>
-        <Input id="v-name" placeholder="Sanjana Reddy" {...form.register("fullName")} />
+      <Field label="Full name" htmlFor="v-name" error={err.name?.message}>
+        <Input id="v-name" placeholder="Sanjana Reddy" {...form.register("name")} />
       </Field>
       <Field label="Email" htmlFor="v-email" error={err.email?.message}>
         <Input id="v-email" type="email" placeholder="name@college.edu" {...form.register("email")} />
@@ -371,7 +371,7 @@ const CreateVolunteerCard = ({ onInvited }: { onInvited: (i: { email: string; re
         <div className="field-hint">Leave all unticked for the whole fest.</div>
       </div>
       <div className="text-[12px] text-neutral-500">
-        Role: organizer, scoped to this fest. It cannot mark manual entry or edit registrations — those need at least admin. Your own session is untouched.
+        Role: volunteer, scoped to this fest. It cannot mark manual entry or edit registrations — those need at least admin. Your own session is untouched.
       </div>
       <div className="flex gap-2">
         <Button type="submit" variant="secondary" className="flex-1" onClick={() => setAgain(true)} loading={create.isPending && again}>

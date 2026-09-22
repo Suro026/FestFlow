@@ -13,7 +13,7 @@ import type { CreateStaff, UserRole } from "@/core/models/user";
 export interface StaffRow {
   id: string;
   email: string;
-  fullName: string;
+  name: string;
   role: UserRole;
   designation: string | null;
   festIds: string[];
@@ -48,7 +48,7 @@ export const useCreateStaff = () => {
 export const useUpdateStaff = () => {
   const client = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, ...changes }: { id: string; fullName?: string; designation?: string; role?: "organizer" | "admin" | "super_admin"; festIds?: string[]; disabled?: boolean }) =>
+    mutationFn: ({ id, ...changes }: { id: string; name?: string; designation?: string; role?: "volunteer" | "admin" | "super_admin"; festIds?: string[]; disabled?: boolean }) =>
       api<{ id: string }>(`/api/admin/staff/${id}`, { method: "PATCH", body: changes }),
     onSuccess: () => client.invalidateQueries({ queryKey: ["staff"] }),
   });

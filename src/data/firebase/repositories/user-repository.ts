@@ -51,18 +51,22 @@ export class FirestoreUserRepository implements UserRepository {
       // equals the uid, role is exactly "student", disabled is false.
       const data = stripUndefined({
         id: input.id,
+        uid: input.id,
         email: input.email.trim().toLowerCase(),
-        fullName: input.fullName.trim(),
-        phone: input.phone,
+        name: input.name.trim(),
+        phone: input.phone?.trim(),
         role: "student" as const,
+        festIds: [],
         emailVerified: input.emailVerified,
         disabled: false,
-        student: stripUndefined({
-          studentId: input.studentId.trim(),
-          college: input.college.trim(),
-          department: input.department?.trim() || undefined,
-          year: input.year,
-        }),
+        // A self-registered account is complete when it carries what a pass
+        // needs; the rules check the same thing.
+        profileCompleted: Boolean(input.name.trim() && input.phone?.trim() && input.college.trim()),
+        mustChangePassword: false,
+        studentId: input.studentId?.trim() || undefined,
+        college: input.college.trim(),
+        department: input.department?.trim() || undefined,
+        year: input.year,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       });
@@ -78,18 +82,16 @@ export class FirestoreUserRepository implements UserRepository {
 
   update(id: string, changes: UpdateUser): Promise<void> {
     return guard("Saving profile", async () => {
-      const flat: Record<string, unknown> = {
-        ...(changes.fullName !== undefined ? { fullName: changes.fullName.trim() } : {}),
-        ...(changes.phone !== undefined ? { phone: changes.phone.trim() } : {}),
-        ...(changes.photoUrl !== undefined ? { photoUrl: changes.photoUrl } : {}),
+      const flat: Record<string, unknown> = stripUndefined({
+        name: changes.name?.trim(),
+        phone: changes.phone?.trim(),
+        avatar: changes.avatar,
+        college: changes.college?.trim(),
+        department: changes.department?.trim(),
+        year: changes.year,
+        studentId: changes.studentId?.trim(),
         updatedAt: serverTimestamp(),
-      };
-
-      // Dotted paths so a partial student update does not erase the rest of
-      // the block.
-      for (const [key, value] of Object.entries(changes.student ?? {})) {
-        if (value !== undefined) flat[`student.${key}`] = value;
-      }
+      });
 
       await updateDoc(doc(users(), id), flat);
     });
@@ -105,14 +107,14 @@ export class FirestoreUserRepository implements UserRepository {
     return guard("Loading people", async () => {
       const constraints = [];
       if (options.role) constraints.push(where("role", "==", options.role));
-      if (options.festId) constraints.push(where("organizer.festIds", "array-contains", options.festId));
+      if (options.festId) constraints.push(where("festIds", "array-contains", options.festId));
       constraints.push(orderBy("createdAt", "desc"));
 
       const page = await runPage(query(users(), ...constraints), userSchema, COLLECTIONS.users, options);
 
       if (options.search) {
         page.items = page.items.filter((user) =>
-          matchesSearch([user.fullName, user.email, user.student?.studentId, user.student?.college], options.search),
+          matchesSearch([user.name, user.email, user.studentId, user.college], options.search),
         );
       }
 
@@ -126,7 +128,7 @@ export class FirestoreUserRepository implements UserRepository {
       query(users(), where("role", "in", staffRoles)),
       userSchema,
       COLLECTIONS.users,
-      (items) => onChange(sortBy(items, [(u) => u.fullName, "asc"])),
+      (items) => onChange(sortBy(items, [(u) => u.name, "asc"])),
       onError,
     );
   }
@@ -134,7 +136,7 @@ export class FirestoreUserRepository implements UserRepository {
   countByRole(): Promise<Record<UserRole, number>> {
     return guard("Counting accounts", async () => {
       const snapshot = await getDocs(users());
-      const counts: Record<UserRole, number> = { student: 0, organizer: 0, admin: 0, super_admin: 0 };
+      const counts: Record<UserRole, number> = { student: 0, volunteer: 0, admin: 0, super_admin: 0 };
       for (const user of parseDocs(userSchema, snapshot.docs, COLLECTIONS.users)) counts[user.role] += 1;
       return counts;
     });

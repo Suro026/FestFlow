@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { ApiError, handler, ok, readBody, requireFestAccess, requireRole } from "@/server/api";
+import { ApiError, handler, ok, readBody, requireFestAccess, requirePermission } from "@/server/api";
 import { COLLECTIONS, FieldValue, adminDb } from "@/server/firebase-admin";
 import { audit } from "@/server/audit";
 import { announcePromotion } from "@/server/waitlist";
@@ -21,7 +21,7 @@ const actionSchema = z.object({
  * overbook, and both are audited under the acting admin's name.
  */
 export const POST = handler(async (request, context) => {
-  const caller = await requireRole(request, "admin");
+  const caller = await requirePermission(request, "registration:manage");
   const { id } = await context.params;
   if (!id) throw ApiError.badRequest("Missing registration id.");
 

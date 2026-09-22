@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { handler, ok, readBody, requireFestAccess, requireRole } from "@/server/api";
+import { handler, ok, readBody, requireFestAccess, requirePermission } from "@/server/api";
 import { RATE_LIMITS } from "@/server/rate-limit";
 import { COLLECTIONS, FieldValue, adminDb } from "@/server/firebase-admin";
 import { emailService } from "@/server/email";
@@ -21,7 +21,7 @@ const bodySchema = z.object({
  * Never re-sends a certificate already marked `sent`.
  */
 export const POST = handler(async (request) => {
-  const caller = await requireRole(request, "admin");
+  const caller = await requirePermission(request, "certificate:issue");
   const { festId, eventId, limit } = await readBody(request, bodySchema);
   requireFestAccess(caller, festId);
 

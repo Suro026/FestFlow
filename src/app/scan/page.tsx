@@ -20,7 +20,7 @@ type Mode = "entry" | "meal";
 
 export default function ScanPage() {
   return (
-    <RequireRole minimum="organizer" fallback="/explore">
+    <RequireRole minimum="volunteer" fallback="/explore">
       <React.Suspense fallback={<div className="min-h-dvh bg-neutral-900" />}>
         <Scanner />
       </React.Suspense>

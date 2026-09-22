@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
 import type { ZodType } from "zod";
-import { hasAtLeast, type UserRole } from "@/core/models/user";
+import { USER_ROLES, can, hasAtLeast, inScope, type Permission, type UserRole } from "@/core/permissions";
 import {
   AdminNotConfiguredError,
   COLLECTIONS,
@@ -40,7 +40,11 @@ export interface Caller {
   email: string;
   emailVerified: boolean;
   role: UserRole;
+  /** Fests this account may act on. Ignored for a super admin. */
   festIds: string[];
+  /** True while a temporary password is still in force. */
+  mustChangePassword: boolean;
+  profileCompleted: boolean;
 }
 
 /**
@@ -87,8 +91,13 @@ export const authenticate = async (request: Request): Promise<Caller> => {
     throw ApiError.forbidden("This account has been disabled.");
   }
 
-  const claimRole = typeof decoded.role === "string" ? (decoded.role as UserRole) : undefined;
-  const docRole = typeof data.role === "string" ? (data.role as UserRole) : undefined;
+  // "organizer" was the old name for what is now "volunteer"; a token minted
+  // before the refactor still carries it until it is refreshed.
+  const readRole = (value: unknown): UserRole | undefined =>
+    value === "organizer" ? "volunteer" : USER_ROLES.includes(value as UserRole) ? (value as UserRole) : undefined;
+
+  const claimRole = readRole(decoded.role);
+  const docRole = readRole(data.role);
 
   // If the two disagree, take the weaker of them. A mirror that drifted must
   // never be able to grant more than the token does, and vice versa.
@@ -99,11 +108,12 @@ export const authenticate = async (request: Request): Promise<Caller> => {
         : claimRole
       : (claimRole ?? docRole ?? "student");
 
-  const festIds = Array.isArray(decoded.festIds)
-    ? (decoded.festIds as unknown[]).filter((id): id is string => typeof id === "string")
-    : Array.isArray(data.organizer?.festIds)
-      ? (data.organizer.festIds as unknown[]).filter((id): id is string => typeof id === "string")
-      : [];
+  // Scope comes from the document, not the claim: a super admin reassigning
+  // fests must take effect without waiting for the token to refresh, and the
+  // document is re-read on every privileged call anyway.
+  const strings = (value: unknown): string[] =>
+    Array.isArray(value) ? (value as unknown[]).filter((id): id is string => typeof id === "string") : [];
+  const festIds = data.festIds !== undefined ? strings(data.festIds) : strings(data.organizer?.festIds);
 
   return {
     uid: decoded.uid,
@@ -111,28 +121,63 @@ export const authenticate = async (request: Request): Promise<Caller> => {
     emailVerified: decoded.email_verified === true,
     role,
     festIds,
+    mustChangePassword: data.mustChangePassword === true,
+    profileCompleted: data.profileCompleted === true,
   };
 };
 
-/** Authenticates, then enforces a minimum role. */
+/**
+ * A temporary password may do exactly one thing: become a real one.
+ *
+ * Staff accounts are created with a mailed password, so until it is changed
+ * the account is treated as not yet in the hands of its owner. Every route
+ * except the password change itself refuses.
+ */
+export const requirePasswordChanged = (caller: Caller): void => {
+  if (caller.mustChangePassword) {
+    throw new ApiError(403, "must-change-password", "Set a new password before continuing. You are signed in with a temporary one.");
+  }
+};
+
+/**
+ * Authenticates, then enforces a minimum role.
+ *
+ * Prefer `requirePermission` for anything but a coarse area guard: a rank
+ * says who is senior, a permission says who may act.
+ */
 export const requireRole = async (request: Request, minimum: UserRole): Promise<Caller> => {
   const caller = await authenticate(request);
 
   if (!hasAtLeast(caller.role, minimum)) {
     throw ApiError.forbidden();
   }
+  requirePasswordChanged(caller);
 
   return caller;
 };
 
 /**
- * True when the caller may act on this fest. Admins and super admins are
- * unscoped; an organizer is limited to the fests assigned to them.
+ * Authenticates and checks one capability from the permission matrix,
+ * optionally within a fest's scope. This is the check every privileged route
+ * should use — it reads the same table the rules and the UI read.
  */
-export const canManageFest = (caller: Caller, festId: string): boolean => {
-  if (hasAtLeast(caller.role, "admin")) return true;
-  return caller.role === "organizer" && caller.festIds.includes(festId);
+export const requirePermission = async (request: Request, permission: Permission, festId?: string): Promise<Caller> => {
+  const caller = await authenticate(request);
+  requirePasswordChanged(caller);
+
+  if (!can(caller.role, permission)) throw ApiError.forbidden();
+  if (festId !== undefined && !inScope(caller, festId)) {
+    throw ApiError.forbidden("You do not manage this fest.");
+  }
+
+  return caller;
 };
+
+/**
+ * True when the caller may act on this fest. A super admin is unscoped;
+ * every other staff role is limited to the fests assigned to them.
+ */
+export const canManageFest = (caller: Caller, festId: string): boolean => inScope(caller, festId);
 
 export const requireFestAccess = (caller: Caller, festId: string): void => {
   if (!canManageFest(caller, festId)) {

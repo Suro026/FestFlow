@@ -107,10 +107,10 @@ describe("isRegistrationOpen / seatsRemaining", () => {
 });
 
 describe("hasAtLeast", () => {
-  it("orders student < organizer < admin < super_admin", () => {
-    expect(hasAtLeast("student", "organizer")).toBe(false);
-    expect(hasAtLeast("organizer", "organizer")).toBe(true);
-    expect(hasAtLeast("admin", "organizer")).toBe(true);
+  it("orders student < volunteer < admin < super_admin", () => {
+    expect(hasAtLeast("student", "volunteer")).toBe(false);
+    expect(hasAtLeast("volunteer", "volunteer")).toBe(true);
+    expect(hasAtLeast("admin", "volunteer")).toBe(true);
     expect(hasAtLeast("super_admin", "admin")).toBe(true);
     expect(hasAtLeast("admin", "super_admin")).toBe(false);
     expect(hasAtLeast(undefined, "student")).toBe(false);

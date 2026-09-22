@@ -40,7 +40,7 @@ export interface TestUser {
 
 let counter = 0;
 
-export const mintUser = async (input: { role?: UserRole; festIds?: string[]; name?: string; email?: string; emailVerified?: boolean; profile?: boolean } = {}): Promise<TestUser> => {
+export const mintUser = async (input: { role?: UserRole; festIds?: string[]; name?: string; email?: string; emailVerified?: boolean; profile?: boolean; mustChangePassword?: boolean; profileCompleted?: boolean } = {}): Promise<TestUser> => {
   counter += 1;
   const role = input.role ?? "student";
   const email = (input.email ?? `${role}-${counter}@festflow.test`).toLowerCase();
@@ -48,7 +48,11 @@ export const mintUser = async (input: { role?: UserRole; festIds?: string[]; nam
   const password = "Test-password-1!";
 
   const user = await adminAuth().createUser({ email, password, displayName: name, emailVerified: input.emailVerified ?? true });
-  await adminAuth().setCustomUserClaims(user.uid, { role, festIds: input.festIds ?? [] });
+  await adminAuth().setCustomUserClaims(user.uid, {
+    role,
+    festIds: input.festIds ?? [],
+    ...(input.mustChangePassword ? { mustChangePassword: true } : {}),
+  });
 
   if (input.profile !== false) {
     await adminDb()
@@ -57,12 +61,15 @@ export const mintUser = async (input: { role?: UserRole; festIds?: string[]; nam
       .set({
         id: user.uid,
         email,
-        fullName: name,
+        name,
         role,
+        festIds: input.festIds ?? [],
+        profileCompleted: input.profileCompleted ?? true,
+        mustChangePassword: input.mustChangePassword ?? false,
         emailVerified: true,
         createdAt: new Date(),
         updatedAt: new Date(),
-        ...(role === "student" ? { student: { college: "Test College" } } : { organizer: { festIds: input.festIds ?? [] } }),
+        ...(role === "student" ? { college: "Test College", phone: "+919000000000" } : {}),
       });
   }
 

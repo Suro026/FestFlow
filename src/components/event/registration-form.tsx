@@ -79,7 +79,7 @@ export const RegistrationForm = ({ event, fest, onDone }: RegistrationFormProps)
       members: values.members.map((m, i) => ({
         name: m.name.trim(),
         email: m.email.trim().toLowerCase(),
-        ...(i === 0 && profile?.student ? { studentId: profile.student.studentId, college: profile.student.college } : {}),
+        ...(i === 0 && profile ? { studentId: profile.studentId, college: profile.college } : {}),
       })),
     };
 

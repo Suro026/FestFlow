@@ -1,5 +1,5 @@
 import { updateEventSchema } from "@/core/models/event";
-import { ApiError, handler, ok, readBody, requireFestAccess, requireRole } from "@/server/api";
+import { ApiError, handler, ok, readBody, requireFestAccess, requirePermission } from "@/server/api";
 import { COLLECTIONS, FieldValue, adminDb } from "@/server/firebase-admin";
 import { audit } from "@/server/audit";
 import { compact, docToJson } from "@/server/serialize";
@@ -17,7 +17,7 @@ import { activeParticipants, notifyMany } from "@/server/notify";
  * its before and after.
  */
 export const PATCH = handler(async (request, context) => {
-  const caller = await requireRole(request, "organizer");
+  const caller = await requirePermission(request, "event:update");
   const { id } = await context.params;
   if (!id) throw ApiError.badRequest("Missing event id.");
 
@@ -138,7 +138,7 @@ export const PATCH = handler(async (request, context) => {
  * instead; that keeps the record and notifies the holders.
  */
 export const DELETE = handler(async (request, context) => {
-  const caller = await requireRole(request, "admin");
+  const caller = await requirePermission(request, "event:delete");
   const { id } = await context.params;
   if (!id) throw ApiError.badRequest("Missing event id.");
 

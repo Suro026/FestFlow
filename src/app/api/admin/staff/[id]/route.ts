@@ -1,6 +1,8 @@
 import { z } from "zod";
 import { idSchema, shortTextSchema } from "@/core/models/common";
-import { ApiError, handler, ok, readBody, requireRole } from "@/server/api";
+import { ROLE_LABELS, creatableRoles } from "@/core/models/user";
+import { ApiError, handler, ok, readBody, requirePermission } from "@/server/api";
+import { applyClaims } from "@/server/credentials";
 import { audit } from "@/server/audit";
 import {
   COLLECTIONS,
@@ -10,19 +12,22 @@ import {
 } from "@/server/firebase-admin";
 
 /**
- * Editing and removing staff accounts. Super admin only.
+ * Editing and removing staff accounts.
  *
- * The guards here exist because the failure modes are unrecoverable from
- * inside the app: a super admin who demotes themselves, or removes the last
- * remaining super admin, locks the project out of its own administration and
- * the only way back is a script run against the service account.
+ * Who may touch whom follows the same matrix as creation: a super admin
+ * reaches every account, an admin only the volunteers of the fests they
+ * manage. The extra guards below exist because their failure modes are
+ * unrecoverable from inside the app — a super admin who demotes themselves,
+ * or removes the last remaining super admin, locks the project out of its own
+ * administration and the only way back is a script run against the service
+ * account.
  */
 
 const updateStaffSchema = z
   .object({
-    fullName: shortTextSchema.optional(),
+    name: shortTextSchema.optional(),
     designation: shortTextSchema.optional(),
-    role: z.enum(["organizer", "admin", "super_admin"]).optional(),
+    role: z.enum(["volunteer", "admin", "super_admin"]).optional(),
     festIds: z.array(idSchema).optional(),
     disabled: z.boolean().optional(),
   })
@@ -40,9 +45,16 @@ const countActiveSuperAdmins = async (): Promise<number> => {
   return snapshot.docs.filter((doc) => doc.data().disabled !== true).length;
 };
 
+/** Pre-refactor documents kept the scope under `organizer.festIds`. */
+const festIdsOf = (data: Record<string, unknown>): string[] => {
+  if (Array.isArray(data.festIds)) return data.festIds as string[];
+  const legacy = (data.organizer as { festIds?: string[] } | undefined)?.festIds;
+  return Array.isArray(legacy) ? legacy : [];
+};
+
 /** PATCH /api/admin/staff/[id] */
 export const PATCH = handler(async (request, context) => {
-  const caller = await requireRole(request, "super_admin");
+  const caller = await requirePermission(request, "staff:manage");
   const { id } = await context.params;
 
   if (!id) throw ApiError.badRequest("Missing staff id.");
@@ -58,13 +70,37 @@ export const PATCH = handler(async (request, context) => {
   if (!snapshot.exists) throw ApiError.notFound("No such staff account.");
 
   const current = snapshot.data() ?? {};
-  const currentRole = current.role as string | undefined;
+  // `organizer` was the old name for what is now `volunteer`.
+  const currentRole = (current.role === "organizer" ? "volunteer" : current.role) as string | undefined;
+  const currentFestIds = festIdsOf(current);
 
   if (currentRole === "student") {
     throw ApiError.unprocessable(
-      "That account is a student. Promoting a student is not supported here " +
-        "because their profile has no organizer record yet.",
+      "That account is a student. Students are not staff — invite them from " +
+        "the staff list to give them a role.",
     );
+  }
+
+  // An admin may only edit the volunteers of a fest they manage, and may only
+  // ever set the volunteer role. Everything else is a super admin action.
+  if (caller.role !== "super_admin") {
+    const allowed: readonly string[] = creatableRoles(caller.role);
+
+    if (currentRole === undefined || !allowed.includes(currentRole)) {
+      throw ApiError.forbidden("Only a super admin can change that account.");
+    }
+
+    if (input.role !== undefined && !allowed.includes(input.role)) {
+      throw ApiError.forbidden("Only a super admin can grant that role.");
+    }
+
+    if (!currentFestIds.some((festId) => caller.festIds.includes(festId))) {
+      throw ApiError.forbidden("That account belongs to a fest you do not manage.");
+    }
+
+    for (const festId of input.festIds ?? []) {
+      if (!caller.festIds.includes(festId)) throw ApiError.forbidden("You do not manage that fest.");
+    }
   }
 
   const losingSuperAdmin =
@@ -87,11 +123,11 @@ export const PATCH = handler(async (request, context) => {
     }
   }
 
-  const role = input.role ?? currentRole ?? "organizer";
-  const festIds = input.festIds ?? (current.organizer?.festIds as string[] | undefined) ?? [];
+  const role = (input.role ?? currentRole ?? "volunteer") as "volunteer" | "admin" | "super_admin";
+  const festIds = input.festIds ?? currentFestIds;
 
-  if (role === "organizer" && festIds.length === 0) {
-    throw ApiError.unprocessable("An organizer needs at least one fest assigned.");
+  if (role !== "super_admin" && festIds.length === 0) {
+    throw ApiError.unprocessable(`A ${ROLE_LABELS[role].toLowerCase()} needs at least one fest assigned.`);
   }
 
   for (const festId of input.festIds ?? []) {
@@ -104,10 +140,12 @@ export const PATCH = handler(async (request, context) => {
   // the two — whereas the reverse order would leave a stale claim granting
   // access the record says was removed.
   if (input.role !== undefined || input.festIds !== undefined) {
-    await auth.setCustomUserClaims(id, { role, festIds });
-    // Force a re-auth so the new claim takes effect immediately instead of on
-    // the next hourly token refresh.
-    await auth.revokeRefreshTokens(id);
+    await applyClaims(id, {
+      role,
+      festIds,
+      // A pending temporary password survives a role change.
+      ...(current.mustChangePassword === true ? { mustChangePassword: true } : {}),
+    });
   }
 
   if (input.disabled !== undefined) {
@@ -116,21 +154,21 @@ export const PATCH = handler(async (request, context) => {
   }
 
   await ref.update({
-    ...(input.fullName !== undefined ? { fullName: input.fullName } : {}),
+    ...(input.name !== undefined ? { name: input.name } : {}),
     ...(input.role !== undefined ? { role } : {}),
     ...(input.disabled !== undefined ? { disabled: input.disabled } : {}),
-    ...(input.festIds !== undefined ? { "organizer.festIds": festIds } : {}),
-    ...(input.designation !== undefined ? { "organizer.designation": input.designation } : {}),
+    ...(input.festIds !== undefined ? { festIds } : {}),
+    ...(input.designation !== undefined ? { designation: input.designation } : {}),
     updatedAt: FieldValue.serverTimestamp(),
   });
 
   await audit(caller, {
     action: "staff_updated",
-    summary: `Updated ${current.fullName ?? current.email}: ${[
+    summary: `Updated ${current.name ?? current.fullName ?? current.email}: ${[
       input.role !== undefined && input.role !== currentRole ? `role ${currentRole} → ${role}` : null,
       input.disabled !== undefined ? (input.disabled ? "disabled" : "re-enabled") : null,
       input.festIds !== undefined ? `scoped to ${festIds.length} fest(s)` : null,
-      input.fullName !== undefined ? "name" : null,
+      input.name !== undefined ? "name" : null,
     ]
       .filter(Boolean)
       .join(", ") || "details"}`,
@@ -148,11 +186,11 @@ export const PATCH = handler(async (request, context) => {
  * Removes both the Auth account and the profile document. The previous
  * project deleted only the Firestore record, which left the person able to
  * sign in perfectly well — they simply had no profile, and a route guard that
- * read the document treated it as "not an organizer" while Firebase still
- * considered them a valid, authenticated user.
+ * read the document treated it as "not staff" while Firebase still considered
+ * them a valid, authenticated user.
  */
 export const DELETE = handler(async (request, context) => {
-  const caller = await requireRole(request, "super_admin");
+  const caller = await requirePermission(request, "staff:manage");
   const { id } = await context.params;
 
   if (!id) throw ApiError.badRequest("Missing staff id.");
@@ -168,8 +206,18 @@ export const DELETE = handler(async (request, context) => {
   if (!snapshot.exists) throw ApiError.notFound("No such staff account.");
 
   const data = snapshot.data() ?? {};
+  const role = data.role === "organizer" ? "volunteer" : data.role;
 
-  if (data.role === "super_admin" && (await countActiveSuperAdmins()) <= 1) {
+  if (role === "student") throw ApiError.unprocessable("That account is a student, not staff.");
+
+  if (caller.role !== "super_admin") {
+    if (role !== "volunteer") throw ApiError.forbidden("Only a super admin can delete that account.");
+    if (!festIdsOf(data).some((festId) => caller.festIds.includes(festId))) {
+      throw ApiError.forbidden("That account belongs to a fest you do not manage.");
+    }
+  }
+
+  if (role === "super_admin" && (await countActiveSuperAdmins()) <= 1) {
     throw ApiError.unprocessable("This is the last active super admin.");
   }
 
@@ -186,7 +234,7 @@ export const DELETE = handler(async (request, context) => {
 
   await audit(caller, {
     action: "staff_deleted",
-    summary: `Deleted staff account ${data.fullName ?? data.email}`,
+    summary: `Deleted staff account ${data.name ?? data.fullName ?? data.email}`,
     subjectType: "user",
     subjectId: id,
   });

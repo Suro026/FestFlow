@@ -29,7 +29,7 @@ export default function ConsolePage() {
   const staff = useStaff();
 
   const isSuper = session ? hasAtLeast(session.role, "super_admin") : false;
-  const admins = (staff.data ?? []).filter((s) => s.role !== "organizer" && s.id !== session?.uid);
+  const admins = (staff.data ?? []).filter((s) => s.role !== "volunteer" && s.id !== session?.uid);
 
   const completed = React.useMemo(() => (events.data ?? []).filter((e) => e.status === "completed").sort((a, b) => b.date.localeCompare(a.date)), [events.data]);
   const [focusId, setFocusId] = React.useState<string | null>(null);
@@ -69,7 +69,7 @@ export default function ConsolePage() {
   return (
     <AdminPage className="max-w-[820px] pb-8 pt-[26px]">
       <PageHeading
-        kick={`${profile?.fullName ?? session?.email} · super admin`}
+        kick={`${profile?.name ?? session?.email} · super admin`}
         title="Console"
         actions={
           <>
@@ -107,7 +107,7 @@ export default function ConsolePage() {
             <tbody>
               {admins.map((a) => (
                 <tr key={a.id}>
-                  <td>{a.activated ? a.fullName : a.email}</td>
+                  <td>{a.activated ? a.name : a.email}</td>
                   <td>{a.role === "super_admin" || a.festIds.length === 0 ? "All fests" : a.festIds.length === 1 ? fest.name : `${a.festIds.length} fests`}</td>
                   <td>/sign-in</td>
                   <td>{a.lastSignInAt ? formatRelative(new Date(a.lastSignInAt)) : "—"}</td>

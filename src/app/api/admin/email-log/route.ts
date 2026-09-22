@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { ApiError, handler, ok, requireFestAccess, requireRole } from "@/server/api";
+import { ApiError, handler, ok, requireFestAccess, requirePermission } from "@/server/api";
 import { COLLECTIONS, adminDb } from "@/server/firebase-admin";
 import { EMAIL_TEMPLATES, emailService } from "@/server/email";
 import { docToJson } from "@/server/serialize";
@@ -19,7 +19,7 @@ const querySchema = z.object({
  * newest N are sorted in memory.
  */
 export const GET = handler(async (request) => {
-  const caller = await requireRole(request, "admin");
+  const caller = await requirePermission(request, "audit:read");
   const url = new URL(request.url);
   const parsed = querySchema.safeParse(Object.fromEntries(url.searchParams));
   if (!parsed.success) throw ApiError.badRequest("Bad query.", parsed.error.flatten());

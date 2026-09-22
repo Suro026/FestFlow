@@ -31,7 +31,7 @@ export const UserMenu = ({ variant = "student" }: { variant?: "student" | "admin
 
   const name = profile?.fullName ?? session.displayName ?? session.email;
   const first = name.split(/\s+/)[0] ?? name;
-  const isStaff = hasAtLeast(session.role, "organizer");
+  const isStaff = hasAtLeast(session.role, "volunteer");
 
   return (
     <Menu>

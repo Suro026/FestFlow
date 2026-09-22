@@ -12,8 +12,8 @@ import { mintUser, resetAuth, resetFirestore, seedFest, type TestUser } from "./
 
 let student: TestUser;
 let admin: TestUser;
-let otherOrganizer: TestUser;
-let organizer: TestUser;
+let otherVolunteer: TestUser;
+let volunteer: TestUser;
 
 const png = (w = 64, h = 64) => sharp({ create: { width: w, height: h, channels: 4, background: "#9184d9" } }).png().toBuffer();
 
@@ -39,18 +39,30 @@ beforeAll(async () => {
   await resetAuth();
   student = await mintUser({ name: "Uploader Student" });
   admin = await mintUser({ role: "admin", festIds: ["fest1"], name: "Fest Admin" });
-  otherOrganizer = await mintUser({ role: "organizer", festIds: ["fest2"], name: "Other Org" });
-  organizer = await mintUser({ role: "organizer", festIds: ["fest1"], name: "Fest Org" });
+  otherVolunteer = await mintUser({ role: "volunteer", festIds: ["fest2"], name: "Other Org" });
+  volunteer = await mintUser({ role: "volunteer", festIds: ["fest1"], name: "Fest Org" });
 });
 
 beforeEach(async () => {
   await resetFirestore();
-  for (const u of [student, admin, otherOrganizer, organizer]) {
-    const festIds = u === otherOrganizer ? ["fest2"] : ["fest1"];
+  for (const u of [student, admin, otherVolunteer, volunteer]) {
+    const festIds = u === otherVolunteer ? ["fest2"] : ["fest1"];
     await adminDb()
       .collection(COLLECTIONS.users)
       .doc(u.uid)
-      .set({ id: u.uid, email: u.email, fullName: u.name, role: u.role, emailVerified: true, createdAt: new Date(), updatedAt: new Date(), ...(u.role === "student" ? { student: { college: "T" } } : { organizer: { festIds } }) });
+      .set({
+        id: u.uid,
+        email: u.email,
+        name: u.name,
+        role: u.role,
+        festIds: u.role === "student" ? [] : festIds,
+        emailVerified: true,
+        profileCompleted: true,
+        mustChangePassword: false,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        ...(u.role === "student" ? { college: "T", phone: "+919000000000" } : {}),
+      });
   }
   await seedFest();
   await seedFest({ id: "fest2", slug: "other" });
@@ -61,16 +73,18 @@ describe("authorization", () => {
     expect((await send(null, "kind=festBanner&id=fest1", { bytes: await png(), name: "a.png", type: "image/png" })).status).toBe(401);
   });
 
-  it("students and organizers cannot upload fest banners; organizers of other fests cannot upload posters here", async () => {
+  it("students and volunteers cannot upload fest banners; volunteers of other fests cannot upload posters here", async () => {
     const file = { bytes: await png(), name: "banner.png", type: "image/png" };
     expect((await send(student, "kind=festBanner&id=fest1", file)).status).toBe(403);
-    expect((await send(organizer, "kind=festBanner&id=fest1", file)).status).toBe(403);
-    expect((await send(otherOrganizer, "kind=eventPoster&id=fest1", file)).status).toBe(403);
+    expect((await send(volunteer, "kind=festBanner&id=fest1", file)).status).toBe(403);
+    expect((await send(otherVolunteer, "kind=eventPoster&id=fest1", file)).status).toBe(403);
     expect((await send(admin, "kind=festBanner&id=fest1", file)).status).toBe(201);
   });
 
-  it("an organizer may upload an event poster for their own fest", async () => {
-    const ok = await send(organizer, "kind=eventPoster&id=fest1", { bytes: await png(), name: "poster.png", type: "image/png" });
+  it("an admin may upload an event poster for their own fest; a volunteer may not", async () => {
+    // Artwork is an admin capability: a volunteer only scans.
+    expect((await send(volunteer, "kind=eventPoster&id=fest1", { bytes: await png(), name: "p.png", type: "image/png" })).status).toBe(403);
+    const ok = await send(admin, "kind=eventPoster&id=fest1", { bytes: await png(), name: "poster.png", type: "image/png" });
     expect(ok.status).toBe(201);
     expect(String(ok.body.path)).toMatch(/^fests\/fest1\/posters\/[0-9a-f-]{36}\.png$/);
   });
@@ -86,7 +100,9 @@ describe("authorization", () => {
     expect((await send(admin, "kind=anything&id=fest1", file)).status).toBe(400);
     expect((await send(admin, "kind=festBanner&id=..%2F..%2Fcertificates", file)).status).toBe(400);
     expect((await send(admin, "kind=festBanner", file)).status).toBe(400);
-    expect((await send(admin, "kind=festBanner&id=nope", file)).status).toBe(404); // admins are unscoped; the fest must exist
+    // An id outside the caller's scope is refused before its existence is
+    // revealed; only an unscoped super admin ever sees the 404.
+    expect((await send(admin, "kind=festBanner&id=nope", file)).status).toBe(403); // admins are unscoped; the fest must exist
   });
 });
 

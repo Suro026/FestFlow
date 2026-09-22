@@ -60,7 +60,7 @@ export default function ProfilePage() {
   }
 
   const roleLabel = session.role === "student" ? "Student" : session.role.replace("_", " ");
-  const subline = [profile.student?.college, profile.student?.department, profile.student?.year ? `Year ${profile.student.year}` : null]
+  const subline = [profile.college, profile.department, profile.year ? `Year ${profile.year}` : null]
     .filter(Boolean)
     .join(" · ");
 
@@ -79,9 +79,9 @@ export default function ProfilePage() {
   return (
     <Page className="max-w-[720px] pb-8 pt-3">
       <div className="flex items-center gap-[13px]">
-        <Avatar name={profile.fullName} src={profile.photoUrl} size={56} />
+        <Avatar name={profile.name} src={profile.avatar} size={56} />
         <div className="min-w-0 flex-1">
-          <div className="text-[19px] font-medium tracking-[-0.015em]">{profile.fullName}</div>
+          <div className="text-[19px] font-medium tracking-[-0.015em]">{profile.name}</div>
           <div className="mt-1 flex flex-wrap items-center gap-1.5">
             <Tag tone="neutral" className="capitalize">{roleLabel}</Tag>
             {subline ? <span className="text-[11.5px] text-neutral-500">{subline}</span> : null}
@@ -113,7 +113,7 @@ export default function ProfilePage() {
             {profile.email} {session.emailVerified ? null : <span className="text-accent-300">· unverified</span>}
           </MetaRow>
           <MetaRow label="Phone">{maskPhone(profile.phone)}</MetaRow>
-          <MetaRow label="College ID">{profile.student?.studentId ?? "—"}</MetaRow>
+          <MetaRow label="College ID">{profile.studentId ?? "—"}</MetaRow>
           <MetaRow label="Notifications">Email</MetaRow>
           <MetaRow label="Download my data">
             <button type="button" className="text-accent" onClick={exportData}>
@@ -132,7 +132,7 @@ export default function ProfilePage() {
               Send reset link
             </button>
           </MetaRow>
-          {hasAtLeast(session.role, "organizer") ? (
+          {hasAtLeast(session.role, "volunteer") ? (
             <MetaRow label="Staff access">
               <Link href="/admin" className="no-underline">Open the admin side</Link>
             </MetaRow>
@@ -156,13 +156,13 @@ export default function ProfilePage() {
         <DialogContent title="Edit profile" description="Your name is what goes on certificates — spell it the way you want it printed.">
           <EditForm
             defaults={{
-              fullName: profile.fullName,
+              fullName: profile.name,
               phone: profile.phone ?? "",
-              college: profile.student?.college ?? "",
-              studentId: profile.student?.studentId ?? "",
-              department: profile.student?.department ?? "",
+              college: profile.college ?? "",
+              studentId: profile.studentId ?? "",
+              department: profile.department ?? "",
             }}
-            photoUrl={profile.photoUrl}
+            photoUrl={profile.avatar}
             onSaved={async () => {
               await refresh();
               setEditing(false);
@@ -185,10 +185,12 @@ const EditForm = ({ defaults, photoUrl: initialPhoto, onSaved }: { defaults: Edi
     if (!session) return;
     try {
       await repos.users.update(session.uid, {
-        fullName: v.fullName,
+        name: v.fullName,
         phone: v.phone,
-        ...(photoUrl ? { photoUrl } : {}),
-        student: { college: v.college, studentId: v.studentId, department: v.department || undefined },
+        ...(photoUrl ? { avatar: photoUrl } : {}),
+        college: v.college,
+        studentId: v.studentId,
+        department: v.department || undefined,
       });
       toast.success("Profile saved");
       await onSaved();

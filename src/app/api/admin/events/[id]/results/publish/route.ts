@@ -1,4 +1,4 @@
-import { ApiError, handler, ok, requireFestAccess, requireRole } from "@/server/api";
+import { ApiError, handler, ok, requireFestAccess, requirePermission } from "@/server/api";
 import { COLLECTIONS, FieldValue, adminDb } from "@/server/firebase-admin";
 import { audit } from "@/server/audit";
 import { activeParticipants, notifyMany } from "@/server/notify";
@@ -13,7 +13,7 @@ import { docToJson } from "@/server/serialize";
  * participant. Certificate generation is a separate, explicit step.
  */
 export const POST = handler(async (request, context) => {
-  const caller = await requireRole(request, "admin");
+  const caller = await requirePermission(request, "results:publish");
   const { id } = await context.params;
   if (!id) throw ApiError.badRequest("Missing event id.");
 

@@ -33,19 +33,40 @@ service cloud.firestore {
       return signedIn() ? (request.auth.token.role is string ? request.auth.token.role : 'student') : '';
     }
 
+    // Four roles. "organizer" is the old name for "volunteer" and is still
+    // accepted here so a token minted before the refactor keeps working until
+    // it refreshes; the migration rewrites every claim.
     function isStudent()    { return role() == 'student'; }
-    function isOrganizer()  { return role() in ['organizer', 'admin', 'super_admin']; }
+    function isStaff()      { return role() in ['volunteer', 'organizer', 'admin', 'super_admin']; }
+    function isVolunteer()  { return role() in ['volunteer', 'organizer']; }
     function isAdmin()      { return role() in ['admin', 'super_admin']; }
     function isSuperAdmin() { return role() == 'super_admin'; }
 
-    // An organizer is scoped to the fests listed on their token. Admins and
-    // super admins are not scoped.
+    // Every staff role is scoped to the fests listed on their token, admins
+    // included. Only a super admin is unscoped: the platform is their scope.
     function managesFest(festId) {
-      return isAdmin()
-        || (isOrganizer()
-            && request.auth.token.festIds is list
-            && festId in request.auth.token.festIds);
+      return passwordSettled()
+        && (isSuperAdmin()
+            || (isStaff()
+                && request.auth.token.get('festIds', []) is list
+                && festId in request.auth.token.get('festIds', [])));
     }
+
+    // A temporary password may not be used to read or write anything: the
+    // holder sets their own first. An absent claim means "not restricted".
+    function passwordSettled() {
+      return signedIn() && request.auth.token.get('mustChangePassword', false) != true;
+    }
+
+    // What a volunteer may do, in full: record attendance and meals for a
+    // fest they are rostered on. Everything else on the staff side is admin+.
+    function isScanner(festId) {
+      return passwordSettled() && isVolunteer() && managesFest(festId);
+    }
+
+    // Staff, with a settled password. The common precondition.
+    function staffOk() { return isStaff() && passwordSettled(); }
+    function adminOk() { return isAdmin() && passwordSettled(); }
 
     function isOwner(userId) {
       return signedIn() && uid() == userId;
@@ -89,8 +110,8 @@ service cloud.firestore {
     match /users/{userId} {
       // A signed-in user reads their own profile. Staff read any profile so
       // the admin screens can list participants.
-      allow get: if isOwner(userId) || isOrganizer();
-      allow list: if isOrganizer();
+      allow get: if isOwner(userId) || staffOk();
+      allow list: if staffOk();
 
       // Self sign-up. Constrained hard: the document id must equal the caller's
       // uid, the email must match the verified token, and the role must be
@@ -101,17 +122,28 @@ service cloud.firestore {
                     && request.resource.data.id == userId
                     && request.resource.data.role == 'student'
                     && request.resource.data.email == request.auth.token.email
-                    && request.resource.data.disabled == false;
+                    && request.resource.data.disabled == false
+                    // A self-registered account can never arrive scoped to a
+                    // fest or holding a staff flag.
+                    && request.resource.data.get('festIds', []) == []
+                    && request.resource.data.get('mustChangePassword', false) == false;
 
       // A user edits their own profile, but may never touch role, disabled,
       // email or the organizer block.
+      // Profile fields only. Role, scope, the password flag, disabled and
+      // email are server-owned. `profileCompleted` is writable by the owner
+      // because finishing the profile is what sets it, and the API path
+      // recomputes it server-side anyway.
       allow update: if isOwner(userId)
                     && onlyChanged([
-                         'fullName', 'phone', 'photoUrl', 'student',
-                         'emailVerified', 'updatedAt'
+                         'name', 'fullName', 'phone', 'avatar', 'photoUrl',
+                         'college', 'department', 'year', 'studentId', 'student',
+                         'emailVerified', 'profileCompleted', 'updatedAt'
                        ])
                     && request.resource.data.role == resource.data.role
-                    && request.resource.data.disabled == resource.data.disabled;
+                    && request.resource.data.get('disabled', false) == resource.data.get('disabled', false)
+                    && request.resource.data.get('festIds', []) == resource.data.get('festIds', [])
+                    && request.resource.data.get('mustChangePassword', false) == resource.data.get('mustChangePassword', false);
 
       // Deleting an account removes the audit trail behind every registration
       // and certificate it owns. Server only.
@@ -123,16 +155,17 @@ service cloud.firestore {
     match /fests/{festId} {
       // Anyone, signed in or not, can browse published fests. Drafts are
       // visible only to the staff who manage them.
-      allow get, list: if resource.data.status == 'published' || isOrganizer();
+      allow get, list: if resource.data.status == 'published' || staffOk();
 
-      allow create: if isAdmin()
+      allow create: if isSuperAdmin() && passwordSettled()
                     && request.resource.data.createdBy == uid();
 
       // Admins edit the fest. An organizer (a scanner, say) may only move the
       // public counters — the scan transaction bumps `stats.checkIns` — and
       // may not rename or reschedule anything.
-      allow update: if (isAdmin() && managesFest(festId))
-                    || (isOrganizer() && managesFest(festId) && onlyChanged(['stats']));
+      allow update: if (adminOk() && managesFest(festId))
+                    // A scan bumps the public counters, and nothing else.
+                    || (isScanner(festId) && onlyChanged(['stats']));
 
       // Only a super admin retires a fest, and only through the server, which
       // checks that no events still hang off it.
@@ -143,7 +176,7 @@ service cloud.firestore {
 
     match /events/{eventId} {
       allow get, list: if resource.data.status in ['published', 'ongoing', 'completed']
-                       || isOrganizer();
+                       || staffOk();
 
       // Every event write goes through /api/admin/events, which checks fest
       // scope, refuses a capacity below the seats already taken, locks team
@@ -166,7 +199,7 @@ service cloud.firestore {
       // The list clause is written without type guards: Firestore proves a
       // rule against an `array-contains` query only when it is the bare
       // `value in resource.data.field` form.
-      allow list: if isOrganizer()
+      allow list: if staffOk()
                   || isOwner(resource.data.userId)
                   || (signedIn() && request.auth.token.email in resource.data.memberEmails);
 
@@ -196,25 +229,24 @@ service cloud.firestore {
       // first scan from a repeat, so staff must be allowed a `get` on a
       // missing document (`resource == null`); every other branch needs the
       // document's fields and is guarded accordingly.
-      allow get: if (isOrganizer() && (resource == null || managesFest(resource.data.festId)))
+      allow get: if (staffOk() && (resource == null || managesFest(resource.data.festId)))
                  || (resource != null && isOwner(resource.data.userId))
                  || onRegistration(registrationId);
-      allow list: if isOrganizer() || isOwner(resource.data.userId);
+      allow list: if staffOk() || isOwner(resource.data.userId);
 
       // Scanning happens on the organizer's device, so this one write stays
       // client-side. The document id is the registration id, which makes a
       // second scan an *update* rather than a create — and updates are denied
       // below. That is what turns a double scan into an honest "already
       // checked in" instead of a silently overwritten timestamp.
-      allow create: if isOrganizer()
-                    && managesFest(request.resource.data.festId)
+      allow create: if isScanner(request.resource.data.festId)
                     && request.resource.data.scannedBy == uid()
                     && request.resource.data.registrationId == registrationId;
 
       allow update: if false;
 
       // Undoing a mistaken check-in is an admin action, not an organizer one.
-      allow delete: if isAdmin() && managesFest(resource.data.festId);
+      allow delete: if adminOk() && managesFest(resource.data.festId);
     }
 
     // -------------------------------------------------------- foodCollections
@@ -222,25 +254,24 @@ service cloud.firestore {
     match /foodCollections/{collectionId} {
       // As with attendance: the meal transaction reads the slot before it
       // exists, so staff may `get` a missing document.
-      allow get: if (isOrganizer() && (resource == null || managesFest(resource.data.festId)))
+      allow get: if (staffOk() && (resource == null || managesFest(resource.data.festId)))
                  || (resource != null && isOwner(resource.data.userId));
-      allow list: if isOrganizer() || isOwner(resource.data.userId);
+      allow list: if staffOk() || isOwner(resource.data.userId);
 
       // Same trick as attendance: the id encodes entry + day + meal slot, so
       // collecting the same meal twice is an update, and updates are denied.
-      allow create: if isOrganizer()
-                    && managesFest(request.resource.data.festId)
+      allow create: if isScanner(request.resource.data.festId)
                     && request.resource.data.collectedBy == uid();
 
       allow update: if false;
-      allow delete: if isAdmin() && managesFest(resource.data.festId);
+      allow delete: if adminOk() && managesFest(resource.data.festId);
     }
 
     // ---------------------------------------------------------------- results
 
     match /results/{eventId} {
       // Students see results only once they are published.
-      allow get, list: if resource.data.status == 'published' || isOrganizer();
+      allow get, list: if resource.data.status == 'published' || staffOk();
 
       // Publishing results is what triggers certificate generation, so it is
       // restricted to super admins and routed through the server, which
@@ -256,7 +287,7 @@ service cloud.firestore {
       // nothing to see rather than something hidden by the UI.
       allow get: if (isOwner(resource.data.userId) && resource.data.revoked == false)
                  || managesFest(resource.data.festId);
-      allow list: if isOrganizer()
+      allow list: if staffOk()
                   || (isOwner(resource.data.userId) && resource.data.revoked == false);
 
       // Issued, revoked and delivery-stamped by the server only. A client that
@@ -283,14 +314,14 @@ service cloud.firestore {
     match /shifts/{shiftId} {
       // A volunteer sees their own roster; anyone managing the fest sees all.
       allow get: if isOwner(resource.data.userId) || managesFest(resource.data.festId);
-      allow list: if isOrganizer();
+      allow list: if staffOk();
 
       // Rostering is an admin action — the same person who creates the
       // volunteer's account assigns their post and window.
-      allow create: if isAdmin()
+      allow create: if adminOk()
                     && managesFest(request.resource.data.festId)
                     && request.resource.data.createdBy == uid();
-      allow update, delete: if isAdmin() && managesFest(resource.data.festId);
+      allow update, delete: if adminOk() && managesFest(resource.data.festId);
     }
 
     // --------------------------------------------------------------- auditLog
@@ -299,8 +330,8 @@ service cloud.firestore {
       // The trail is readable by whoever manages the fest it concerns, and by
       // super admins for platform-wide entries. Written by the server only:
       // a client that could write here could also cover its tracks.
-      allow get, list: if isSuperAdmin()
-                       || (isOrganizer() && resource.data.festId is string && managesFest(resource.data.festId));
+      allow get, list: if adminOk()
+                       && (isSuperAdmin() || (resource.data.festId is string && managesFest(resource.data.festId)));
       allow create, update, delete: if serverOnly();
     }
 
@@ -314,8 +345,8 @@ service cloud.firestore {
       // Written only by the server as it sends. Read by whoever manages the
       // fest an email concerns (and super admins for the rest), to answer
       // "did the invite / certificate email actually go out?".
-      allow get, list: if isSuperAdmin()
-                       || (isAdmin() && resource.data.festId is string && managesFest(resource.data.festId));
+      allow get, list: if adminOk()
+                       && (isSuperAdmin() || (resource.data.festId is string && managesFest(resource.data.festId)));
       allow create, update, delete: if serverOnly();
     }
 

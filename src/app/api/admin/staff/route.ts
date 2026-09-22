@@ -1,12 +1,8 @@
-import { createStaffSchema, type UserRole } from "@/core/models/user";
-import { ApiError, handler, ok, readBody, requireFestAccess, requireRole } from "@/server/api";
+import { ROLE_LABELS, createStaffSchema, creatableRoles } from "@/core/models/user";
+import { ApiError, handler, ok, readBody, requirePermission, requireRole } from "@/server/api";
 import { RATE_LIMITS } from "@/server/rate-limit";
-import {
-  COLLECTIONS,
-  FieldValue,
-  adminAuth,
-  adminDb,
-} from "@/server/firebase-admin";
+import { COLLECTIONS, FieldValue, adminAuth, adminDb } from "@/server/firebase-admin";
+import { applyClaims, temporaryPassword } from "@/server/credentials";
 import { emailService } from "@/server/email";
 import { staffInviteLink } from "@/server/auth-links";
 import { audit } from "@/server/audit";
@@ -16,50 +12,41 @@ import { staffInviteEmail } from "@/server/email/templates";
  * Invite-only staff accounts.
  *
  * This route is the *only* place a role above `student` is ever granted.
- * Everything else in the system reads the role from the Auth token's custom
- * claim, and Firestore rules refuse any client write that touches `role` — so
- * an account can only become an organizer by passing through here, and only a
- * super admin can make that happen.
+ * Everything else reads the role from the Auth token's custom claim, and the
+ * Firestore rules refuse any client write that touches `role` — so an account
+ * can only become a volunteer, admin or super admin by passing through here.
  *
- * The previous project let anyone who found /admin-register create themselves
- * an organizer record, which is the hole this closes.
+ * Who may create whom comes from `creatableRoles()` in the permission matrix:
+ * a super admin creates any role, an admin creates volunteers for the fests
+ * they manage, nobody else gets here.
  */
 
-const ROLE_LABELS: Record<UserRole, string> = {
-  student: "Student",
-  organizer: "Organizer",
-  admin: "Admin",
-  super_admin: "Super Admin",
-};
-
 /**
- * A throwaway password for the new account.
+ * POST /api/admin/staff — create a volunteer, admin or super admin.
  *
- * It is never shown to anyone. The invitee sets their own password through the
- * emailed link, so this only has to be strong enough that it cannot be guessed
- * in the window before they do.
- */
-const throwawayPassword = (): string => {
-  const bytes = new Uint8Array(24);
-  globalThis.crypto.getRandomValues(bytes);
-  return `Aa1!${Buffer.from(bytes).toString("base64url")}`;
-};
-
-/**
- * POST /api/admin/staff — create an organizer, admin or super admin.
- *
- * Super admins may create any role. Admins may create *organizer* accounts
- * (volunteers, event heads) scoped to fests they manage — the canvas's
- * "created by an admin, never self sign-up". Nobody below admin gets here.
+ * The new account is given a temporary password, mailed to them with a
+ * set-your-own-password link, and marked `mustChangePassword`. Until they
+ * clear it, every privileged route refuses — so the mailed credential can do
+ * nothing except become a real password.
  */
 export const POST = handler(async (request) => {
-  const caller = await requireRole(request, "admin");
+  const caller = await requirePermission(request, "staff:createVolunteer");
   const input = await readBody(request, createStaffSchema);
 
-  if (input.role !== "organizer" && caller.role !== "super_admin") {
-    throw ApiError.forbidden("Only a super admin can create admin or super admin accounts.");
+  if (!creatableRoles(caller.role).includes(input.role)) {
+    throw ApiError.forbidden(
+      input.role === "volunteer"
+        ? "You cannot create staff accounts."
+        : "Only a super admin can create admin or super admin accounts.",
+    );
   }
-  for (const festId of input.festIds) requireFestAccess(caller, festId);
+
+  // An admin may only hand out access to fests they themselves manage.
+  for (const festId of input.festIds) {
+    if (!caller.festIds.includes(festId) && caller.role !== "super_admin") {
+      throw ApiError.forbidden("You do not manage that fest.");
+    }
+  }
 
   const auth = adminAuth();
   const db = adminDb();
@@ -71,8 +58,7 @@ export const POST = handler(async (request) => {
     const existing = await auth.getUserByEmail(input.email);
 
     throw ApiError.conflict(
-      `${input.email} already has an account (${existing.uid}). ` +
-        `Change their role from the organizer list instead of re-inviting them.`,
+      `${input.email} already has an account (${existing.uid}). ` + `Change their role from the staff list instead of re-inviting them.`,
     );
   } catch (error) {
     if (error instanceof ApiError) throw error;
@@ -83,56 +69,54 @@ export const POST = handler(async (request) => {
     if (code !== "auth/user-not-found") throw error;
   }
 
-  // An organizer scoped to no fests can see nothing, which looks like a broken
-  // account rather than a deliberate one. Admins are unscoped, so it only
-  // matters for the organizer role.
-  if (input.role === "organizer" && input.festIds.length === 0) {
+  // A volunteer or admin scoped to no fests can see nothing, which looks like
+  // a broken account rather than a deliberate one. Only a super admin is
+  // unscoped by design.
+  if (input.role !== "super_admin" && input.festIds.length === 0) {
     throw ApiError.unprocessable(
-      "An organizer needs at least one fest assigned, otherwise they will not " +
-        "be able to see anything after signing in.",
+      `A ${ROLE_LABELS[input.role].toLowerCase()} needs at least one fest assigned, otherwise they will not be able to see anything after signing in.`,
     );
   }
 
   // Verify every referenced fest exists, so a typo does not produce an
-  // organizer scoped to a fest id that will never match.
+  // account scoped to a fest id that will never match.
   for (const festId of input.festIds) {
     const fest = await db.collection(COLLECTIONS.fests).doc(festId).get();
     if (!fest.exists) throw ApiError.unprocessable(`No fest with id "${festId}".`);
   }
 
+  const password = temporaryPassword();
   const created = await auth.createUser({
     email: input.email,
-    displayName: input.fullName,
-    password: throwawayPassword(),
+    displayName: input.name,
+    password,
     emailVerified: false,
     disabled: false,
   });
 
   try {
-    // The claim is what Firestore rules and every API route actually trust.
-    await auth.setCustomUserClaims(created.uid, {
-      role: input.role,
-      festIds: input.festIds,
-    });
+    await applyClaims(created.uid, { role: input.role, festIds: input.festIds, mustChangePassword: true });
 
     await db
       .collection(COLLECTIONS.users)
       .doc(created.uid)
       .set({
         id: created.uid,
+        uid: created.uid,
         email: input.email,
-        fullName: input.fullName,
+        name: input.name,
         ...(input.phone ? { phone: input.phone } : {}),
+        ...(input.designation ? { designation: input.designation } : {}),
         role: input.role,
+        festIds: input.festIds,
         emailVerified: false,
         disabled: false,
-        organizer: {
-          ...(input.designation ? { designation: input.designation } : {}),
-          festIds: input.festIds,
-        },
+        // Staff have nothing more to fill in; the invitation is the profile.
+        profileCompleted: true,
+        mustChangePassword: true,
+        createdBy: caller.uid,
         createdAt: FieldValue.serverTimestamp(),
         updatedAt: FieldValue.serverTimestamp(),
-        invitedBy: caller.uid,
       });
   } catch (error) {
     // Do not leave an Auth account with no profile and no claims behind: it
@@ -143,25 +127,25 @@ export const POST = handler(async (request) => {
 
   await audit(caller, {
     action: "staff_created",
-    summary: `Created ${ROLE_LABELS[input.role].toLowerCase()} account for ${input.fullName} (${input.email})`,
+    summary: `Created ${ROLE_LABELS[input.role].toLowerCase()} account for ${input.name} (${input.email})`,
     subjectType: "user",
     subjectId: created.uid,
     ...(input.festIds[0] ? { festId: input.festIds[0] } : {}),
     details: { role: input.role, festIds: input.festIds },
   });
 
-  // A link, not a password. A password mailed in plain text lives in the
-  // recipient's inbox forever and cannot be withdrawn; this expires.
+  // The email carries both: a link that expires, and the temporary password
+  // for the case where the link has aged out by the time they read it.
   const setPasswordLink = await staffInviteLink(input.email);
-
   const mailer = emailService();
 
   const delivery = await mailer.send(
     staffInviteEmail({
       to: input.email,
-      fullName: input.fullName,
+      fullName: input.name,
       roleLabel: ROLE_LABELS[input.role],
       setPasswordLink,
+      temporaryPassword: password,
       invitedBy: caller.email,
       meta: { userId: created.uid, subjectType: "user", subjectId: created.uid, ...(input.festIds[0] ? { festId: input.festIds[0] } : {}) },
     }),
@@ -169,24 +153,16 @@ export const POST = handler(async (request) => {
 
   return ok(
     {
-      user: {
-        id: created.uid,
-        email: input.email,
-        fullName: input.fullName,
-        role: input.role,
-        festIds: input.festIds,
-      },
+      user: { id: created.uid, email: input.email, name: input.name, role: input.role, festIds: input.festIds },
       invite: {
         emailed: mailer.canSend && delivery.ok,
         provider: mailer.name,
         /**
-         * Returned only when no provider can actually send, so the super admin
-         * who just created the account can pass the link on themselves.
+         * Returned only when no provider can actually send, so the admin who
+         * just created the account can pass the credentials on themselves.
          * Without this the feature is unusable until email is configured.
-         * It is a single-use, expiring link, disclosed to the one person
-         * already authorised to create the account.
          */
-        ...(mailer.canSend ? {} : { setPasswordLink }),
+        ...(mailer.canSend ? {} : { setPasswordLink, temporaryPassword: password }),
       },
     },
     201,
@@ -195,12 +171,12 @@ export const POST = handler(async (request) => {
 
 /** GET /api/admin/staff — list non-student accounts. */
 export const GET = handler(async (request) => {
-  await requireRole(request, "admin");
+  const caller = await requireRole(request, "admin");
   const auth = adminAuth();
 
   const snapshot = await adminDb()
     .collection(COLLECTIONS.users)
-    .where("role", "in", ["organizer", "admin", "super_admin"])
+    .where("role", "in", ["volunteer", "admin", "super_admin"])
     .get();
 
   // Auth holds the sign-in metadata Firestore does not: whether the invite
@@ -214,25 +190,30 @@ export const GET = handler(async (request) => {
     }
   }
 
-  const staff = snapshot.docs.map((doc) => {
-    const data = doc.data();
-    const meta = authUsers.get(doc.id);
+  const staff = snapshot.docs
+    .map((doc) => {
+      const data = doc.data();
+      const meta = authUsers.get(doc.id);
+      const festIds: string[] = data.festIds ?? data.organizer?.festIds ?? [];
 
-    return {
-      id: doc.id,
-      email: data.email ?? "",
-      fullName: data.fullName ?? "",
-      role: data.role ?? "organizer",
-      designation: data.organizer?.designation ?? null,
-      festIds: data.organizer?.festIds ?? [],
-      disabled: data.disabled === true,
-      createdAt: data.createdAt?.toDate?.()?.toISOString() ?? meta?.created ?? null,
-      lastSignInAt: meta?.lastSignIn ? new Date(meta.lastSignIn).toISOString() : null,
-      activated: Boolean(meta?.lastSignIn),
-    };
-  });
+      return {
+        id: doc.id,
+        email: data.email ?? "",
+        name: data.name ?? data.fullName ?? "",
+        role: data.role === "organizer" ? "volunteer" : (data.role ?? "volunteer"),
+        designation: data.designation ?? data.organizer?.designation ?? null,
+        festIds,
+        disabled: data.disabled === true,
+        mustChangePassword: data.mustChangePassword === true,
+        createdAt: data.createdAt?.toDate?.()?.toISOString() ?? meta?.created ?? null,
+        lastSignInAt: meta?.lastSignIn ? new Date(meta.lastSignIn).toISOString() : null,
+        activated: Boolean(meta?.lastSignIn),
+      };
+    })
+    // An admin sees the staff of the fests they manage; a super admin sees all.
+    .filter((row) => caller.role === "super_admin" || row.festIds.some((id) => caller.festIds.includes(id)));
 
-  staff.sort((a, b) => a.fullName.localeCompare(b.fullName));
+  staff.sort((a, b) => a.name.localeCompare(b.name));
 
   return ok({ staff });
 });
