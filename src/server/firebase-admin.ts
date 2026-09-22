@@ -105,6 +105,15 @@ const adminApp = (): App => {
     return cached;
   }
 
+  // Against the local emulators no credential is needed or wanted: the
+  // emulator accepts any project id and never talks to Google. This is how
+  // the emulator test suite and `firebase emulators:start` development run.
+  if (process.env.FIRESTORE_EMULATOR_HOST) {
+    const projectId = process.env.GCLOUD_PROJECT ?? process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID ?? "festflow-emulator";
+    cached = initializeApp({ projectId, storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET }, APP_NAME);
+    return cached;
+  }
+
   const raw = process.env.FIREBASE_SERVICE_ACCOUNT;
 
   if (!raw || !raw.trim()) {

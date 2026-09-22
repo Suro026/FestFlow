@@ -17,3 +17,4 @@ process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID ??= "1";
 process.env.NEXT_PUBLIC_FIREBASE_APP_ID ??= "1:1:web:test";
 process.env.NEXT_PUBLIC_APP_URL ??= "http://localhost:3000";
 process.env.EMAIL_PROVIDER = "console";
+process.env.NEXT_PUBLIC_FIREBASE_EMULATOR = "1";

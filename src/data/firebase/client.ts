@@ -1,7 +1,7 @@
 import { getApp, getApps, initializeApp, type FirebaseApp } from "firebase/app";
-import { getAuth, type Auth } from "firebase/auth";
-import { getFirestore, type Firestore } from "firebase/firestore";
-import { getStorage, type FirebaseStorage } from "firebase/storage";
+import { connectAuthEmulator, getAuth, type Auth } from "firebase/auth";
+import { connectFirestoreEmulator, getFirestore, type Firestore } from "firebase/firestore";
+import { connectStorageEmulator, getStorage, type FirebaseStorage } from "firebase/storage";
 import { RepositoryError } from "@/core/models/common";
 
 /**
@@ -111,9 +111,47 @@ export const firebaseApp = (): FirebaseApp => {
   return app;
 };
 
-export const firebaseAuth = (): Auth => getAuth(firebaseApp());
-export const firestore = (): Firestore => getFirestore(firebaseApp());
-export const firebaseStorage = (): FirebaseStorage => getStorage(firebaseApp());
+/**
+ * Emulator wiring, opt-in via NEXT_PUBLIC_FIREBASE_EMULATOR=1 (the test suite
+ * and local emulator development). `connect*Emulator` must run exactly once
+ * per service instance, before the first request, hence the flags.
+ */
+const emulatorEnabled = () => process.env.NEXT_PUBLIC_FIREBASE_EMULATOR === "1";
+const emulatorHost = (env: string | undefined, fallback: string) => {
+  const [host = "127.0.0.1", port = fallback] = (env ?? `127.0.0.1:${fallback}`).split(":");
+  return { host, port: Number(port) };
+};
+const connected = { auth: false, firestore: false, storage: false };
+
+export const firebaseAuth = (): Auth => {
+  const auth = getAuth(firebaseApp());
+  if (emulatorEnabled() && !connected.auth) {
+    const { host, port } = emulatorHost(process.env.NEXT_PUBLIC_FIREBASE_AUTH_EMULATOR_HOST, "9099");
+    connectAuthEmulator(auth, `http://${host}:${port}`, { disableWarnings: true });
+    connected.auth = true;
+  }
+  return auth;
+};
+
+export const firestore = (): Firestore => {
+  const db = getFirestore(firebaseApp());
+  if (emulatorEnabled() && !connected.firestore) {
+    const { host, port } = emulatorHost(process.env.NEXT_PUBLIC_FIRESTORE_EMULATOR_HOST, "8080");
+    connectFirestoreEmulator(db, host, port);
+    connected.firestore = true;
+  }
+  return db;
+};
+
+export const firebaseStorage = (): FirebaseStorage => {
+  const storage = getStorage(firebaseApp());
+  if (emulatorEnabled() && !connected.storage) {
+    const { host, port } = emulatorHost(process.env.NEXT_PUBLIC_FIREBASE_STORAGE_EMULATOR_HOST, "9199");
+    connectStorageEmulator(storage, host, port);
+    connected.storage = true;
+  }
+  return storage;
+};
 
 /** Collection names, in one place so a typo is a compile error, not a silent empty query. */
 export const COLLECTIONS = {
