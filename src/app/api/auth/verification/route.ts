@@ -29,4 +29,4 @@ export const POST = handler(async (request) => {
   );
   if (!result.ok) throw ApiError.unavailable("We couldn't send the email just now. Try again in a minute.");
   return ok({ fallback: false });
-}, { rateLimit: RATE_LIMITS.verification });
+}, { rateLimit: [{ rule: RATE_LIMITS.auth.verification, by: "ip" }, { rule: RATE_LIMITS.auth.verification, by: "uid" }] });

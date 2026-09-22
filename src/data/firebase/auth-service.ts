@@ -68,6 +68,36 @@ const toSession = async (user: FirebaseUser, forceRefresh = false): Promise<Sess
   };
 };
 
+/**
+ * The application's own sign-in/sign-up throttle (see /api/auth/attempt).
+ * "before" throws `too-many-requests` with the wait spelled out when the
+ * account or this network is over its budget; "failed" reports a strike and
+ * returns a message when that tipped it over; "succeeded" clears the
+ * counters. A throttle-endpoint outage fails open — it must never be the
+ * reason someone cannot sign in.
+ */
+const throttle = async (kind: "login" | "signup", email: string, phase: "before" | "failed" | "succeeded"): Promise<string | null> => {
+  try {
+    const res = await fetch("/api/auth/attempt", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ kind, email: email.trim(), phase }),
+    });
+    if (res.status === 429) {
+      const body = (await res.json().catch(() => ({}))) as { error?: string };
+      throw new AuthError("too-many-requests", body.error ?? "Too many attempts. Try again in a few minutes.");
+    }
+    if (phase === "failed" && res.ok) {
+      const body = (await res.json().catch(() => ({}))) as { ok?: boolean; message?: string };
+      return body.ok === false && body.message ? body.message : null;
+    }
+    return null;
+  } catch (error) {
+    if (error instanceof AuthError) throw error;
+    return null;
+  }
+};
+
 const actionUrl = (path: string): string =>
   `${process.env.NEXT_PUBLIC_APP_URL ?? window.location.origin}${path}`;
 
@@ -90,17 +120,26 @@ export class FirebaseAuthService implements AuthService {
   }
 
   async signIn(email: string, password: string): Promise<Session> {
+    await throttle("login", email, "before");
     try {
       const credential = await signInWithEmailAndPassword(firebaseAuth(), email.trim(), password);
+      void throttle("login", email, "succeeded");
       return await toSession(credential.user, true);
     } catch (error) {
-      throw translate(error);
+      const translated = translate(error);
+      if (translated.code === "invalid-credentials" || translated.code === "user-not-found") {
+        const wait = await throttle("login", email, "failed");
+        if (wait) throw new AuthError("too-many-requests", wait);
+      }
+      throw translated;
     }
   }
 
   async signUp(email: string, password: string, displayName: string): Promise<Session> {
+    await throttle("signup", email, "before");
     try {
       const credential = await createUserWithEmailAndPassword(firebaseAuth(), email.trim(), password);
+      void throttle("signup", email, "succeeded");
       await updateProfile(credential.user, { displayName: displayName.trim() });
       // The verification email is sent by the caller once the profile
       // document exists (see sendVerificationEmail), so it goes through our

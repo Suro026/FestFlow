@@ -200,7 +200,7 @@ export const POST = handler(async (request, context) => {
   }
 
   return ok({ registration });
-}, { rateLimit: RATE_LIMITS.registration });
+}, { rateLimit: RATE_LIMITS.authenticated.registration });
 
 const festRefName = async (db: FirebaseFirestore.Firestore, festId: string): Promise<string> =>
   String((await db.collection(COLLECTIONS.fests).doc(festId).get()).data()?.name ?? "");

@@ -250,4 +250,4 @@ export const POST = handler(async (request) => {
   }
 
   return ok({ registration }, 201);
-}, { rateLimit: RATE_LIMITS.registration });
+}, { rateLimit: RATE_LIMITS.authenticated.registration });

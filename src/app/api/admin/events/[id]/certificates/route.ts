@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { ApiError, handler, ok, readBody, requireFestAccess, requireRole } from "@/server/api";
+import { RATE_LIMITS } from "@/server/rate-limit";
 import { COLLECTIONS, adminDb } from "@/server/firebase-admin";
 import { audit } from "@/server/audit";
 import { issueCertificatesForEvent } from "@/server/certificates/issue";
@@ -45,4 +46,4 @@ export const POST = handler(async (request, context) => {
   }
 
   return ok(summary);
-});
+}, { rateLimit: RATE_LIMITS.authenticated.certificates });

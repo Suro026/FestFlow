@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { idSchema, shortTextSchema } from "@/core/models/common";
 import { ApiError, handler, ok, readBody, requireFestAccess, requireRole } from "@/server/api";
+import { RATE_LIMITS } from "@/server/rate-limit";
 import { COLLECTIONS, adminDb } from "@/server/firebase-admin";
 import { audit } from "@/server/audit";
 import { emailService } from "@/server/email";
@@ -84,4 +85,4 @@ export const POST = handler(async (request, context) => {
   });
 
   return ok({ recipients: people.length, notified, emailed });
-});
+}, { rateLimit: RATE_LIMITS.authenticated.announcement });

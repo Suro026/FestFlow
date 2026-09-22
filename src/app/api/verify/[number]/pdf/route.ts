@@ -49,4 +49,4 @@ export const GET = handler(async (request, context) => {
       "Cache-Control": "public, max-age=300",
     },
   });
-}, { rateLimit: RATE_LIMITS.verify });
+}, { rateLimit: RATE_LIMITS.public.verify });

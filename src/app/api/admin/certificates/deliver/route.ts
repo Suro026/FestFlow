@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { handler, ok, readBody, requireFestAccess, requireRole } from "@/server/api";
+import { RATE_LIMITS } from "@/server/rate-limit";
 import { COLLECTIONS, FieldValue, adminDb } from "@/server/firebase-admin";
 import { emailService } from "@/server/email";
 import { certificateIssuedEmail } from "@/server/email/templates";
@@ -85,4 +86,4 @@ export const POST = handler(async (request) => {
   }
 
   return ok({ attempted: snap.size, sent, failed });
-});
+}, { rateLimit: RATE_LIMITS.authenticated.certificates });

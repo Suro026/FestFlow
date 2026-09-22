@@ -1,4 +1,5 @@
 import { ApiError, handler, ok, requireRole } from "@/server/api";
+import { RATE_LIMITS } from "@/server/rate-limit";
 import { COLLECTIONS, adminDb } from "@/server/firebase-admin";
 import { staffInviteLink } from "@/server/auth-links";
 import { emailService } from "@/server/email";
@@ -29,4 +30,4 @@ export const POST = handler(async (request, context) => {
   );
 
   return ok({ emailed: mailer.canSend && delivery.ok, provider: mailer.name, ...(mailer.canSend ? {} : { setPasswordLink: link }) });
-});
+}, { rateLimit: RATE_LIMITS.authenticated.staff });

@@ -1,5 +1,6 @@
 import { createStaffSchema, type UserRole } from "@/core/models/user";
 import { ApiError, handler, ok, readBody, requireFestAccess, requireRole } from "@/server/api";
+import { RATE_LIMITS } from "@/server/rate-limit";
 import {
   COLLECTIONS,
   FieldValue,
@@ -190,7 +191,7 @@ export const POST = handler(async (request) => {
     },
     201,
   );
-});
+}, { rateLimit: RATE_LIMITS.authenticated.staff });
 
 /** GET /api/admin/staff — list non-student accounts. */
 export const GET = handler(async (request) => {

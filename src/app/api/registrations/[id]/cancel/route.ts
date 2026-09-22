@@ -76,4 +76,4 @@ export const POST = handler(async (request, context) => {
   if (promoted) await announcePromotion(promoted.id);
 
   return ok({ cancelled: true, promoted: promoted?.id ?? null });
-}, { rateLimit: RATE_LIMITS.registration });
+}, { rateLimit: RATE_LIMITS.authenticated.registration });

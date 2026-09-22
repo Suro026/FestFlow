@@ -1,4 +1,5 @@
 import { authenticate, handler, ok } from "@/server/api";
+import { RATE_LIMITS } from "@/server/rate-limit";
 import { COLLECTIONS, FieldValue, adminDb } from "@/server/firebase-admin";
 
 /**
@@ -43,4 +44,4 @@ export const POST = handler(async (request) => {
   if (linked) await batch.commit();
 
   return ok({ linked });
-});
+}, { rateLimit: RATE_LIMITS.authenticated.registration });
