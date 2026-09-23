@@ -8,7 +8,7 @@ import {
   type QueryConstraint,
 } from "firebase/firestore";
 import type { Page, Unsubscribe } from "@/core/models/common";
-import { certificateSchema, type Certificate, type CertificateDraft } from "@/core/models/certificate";
+import { certificateSchema, isReleased, type Certificate, type CertificateDraft } from "@/core/models/certificate";
 import type { CertificateQuery, CertificateRepository, GenerateSummary } from "@/core/repositories/certificate-repository";
 import { api } from "@/data/api-client";
 import { COLLECTIONS } from "../client";
@@ -72,7 +72,8 @@ export class FirestoreCertificateRepository implements CertificateRepository {
   listForUser(userId: string): Promise<Certificate[]> {
     return guard("Loading your certificates", async () => {
       const snapshot = await getDocs(query(certificates(), where("userId", "==", userId), where("revoked", "==", false)));
-      return sortBy(parseDocs(certificateSchema, snapshot.docs, COLLECTIONS.certificates), [(c) => c.issuedAt, "desc"]);
+      const items = parseDocs(certificateSchema, snapshot.docs, COLLECTIONS.certificates).filter(isReleased);
+      return sortBy(items, [(c) => c.issuedAt, "desc"]);
     });
   }
 
@@ -81,7 +82,10 @@ export class FirestoreCertificateRepository implements CertificateRepository {
       query(certificates(), where("userId", "==", userId), where("revoked", "==", false)),
       certificateSchema,
       COLLECTIONS.certificates,
-      (items) => onChange(sortBy(items, [(c) => c.issuedAt, "desc"])),
+      // Prepared-but-unreleased certificates are filtered here rather than in
+      // the query: `published` is absent on everything issued before the
+      // release desk existed, and Firestore cannot match a missing field.
+      (items) => onChange(sortBy(items.filter(isReleased), [(c) => c.issuedAt, "desc"])),
       onError,
     );
   }

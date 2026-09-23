@@ -1,7 +1,8 @@
-import { ROLE_LABELS, createStaffSchema, creatableRoles } from "@/core/models/user";
+import { ROLE_LABELS, createStaffSchema, creatableRoles, generateStaffCode } from "@/core/models/user";
 import { ApiError, handler, ok, readBody, requirePermission, requireRole } from "@/server/api";
 import { RATE_LIMITS } from "@/server/rate-limit";
 import { COLLECTIONS, FieldValue, adminAuth, adminDb } from "@/server/firebase-admin";
+import { randomBytes } from "@/server/serialize";
 import { applyClaims, temporaryPassword } from "@/server/credentials";
 import { emailService } from "@/server/email";
 import { staffInviteLink } from "@/server/auth-links";
@@ -86,6 +87,8 @@ export const POST = handler(async (request) => {
   }
 
   const password = temporaryPassword();
+  // The code people actually quote: "ADM-2026-K4P7". Not a credential.
+  const staffCode = generateStaffCode(input.role, new Date().getFullYear(), randomBytes);
   const created = await auth.createUser({
     email: input.email,
     displayName: input.name,
@@ -107,6 +110,7 @@ export const POST = handler(async (request) => {
         name: input.name,
         ...(input.phone ? { phone: input.phone } : {}),
         ...(input.designation ? { designation: input.designation } : {}),
+        staffCode,
         role: input.role,
         festIds: input.festIds,
         emailVerified: false,
@@ -131,7 +135,7 @@ export const POST = handler(async (request) => {
     subjectType: "user",
     subjectId: created.uid,
     ...(input.festIds[0] ? { festId: input.festIds[0] } : {}),
-    details: { role: input.role, festIds: input.festIds },
+    details: { role: input.role, festIds: input.festIds, staffCode },
   });
 
   // The email carries both: a link that expires, and the temporary password
@@ -153,16 +157,19 @@ export const POST = handler(async (request) => {
 
   return ok(
     {
-      user: { id: created.uid, email: input.email, name: input.name, role: input.role, festIds: input.festIds },
+      user: { id: created.uid, email: input.email, name: input.name, role: input.role, festIds: input.festIds, staffCode },
       invite: {
         emailed: mailer.canSend && delivery.ok,
         provider: mailer.name,
+        setPasswordLink,
         /**
-         * Returned only when no provider can actually send, so the admin who
-         * just created the account can pass the credentials on themselves.
-         * Without this the feature is unusable until email is configured.
+         * Shown once, to the person who just created the account, in the
+         * panel they created it from. Firebase keeps only a hash, so this is
+         * the sole moment the value exists outside the mail that carries it —
+         * it is never written to Firestore, and the account is locked to
+         * changing it on first sign-in anyway.
          */
-        ...(mailer.canSend ? {} : { setPasswordLink, temporaryPassword: password }),
+        temporaryPassword: password,
       },
     },
     201,
@@ -202,6 +209,7 @@ export const GET = handler(async (request) => {
         name: data.name ?? data.fullName ?? "",
         role: data.role === "organizer" ? "volunteer" : (data.role ?? "volunteer"),
         designation: data.designation ?? data.organizer?.designation ?? null,
+        staffCode: data.staffCode ?? null,
         festIds,
         disabled: data.disabled === true,
         mustChangePassword: data.mustChangePassword === true,

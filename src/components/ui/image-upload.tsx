@@ -8,11 +8,23 @@ import { Button } from "@/components/ui/button";
 import { Field, Input } from "@/components/ui/field";
 import { Artwork } from "@/components/ui/primitives";
 
-export type UploadKind = "festBanner" | "festLogo" | "eventPoster" | "profilePhoto";
+export type UploadKind =
+  | "festBanner"
+  | "festLogo"
+  | "festHero"
+  | "festThumbnail"
+  | "festSocial"
+  | "eventPoster"
+  | "certificateTemplate"
+  | "profilePhoto";
 
 const LIMITS: Record<UploadKind, string> = {
   festBanner: "PNG, JPEG or WebP · up to 5 MB",
   festLogo: "PNG, JPEG or WebP · up to 2 MB",
+  festHero: "PNG, JPEG or WebP · up to 6 MB",
+  festThumbnail: "PNG, JPEG or WebP · up to 3 MB",
+  festSocial: "PNG, JPEG or WebP · up to 3 MB",
+  certificateTemplate: "PNG, JPEG or WebP · up to 8 MB",
   eventPoster: "PNG, JPEG or WebP · up to 5 MB",
   profilePhoto: "PNG, JPEG or WebP · up to 3 MB",
 };

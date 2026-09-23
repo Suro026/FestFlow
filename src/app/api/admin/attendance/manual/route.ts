@@ -45,7 +45,7 @@ export const POST = handler(async (request) => {
 
   const attRef = db.collection(COLLECTIONS.attendance).doc(regSnap.id);
   const actorSnap = await db.collection(COLLECTIONS.users).doc(caller.uid).get();
-  const actorName = String(actorSnap.data()?.fullName ?? caller.email);
+  const actorName = String(actorSnap.data()?.name ?? actorSnap.data()?.fullName ?? caller.email);
 
   const outcome = await db.runTransaction(async (tx) => {
     const existing = await tx.get(attRef);

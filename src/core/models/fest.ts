@@ -5,6 +5,7 @@ import {
   idSchema,
   longTextSchema,
   shortTextSchema, httpsUrlSchema } from "./common";
+import { registrationFieldsSchema } from "./registration-fields";
 
 /**
  * A fest is the top-level container. Events belong to exactly one fest, and
@@ -14,6 +15,53 @@ import {
 export const FEST_STATUSES = ["draft", "published", "archived"] as const;
 export const festStatusSchema = z.enum(FEST_STATUSES);
 export type FestStatus = z.infer<typeof festStatusSchema>;
+
+/** What kind of fest this is. Drives the explorer filter and the default artwork. */
+export const FEST_TYPES = ["tech", "cultural", "sports", "hackathon", "conference", "other"] as const;
+export const festTypeSchema = z.enum(FEST_TYPES);
+export type FestType = z.infer<typeof festTypeSchema>;
+
+export const FEST_TYPE_LABELS: Record<FestType, string> = {
+  tech: "Tech fest",
+  cultural: "Cultural fest",
+  sports: "Sports fest",
+  hackathon: "Hackathon",
+  conference: "Conference",
+  other: "Other",
+};
+
+/**
+ * Who can find the fest, as distinct from whether it is published.
+ *
+ *   public   — listed in the explorer and indexed
+ *   unlisted — reachable at its address, never listed (a soft launch)
+ *   private  — staff only, whatever the status says
+ */
+export const FEST_VISIBILITIES = ["public", "unlisted", "private"] as const;
+export const festVisibilitySchema = z.enum(FEST_VISIBILITIES);
+export type FestVisibility = z.infer<typeof festVisibilitySchema>;
+
+/**
+ * The fest-wide registration switch. Individual events keep their own
+ * `registrationOpen`; this one closes all of them at once, which is what a
+ * fest needs on the morning it starts.
+ */
+export const FEST_REGISTRATION_STATES = ["open", "closed", "upcoming"] as const;
+export const festRegistrationStateSchema = z.enum(FEST_REGISTRATION_STATES);
+export type FestRegistrationState = z.infer<typeof festRegistrationStateSchema>;
+
+/** #rrggbb, used for the fest's accent on its public page. */
+export const hexColorSchema = z
+  .string()
+  .trim()
+  .regex(/^#[0-9a-fA-F]{6}$/, "Use a hex colour like #9184d9");
+
+/** "2025-26". Free enough for institutions that write it differently. */
+export const academicYearSchema = z
+  .string()
+  .trim()
+  .max(12)
+  .regex(/^[0-9]{4}(-[0-9]{2,4})?$/, "Use a year like 2025-26");
 
 export const festSchema = z
   .object({
@@ -37,8 +85,28 @@ export const festSchema = z
     startDate: calendarDateSchema,
     endDate: calendarDateSchema,
 
+    /** What kind of fest. Older documents predate the field. */
+    festType: festTypeSchema.default("other"),
+    academicYear: academicYearSchema.optional(),
+    themeColor: hexColorSchema.optional(),
+
     bannerUrl: httpsUrlSchema.optional(),
     logoUrl: httpsUrlSchema.optional(),
+    /** The tall artwork at the top of the public fest page. */
+    heroUrl: httpsUrlSchema.optional(),
+    /** Square-ish card art for the explorer grid. */
+    thumbnailUrl: httpsUrlSchema.optional(),
+    /** 1200x630 for link previews. Falls back to the banner. */
+    socialImageUrl: httpsUrlSchema.optional(),
+
+    visibility: festVisibilitySchema.default("public"),
+    registrationState: festRegistrationStateSchema.default("open"),
+
+    /**
+     * What this fest asks its students for. Absent on fests created before
+     * the field existed, which `visibleFields` reads as the default set.
+     */
+    registrationFields: registrationFieldsSchema.optional(),
 
     /**
      * Only `published` fests appear in the student-facing explorer. Students
@@ -65,6 +133,12 @@ export const festSchema = z
       .default({ events: 0, registrations: 0, checkIns: 0 }),
 
     createdBy: idSchema,
+    /**
+     * The admin accountable for the fest. Distinct from `createdBy`, which is
+     * historical and never changes; ownership transfers.
+     */
+    ownerId: idSchema.optional(),
+    archivedAt: z.coerce.date().optional(),
   })
   .merge(auditFieldsSchema)
   .refine((fest) => fest.endDate >= fest.startDate, {
@@ -92,8 +166,16 @@ export const createFestSchema = z
     city: shortTextSchema,
     startDate: calendarDateSchema,
     endDate: calendarDateSchema,
+    festType: festTypeSchema.default("other"),
+    academicYear: academicYearSchema.optional(),
+    themeColor: hexColorSchema.optional(),
     bannerUrl: httpsUrlSchema.optional(),
     logoUrl: httpsUrlSchema.optional(),
+    heroUrl: httpsUrlSchema.optional(),
+    thumbnailUrl: httpsUrlSchema.optional(),
+    socialImageUrl: httpsUrlSchema.optional(),
+    visibility: festVisibilitySchema.default("public"),
+    registrationState: festRegistrationStateSchema.default("open"),
     contactEmail: z.string().email().optional(),
     contactPhone: z.string().max(20).optional(),
   })
@@ -117,11 +199,32 @@ export const updateFestSchema = z.object({
   city: shortTextSchema.optional(),
   startDate: calendarDateSchema.optional(),
   endDate: calendarDateSchema.optional(),
+  festType: festTypeSchema.optional(),
+  academicYear: academicYearSchema.optional(),
+  themeColor: hexColorSchema.optional(),
   bannerUrl: httpsUrlSchema.optional(),
   logoUrl: httpsUrlSchema.optional(),
+  heroUrl: httpsUrlSchema.optional(),
+  thumbnailUrl: httpsUrlSchema.optional(),
+  socialImageUrl: httpsUrlSchema.optional(),
+  visibility: festVisibilitySchema.optional(),
+  registrationState: festRegistrationStateSchema.optional(),
   status: festStatusSchema.optional(),
   contactEmail: z.string().email().optional(),
   contactPhone: z.string().max(20).optional(),
 });
 
 export type UpdateFest = z.infer<typeof updateFestSchema>;
+
+/**
+ * Is the fest taking registrations at all?
+ *
+ * An event can be open while its fest is not; the stricter of the two wins,
+ * which is what makes the fest-wide switch worth having.
+ */
+export const festAcceptsRegistrations = (fest: Pick<Fest, "status" | "registrationState">): boolean =>
+  fest.status === "published" && (fest.registrationState ?? "open") === "open";
+
+/** Should this fest appear in the public explorer? */
+export const festIsListed = (fest: Pick<Fest, "status" | "visibility">): boolean =>
+  fest.status === "published" && (fest.visibility ?? "public") === "public";

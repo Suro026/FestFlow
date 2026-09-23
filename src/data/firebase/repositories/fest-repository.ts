@@ -13,7 +13,7 @@ import {
   type QueryConstraint,
 } from "firebase/firestore";
 import { RepositoryError, type Page, type Unsubscribe } from "@/core/models/common";
-import { festSchema, type CreateFest, type Fest, type FestStatus, type UpdateFest } from "@/core/models/fest";
+import { festIsListed, festSchema, type CreateFest, type Fest, type FestStatus, type UpdateFest } from "@/core/models/fest";
 import type { FestQuery, FestRepository } from "@/core/repositories/fest-repository";
 import { api } from "@/data/api-client";
 import { COLLECTIONS } from "../client";
@@ -57,7 +57,11 @@ export class FirestoreFestRepository implements FestRepository {
         query(fests(), where("slug", "==", slug.toLowerCase()), where("status", "==", "published")),
       );
       const first = snapshot.docs[0];
-      return first ? parseDoc(festSchema, first, COLLECTIONS.fests) : null;
+      if (!first) return null;
+      const fest = parseDoc(festSchema, first, COLLECTIONS.fests);
+      // `private` is the owner saying "not yet, and not by link either".
+      // `unlisted` still resolves here — that is what unlisted means.
+      return fest && fest.visibility !== "private" ? fest : null;
     });
   }
 
@@ -80,7 +84,10 @@ export class FirestoreFestRepository implements FestRepository {
   listPublished(): Promise<Fest[]> {
     return guard("Loading fests", async () => {
       const snapshot = await getDocs(query(fests(), where("status", "==", "published")));
-      return byStart(parseDocs(festSchema, snapshot.docs, COLLECTIONS.fests));
+      // Visibility is applied here rather than in the query: the field is
+      // absent on fests created before it existed, and a `where` clause would
+      // silently drop every one of them.
+      return byStart(parseDocs(festSchema, snapshot.docs, COLLECTIONS.fests).filter(festIsListed));
     });
   }
 

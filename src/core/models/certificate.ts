@@ -58,6 +58,23 @@ export const certificateSchema = z
     issuedAt: z.date(),
     issuedBy: idSchema,
 
+    /**
+     * Prepared certificates are invisible to the student until they are
+     * released.
+     *
+     * An admin can run the eligibility pass, check the list and fix a
+     * spelling; only the platform owner presses publish, and publishing is
+     * what sends the email and lights up the download. Documents written
+     * before this field existed are read as published — they were already
+     * emailed, and making them vanish retroactively would be worse than the
+     * inconsistency.
+     */
+    published: z.boolean().default(true),
+    publishedAt: z.date().optional(),
+    publishedBy: idSchema.optional(),
+    /** The artwork this certificate was printed on, when one was set. */
+    templateUrl: z.string().url().max(2000).optional(),
+
     /** Set once the PDF has been rendered and uploaded to Storage. */
     fileUrl: z.string().url().max(2000).optional(),
 
@@ -133,3 +150,13 @@ export interface CertificateListItem {
   certificate: Certificate;
   downloadable: boolean;
 }
+
+/**
+ * Is this certificate the student's to see?
+ *
+ * Revoked ones are gone; unreleased ones have not happened yet as far as the
+ * recipient is concerned. Written as one function because three screens and
+ * one API route all have to agree on the answer.
+ */
+export const isReleased = (certificate: { revoked?: boolean; published?: boolean }): boolean =>
+  certificate.revoked !== true && certificate.published !== false;

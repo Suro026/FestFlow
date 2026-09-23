@@ -29,7 +29,7 @@ export const audit = async (
     let actorName = caller.name;
     if (!actorName) {
       const snap = await db.collection(COLLECTIONS.users).doc(caller.uid).get();
-      actorName = String(snap.data()?.fullName ?? caller.email);
+      actorName = String(snap.data()?.name ?? snap.data()?.fullName ?? caller.email);
     }
 
     await db.collection(COLLECTIONS.auditLog).add(

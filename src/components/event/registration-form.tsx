@@ -10,8 +10,9 @@ import type { Event } from "@/core/models/event";
 import type { Fest } from "@/core/models/fest";
 import { emailSchema, shortTextSchema, RepositoryError } from "@/core/models/common";
 import { validateRegistration } from "@/core/models/registration";
+import { cleanAnswers, validateAnswers, visibleFields, type RegistrationAnswers, type ResolvedField } from "@/core/models/registration-fields";
 import { useAuth, useRepositories } from "@/components/providers";
-import { Field, Input } from "@/components/ui/field";
+import { Field, Input, NativeSelect, Textarea } from "@/components/ui/field";
 import { Button } from "@/components/ui/button";
 import { Avatar } from "@/components/ui/overlays";
 import { Kick, MetaRow, Tag } from "@/components/ui/primitives";
@@ -24,6 +25,11 @@ import { formatTeamSize } from "@/lib/utils";
  * profile; teammates are entered by name and email. Team-size rules come from
  * the event, never from a constant, and the same `validateRegistration` runs
  * here for instant feedback and again on the server for the real decision.
+ *
+ * What the fest *asks* is not in this file. `visibleFields(fest)` returns the
+ * questions the super admin configured and they are rendered below, pre-filled
+ * from the student's profile where the two line up. The same `validateAnswers`
+ * runs again on the server, which is the copy that decides.
  */
 
 const memberSchema = z.object({
@@ -56,6 +62,30 @@ export const RegistrationForm = ({ event, fest, onDone }: RegistrationFormProps)
     email: profile?.email ?? session?.email ?? "",
   };
 
+  const questions = React.useMemo(() => visibleFields(fest.registrationFields), [fest.registrationFields]);
+
+  // Pre-fill from the profile: a student who has already told us their
+  // college should not type it again to enter a quiz.
+  const [answers, setAnswers] = React.useState<RegistrationAnswers>(() => {
+    const seed: RegistrationAnswers = {};
+    for (const field of questions) {
+      const fromProfile = field.profileKey ? profile?.[field.profileKey] : undefined;
+      if (fromProfile !== undefined && fromProfile !== null && String(fromProfile).trim()) seed[field.key] = String(fromProfile);
+    }
+    return seed;
+  });
+  const [answerErrors, setAnswerErrors] = React.useState<Record<string, string>>({});
+
+  const setAnswer = (key: string, value: string) => {
+    setAnswers((prev) => ({ ...prev, [key]: value }));
+    setAnswerErrors((prev) => {
+      if (!prev[key]) return prev;
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
+  };
+
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
     defaultValues: {
@@ -73,8 +103,16 @@ export const RegistrationForm = ({ event, fest, onDone }: RegistrationFormProps)
   const onSubmit = form.handleSubmit(async (values) => {
     setFormError(null);
 
+    const problems = validateAnswers(fest.registrationFields, answers);
+    if (Object.keys(problems).length > 0) {
+      setAnswerErrors(problems);
+      setFormError("Some of the fest's questions still need an answer.");
+      return;
+    }
+
     const input = {
       eventId: event.id,
+      answers: cleanAnswers(fest.registrationFields, answers),
       teamName: isTeam ? values.teamName?.trim() : undefined,
       members: values.members.map((m, i) => ({
         name: m.name.trim(),
@@ -171,6 +209,23 @@ export const RegistrationForm = ({ event, fest, onDone }: RegistrationFormProps)
         ) : null}
       </div>
 
+      {questions.length > 0 ? (
+        <>
+          <Kick className="mb-2 mt-5">{fest.name} asks</Kick>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            {questions.map((field) => (
+              <AnswerField
+                key={field.key}
+                field={field}
+                value={answers[field.key] ?? ""}
+                error={answerErrors[field.key]}
+                onChange={(value) => setAnswer(field.key, value)}
+              />
+            ))}
+          </div>
+        </>
+      ) : null}
+
       {isTeam ? (
         <div className="mt-3 text-[12px] text-accent-300">
           {needMore > 0
@@ -199,5 +254,57 @@ export const RegistrationForm = ({ event, fest, onDone }: RegistrationFormProps)
         </Button>
       </div>
     </form>
+  );
+};
+
+/**
+ * One configured question. Deliberately uncontrolled by react-hook-form: the
+ * field set is data, not a fixed shape, and registering a dynamic schema per
+ * fest buys nothing over a plain record plus the shared validator.
+ */
+const AnswerField = ({
+  field,
+  value,
+  error,
+  onChange,
+}: {
+  field: ResolvedField;
+  value: string;
+  error?: string;
+  onChange: (value: string) => void;
+}) => {
+  const id = `q-${field.key}`;
+  const label = field.requirement === "optional" ? `${field.label} (optional)` : field.label;
+
+  return (
+    <Field
+      label={label}
+      htmlFor={id}
+      error={error}
+      {...(field.help ? { hint: field.help } : {})}
+      className={field.type === "textarea" ? "sm:col-span-2" : undefined}
+    >
+      {field.options ? (
+        <NativeSelect id={id} value={value} invalid={Boolean(error)} onChange={(e) => onChange(e.target.value)}>
+          <option value="">Choose…</option>
+          {field.options.map((option) => (
+            <option key={option} value={option}>
+              {option}
+            </option>
+          ))}
+        </NativeSelect>
+      ) : field.type === "textarea" ? (
+        <Textarea id={id} rows={3} value={value} invalid={Boolean(error)} onChange={(e) => onChange(e.target.value)} />
+      ) : (
+        <Input
+          id={id}
+          type={field.type === "number" ? "number" : field.type === "url" ? "url" : field.type === "email" ? "email" : field.type === "tel" ? "tel" : "text"}
+          value={value}
+          invalid={Boolean(error)}
+          {...(field.placeholder ? { placeholder: field.placeholder } : {})}
+          onChange={(e) => onChange(e.target.value)}
+        />
+      )}
+    </Field>
   );
 };

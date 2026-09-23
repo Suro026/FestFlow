@@ -47,6 +47,12 @@ export const userSchema = z
     studentId: shortTextSchema.optional(),
     /** Staff title, e.g. "Cultural secretary". */
     designation: shortTextSchema.optional(),
+    /** Human-readable account id for staff — "ADM-2026-K4P7". Students have none. */
+    staffCode: z.string().max(20).optional(),
+    /** The institution this account speaks for. Staff only. */
+    organization: shortTextSchema.optional(),
+    /** A couple of lines, shown to the accounts they create. */
+    bio: z.string().trim().max(600).optional(),
 
     /**
      * Mirrors the `role` custom claim on the user's Auth token.
@@ -216,6 +222,33 @@ export const createStaffSchema = z.object({
 
 export type CreateStaff = z.infer<typeof createStaffSchema>;
 
+/**
+ * The human-readable account code — "ADM-2026-K4P7".
+ *
+ * It exists because a uid is 28 characters of noise and staff have to read
+ * their identifier to someone over a phone, print it on a lanyard, and quote
+ * it in a support message. It is *not* a credential: it identifies, it does
+ * not authenticate, and it is safe on a badge.
+ */
+export const STAFF_CODE_PREFIX = { volunteer: "VOL", admin: "ADM", super_admin: "SUP" } as const;
+
+const CODE_ALPHABET = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
+
+export const generateStaffCode = (
+  role: keyof typeof STAFF_CODE_PREFIX,
+  year: number,
+  randomBytes: (size: number) => Uint8Array,
+): string => {
+  const bytes = randomBytes(4);
+  let suffix = "";
+  for (let i = 0; i < 4; i += 1) suffix += CODE_ALPHABET[(bytes[i] ?? 0) % CODE_ALPHABET.length];
+  return `${STAFF_CODE_PREFIX[role]}-${year}-${suffix}`;
+};
+
+export const staffCodeSchema = z
+  .string()
+  .regex(/^(VOL|ADM|SUP)-\d{4}-[0-9A-HJ-NP-TV-Z]{4}$/, "Not a valid staff code");
+
 export const updateUserSchema = z.object({
   name: shortTextSchema.optional(),
   phone: phoneSchema.optional(),
@@ -224,6 +257,9 @@ export const updateUserSchema = z.object({
   department: shortTextSchema.optional(),
   year: yearSchema.optional(),
   studentId: shortTextSchema.optional(),
+  designation: shortTextSchema.optional(),
+  organization: shortTextSchema.optional(),
+  bio: z.string().trim().max(600).optional(),
 });
 
 export type UpdateUser = z.infer<typeof updateUserSchema>;

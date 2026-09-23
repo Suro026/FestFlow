@@ -157,13 +157,23 @@ service cloud.firestore {
       // visible only to the staff who manage them.
       allow get, list: if resource.data.status == 'published' || staffOk();
 
-      allow create: if isSuperAdmin() && passwordSettled()
-                    && request.resource.data.createdBy == uid();
+      // Creation moved to POST /api/admin/fests, which checks the address
+      // for collisions, records the owner and writes the audit entry. Closing
+      // the client path is what makes that trail complete rather than
+      // optional.
+      allow create: if serverOnly();
 
-      // Admins edit the fest. An organizer (a scanner, say) may only move the
+      // Admins edit the fest. A volunteer (a scanner) may only move the
       // public counters — the scan transaction bumps `stats.checkIns` — and
       // may not rename or reschedule anything.
-      allow update: if (adminOk() && managesFest(festId))
+      //
+      // Four fields are the platform owner's and travel through the server so
+      // they are audited: who owns the fest, what it asks its students for,
+      // and archiving it. An admin editing their own fest cannot touch them
+      // from here even though they can edit everything else.
+      allow update: if (adminOk() && managesFest(festId)
+                        && !changed().hasAny(['ownerId', 'registrationFields', 'archivedAt', 'createdBy', 'slug'])
+                        && request.resource.data.status != 'archived')
                     // A scan bumps the public counters, and nothing else.
                     || (isScanner(festId) && onlyChanged(['stats']));
 
@@ -282,13 +292,20 @@ service cloud.firestore {
     // ----------------------------------------------------------- certificates
 
     match /certificates/{certificateId} {
-      // A student sees only their own, and only if it has not been revoked.
-      // Someone who was not eligible has no document here at all, so there is
-      // nothing to see rather than something hidden by the UI.
-      allow get: if (isOwner(resource.data.userId) && resource.data.revoked == false)
+      // A student sees only their own, and only once it has been released
+      // and not revoked. A certificate an admin has prepared but the platform
+      // owner has not published does not exist yet as far as its recipient is
+      // concerned — `published` is absent on everything issued before the
+      // release desk, which reads as released, because those were already
+      // emailed.
+      allow get: if (isOwner(resource.data.userId)
+                     && resource.data.revoked == false
+                     && resource.data.get('published', true) == true)
                  || managesFest(resource.data.festId);
       allow list: if staffOk()
-                  || (isOwner(resource.data.userId) && resource.data.revoked == false);
+                  || (isOwner(resource.data.userId)
+                      && resource.data.revoked == false
+                      && resource.data.get('published', true) == true);
 
       // Issued, revoked and delivery-stamped by the server only. A client that
       // could write here could award itself a first prize.

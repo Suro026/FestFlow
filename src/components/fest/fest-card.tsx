@@ -28,7 +28,7 @@ export const FestCard = ({ fest, stats, variant = "compact" }: FestCardProps) =>
   return (
     <article className="card elev-sm overflow-hidden p-0">
       <Link href={href} className="block no-underline text-inherit">
-        <Artwork src={fest.bannerUrl} label="fest banner" className="h-[118px]" alt="" />
+        <Artwork src={fest.thumbnailUrl ?? fest.bannerUrl} label="fest banner" className="h-[118px]" alt="" />
       </Link>
       <div className="flex flex-col gap-2 px-[15px] pb-[15px] pt-3.5">
         <Tag tone={phase.live ? "accent" : "neutral"} className="self-start">

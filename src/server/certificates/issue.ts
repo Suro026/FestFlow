@@ -32,13 +32,40 @@ export interface IssueOptions {
   actorId: string;
   dryRun: boolean;
   appUrl: string;
+  /**
+   * `prepare` writes the certificates and stops. `publish` releases them:
+   * the student sees them, the email goes out, the download works. An admin
+   * may only prepare; releasing is the platform owner's.
+   */
+  mode?: "prepare" | "publish";
+  /** Restrict the run to these recipients. Empty or absent means everyone eligible. */
+  only?: ReadonlySet<string>;
+  /** Artwork to print on, uploaded by the super admin. */
+  templateUrl?: string;
 }
+
+/** Fetches the template once for the whole run; a failure is not fatal. */
+const loadTemplate = async (url: string | undefined): Promise<Uint8Array | undefined> => {
+  if (!url) return undefined;
+  try {
+    const response = await fetch(url);
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    return new Uint8Array(await response.arrayBuffer());
+  } catch (error) {
+    console.warn("[certificates] template unavailable, using the built-in design:", (error as Error).message);
+    return undefined;
+  }
+};
 
 const publicPdfUrl = (appUrl: string, certificateNumber: string) => `${appUrl}/api/verify/${certificateNumber}/pdf`;
 
-export const issueCertificatesForEvent = async (options: IssueOptions): Promise<GenerateSummary & { eventTitle: string }> => {
+export const issueCertificatesForEvent = async (
+  options: IssueOptions,
+): Promise<GenerateSummary & { eventTitle: string; drafts: CertificateDraft[] }> => {
   const db = adminDb();
   const { eventId, actorId, dryRun, appUrl } = options;
+  const publish = options.mode !== "prepare";
+  const only = options.only;
 
   const eventSnap = await db.collection(COLLECTIONS.events).doc(eventId).get();
   if (!eventSnap.exists) throw new Error("Event not found");
@@ -85,11 +112,15 @@ export const issueCertificatesForEvent = async (options: IssueOptions): Promise<
     userIdByEmail,
   });
 
-  const base: GenerateSummary & { eventTitle: string } = {
+  const base: GenerateSummary & { eventTitle: string; drafts: CertificateDraft[] } = {
     dryRun,
+    // The release desk needs the list, not just the count: it is what the
+    // super admin ticks names off.
+    drafts: outcome.drafts,
     eventTitle: String(event.title),
     eligible: outcome.drafts.length,
     created: 0,
+    published: 0,
     existing: 0,
     emailed: 0,
     skipped: 0,
@@ -101,6 +132,7 @@ export const issueCertificatesForEvent = async (options: IssueOptions): Promise<
   if (dryRun) return base;
 
   const mailer = emailService();
+  const template = await loadTemplate(options.templateUrl);
   const year = new Date().getFullYear();
   let bucket: ReturnType<ReturnType<typeof adminStorage>["bucket"]> | null = null;
   try {
@@ -116,6 +148,9 @@ export const issueCertificatesForEvent = async (options: IssueOptions): Promise<
   };
 
   for (const draft of outcome.drafts) {
+    // A release can be limited to the recipients the super admin ticked.
+    if (only && only.size > 0 && !only.has(draft.userId)) continue;
+
     const id = certificateIdFor(draft.eventId, draft.userId);
     const ref = db.collection(COLLECTIONS.certificates).doc(id);
     const existing = await ref.get();
@@ -125,7 +160,12 @@ export const issueCertificatesForEvent = async (options: IssueOptions): Promise<
     const issuedAt: Date = existing.exists && existing.data()!.issuedAt?.toDate ? existing.data()!.issuedAt.toDate() : new Date();
     const typeChanged = existing.exists && existing.data()!.type !== draft.type;
 
-    if (existing.exists && !typeChanged && existing.data()!.revoked !== true) {
+    const alreadyReleased = existing.exists && existing.data()!.published !== false;
+
+    // Nothing left to do: the certificate exists, says the right thing, and
+    // has already reached its recipient. A prepare run stops here too — the
+    // document is there and re-rendering it would only churn Storage.
+    if (existing.exists && !typeChanged && existing.data()!.revoked !== true && (alreadyReleased || !publish)) {
       base.existing += 1;
       continue;
     }
@@ -147,6 +187,7 @@ export const issueCertificatesForEvent = async (options: IssueOptions): Promise<
         certificateNumber,
         verifyUrl,
         note,
+        ...(template ? { template } : {}),
       });
     } catch (error) {
       console.error("[certificates] render failed", id, error);
@@ -187,6 +228,9 @@ export const issueCertificatesForEvent = async (options: IssueOptions): Promise<
         issuedAt: existing.exists ? existing.data()!.issuedAt : FieldValue.serverTimestamp(),
         issuedBy: actorId,
         fileUrl,
+        published: publish,
+        ...(publish ? { publishedAt: FieldValue.serverTimestamp(), publishedBy: actorId } : {}),
+        ...(options.templateUrl ? { templateUrl: options.templateUrl } : {}),
         delivery: { status: "pending", attempts: 0 },
         revoked: false,
         createdAt: existing.exists ? existing.data()!.createdAt : FieldValue.serverTimestamp(),
@@ -194,7 +238,14 @@ export const issueCertificatesForEvent = async (options: IssueOptions): Promise<
       }),
       { merge: true },
     );
-    base.created += 1;
+    if (existing.exists) base.existing += 1;
+    else base.created += 1;
+
+    // A prepared certificate is not announced: no email, no notification, and
+    // the student's page filters it out. The release below is what tells
+    // anyone it exists.
+    if (!publish) continue;
+    base.published += 1;
 
     // Email — with the PDF attached when we have it.
     const message = certificateIssuedEmail({

@@ -26,7 +26,15 @@ import { adminStorage } from "./firebase-admin";
 
 /* ───────────── what may be uploaded ───────────── */
 
-export type UploadKind = "festBanner" | "festLogo" | "eventPoster" | "profilePhoto";
+export type UploadKind =
+  | "festBanner"
+  | "festLogo"
+  | "festHero"
+  | "festThumbnail"
+  | "festSocial"
+  | "eventPoster"
+  | "certificateTemplate"
+  | "profilePhoto";
 
 export interface UploadPolicy {
   /** Owner segment: a fest id, or a user id. */
@@ -37,13 +45,21 @@ export interface UploadPolicy {
   /** Longest side after processing. */
   maxDimension: number;
   /** Which capability the route must check before calling in. */
-  permission: "upload:festArtwork" | "upload:eventPoster" | "self";
+  permission: "upload:festArtwork" | "upload:eventPoster" | "certificate:publish" | "self";
 }
 
 export const UPLOAD_POLICY: Record<UploadKind, UploadPolicy> = {
   festBanner: { owner: "fest", folder: "banners", maxBytes: 5 * 1024 * 1024, maxDimension: 2400, permission: "upload:festArtwork" },
   festLogo: { owner: "fest", folder: "logos", maxBytes: 2 * 1024 * 1024, maxDimension: 1024, permission: "upload:festArtwork" },
+  festHero: { owner: "fest", folder: "hero", maxBytes: 6 * 1024 * 1024, maxDimension: 2400, permission: "upload:festArtwork" },
+  festThumbnail: { owner: "fest", folder: "thumbnails", maxBytes: 3 * 1024 * 1024, maxDimension: 1200, permission: "upload:festArtwork" },
+  festSocial: { owner: "fest", folder: "social", maxBytes: 3 * 1024 * 1024, maxDimension: 1200, permission: "upload:festArtwork" },
   eventPoster: { owner: "fest", folder: "posters", maxBytes: 5 * 1024 * 1024, maxDimension: 2400, permission: "upload:eventPoster" },
+  /**
+   * The artwork a certificate is printed on. Releasing certificates is a
+   * super admin action, and so is replacing the paper they are printed on.
+   */
+  certificateTemplate: { owner: "fest", folder: "certificate-templates", maxBytes: 8 * 1024 * 1024, maxDimension: 3508, permission: "certificate:publish" },
   profilePhoto: { owner: "user", folder: "photo", maxBytes: 3 * 1024 * 1024, maxDimension: 1024, permission: "self" },
 };
 

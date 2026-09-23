@@ -3,9 +3,9 @@
 import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { useAuth, useRepositories } from "@/components/providers";
+import { useAuth } from "@/components/providers";
+import { useCreateFest } from "@/components/admin/platform-api";
 import { Brand } from "@/components/shell/brand";
 import { UserMenu } from "@/components/shell/user-menu";
 import { FestFields, emptyFest, festFormSchema, toCreateFest, useFestForm } from "@/components/admin/fest-form";
@@ -17,14 +17,15 @@ import { hasAtLeast } from "@/core/models/user";
 /** Create a fest. Admins and above; it starts as a draft. */
 export default function NewFestPage() {
   const { session } = useAuth();
-  const repos = useRepositories();
   const router = useRouter();
-  const client = useQueryClient();
+  const create = useCreateFest();
   const form = useFestForm(emptyFest());
   const [busy, setBusy] = React.useState(false);
 
   React.useEffect(() => {
-    if (session && !hasAtLeast(session.role, "admin")) router.replace("/admin");
+    // Creating the container is the platform owner's; an admin runs the
+    // fests they are given.
+    if (session && !hasAtLeast(session.role, "super_admin")) router.replace("/admin");
   }, [session, router]);
 
   const submit = async () => {
@@ -32,8 +33,9 @@ export default function NewFestPage() {
     if (!valid) return toast.error("Some fields need fixing");
     setBusy(true);
     try {
-      const fest = await repos.fests.create(toCreateFest(festFormSchema.parse(form.getValues())), session!.uid);
-      client.invalidateQueries({ queryKey: ["managed-fests"] });
+      // Through the server, not the repository: this is a mutation that has
+      // to land in the audit trail, and a trail the client writes is not one.
+      const { fest } = await create.mutateAsync(toCreateFest(festFormSchema.parse(form.getValues())));
       toast.success("Fest created as a draft");
       router.push(`/admin/${fest.slug}/overview`);
     } catch (error) {

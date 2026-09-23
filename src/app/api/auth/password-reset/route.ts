@@ -28,7 +28,7 @@ export const POST = handler(async (request) => {
     await mailer.send(
       passwordResetEmail({
         to: email,
-        recipientName: String(profile.data()?.fullName ?? user.displayName ?? "").trim() || undefined,
+        recipientName: String(profile.data()?.name ?? profile.data()?.fullName ?? user.displayName ?? "").trim() || undefined,
         resetLink: link,
         meta: { userId: user.uid, subjectType: "user", subjectId: user.uid },
       }),

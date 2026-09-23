@@ -22,7 +22,7 @@ export const POST = handler(async (request) => {
   const result = await mailer.send(
     emailVerificationEmail({
       to: caller.email,
-      recipientName: String(profile.data()?.fullName ?? "").trim() || undefined,
+      recipientName: String(profile.data()?.name ?? profile.data()?.fullName ?? "").trim() || undefined,
       verifyLink: link,
       meta: { userId: caller.uid, subjectType: "user", subjectId: caller.uid },
     }),

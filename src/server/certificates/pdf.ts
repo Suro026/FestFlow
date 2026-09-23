@@ -24,6 +24,18 @@ export interface CertificateRenderInput {
   verifyUrl: string;
   /** Optional line under the title — "Winner · ₹30,000" */
   note?: string;
+  /**
+   * Artwork to print on, as PNG or JPEG bytes.
+   *
+   * A college that has had a certificate designed wants that design, not
+   * ours. When one is supplied it becomes the page — drawn edge to edge,
+   * with our frame suppressed — and the text is laid over it unchanged, so
+   * the name, the number and the verification link are still in the same
+   * places and still say the same things. A template that fails to embed is
+   * ignored rather than fatal: a certificate without its artwork beats no
+   * certificate.
+   */
+  template?: Uint8Array;
 }
 
 const A4_LANDSCAPE: [number, number] = [841.89, 595.28];
@@ -54,9 +66,33 @@ export const renderCertificatePdf = async (input: CertificateRenderInput): Promi
   const margin = 64;
   const centre = (text: string, font: typeof regular, size: number) => (width - font.widthOfTextAtSize(text, size)) / 2;
 
+  let onTemplate = false;
+  if (input.template && input.template.length > 0) {
+    try {
+      const bytes = input.template;
+      const isPng = bytes[0] === 0x89 && bytes[1] === 0x50;
+      const image = isPng ? await doc.embedPng(bytes) : await doc.embedJpg(bytes);
+      // Cover the page, centred: a template drawn to a different aspect ratio
+      // would letterbox, and a certificate with white bars is not printable.
+      const scale = Math.max(width / image.width, height / image.height);
+      page.drawImage(image, {
+        x: (width - image.width * scale) / 2,
+        y: (height - image.height * scale) / 2,
+        width: image.width * scale,
+        height: image.height * scale,
+      });
+      onTemplate = true;
+    } catch (error) {
+      console.warn("[certificates] template could not be embedded:", (error as Error).message);
+    }
+  }
+
   // Frame: a hairline border and one accent rule — the system's "accent as a line".
-  page.drawRectangle({ x: 28, y: 28, width: width - 56, height: height - 56, borderColor: RULE, borderWidth: 1 });
-  page.drawRectangle({ x: margin, y: height - 92, width: 56, height: 3, color: ACCENT });
+  // Suppressed on a template, which brings its own.
+  if (!onTemplate) {
+    page.drawRectangle({ x: 28, y: 28, width: width - 56, height: height - 56, borderColor: RULE, borderWidth: 1 });
+    page.drawRectangle({ x: margin, y: height - 92, width: 56, height: 3, color: ACCENT });
+  }
 
   // Issuer kicker.
   const kicker = `${input.festName.toUpperCase()}  ·  ${input.organizationName.toUpperCase()}`;

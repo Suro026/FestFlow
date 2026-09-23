@@ -21,7 +21,8 @@
     "test:all": "npm test && npm run test:emulator",
     "scan:secrets": "node scripts/scan-secrets.mjs",
     "scan:secrets:history": "node scripts/scan-secrets.mjs --history",
-    "migrate:rbac": "node --env-file=.env.local scripts/migrate-rbac.mjs"
+    "migrate:rbac": "node --env-file=.env.local scripts/migrate-rbac.mjs",
+    "migrate:fests": "node --env-file=.env.local scripts/migrate-fest-containers.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.9.1",

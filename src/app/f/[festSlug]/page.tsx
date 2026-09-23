@@ -21,7 +21,7 @@ export async function generateMetadata({ params }: { params: Promise<Params> }):
     title: fest.name,
     description,
     alternates: { canonical: absoluteUrl(`/f/${fest.slug}`) },
-    openGraph: { type: "website", url: absoluteUrl(`/f/${fest.slug}`), title: fest.name, description, images: fest.bannerUrl ? [{ url: fest.bannerUrl, alt: `${fest.name} banner` }] : undefined },
+    openGraph: { type: "website", url: absoluteUrl(`/f/${fest.slug}`), title: fest.name, description, images: fest.socialImageUrl ?? fest.bannerUrl ? [{ url: (fest.socialImageUrl ?? fest.bannerUrl)!, alt: `${fest.name} banner` }] : undefined },
     twitter: { card: "summary_large_image", title: fest.name, description },
   };
 }
@@ -63,7 +63,7 @@ export default async function FestPage({ params }: { params: Promise<Params> }) 
           </div>
         </div>
         <div className="relative mx-5 h-[392px] overflow-hidden rounded-lg">
-          <Artwork src={fest.bannerUrl} label="fest cover — 1080×1350" className="absolute inset-0 items-start" alt="" />
+          <Artwork src={fest.heroUrl ?? fest.bannerUrl} label="fest cover — 1080×1350" className="absolute inset-0 items-start" alt="" />
           <div
             className="absolute inset-0"
             style={{
@@ -110,7 +110,7 @@ export default async function FestPage({ params }: { params: Promise<Params> }) 
             </p>
             <PassCta festSlug={fest.slug} eventCount={events.length} />
           </div>
-          <Artwork src={fest.bannerUrl} label="fest cover photograph — dark background, .lighten" className="h-[340px] rounded-lg" alt="" />
+          <Artwork src={fest.heroUrl ?? fest.bannerUrl} label="fest cover photograph — dark background, .lighten" className="h-[340px] rounded-lg" alt="" />
         </div>
       </Page>
 
