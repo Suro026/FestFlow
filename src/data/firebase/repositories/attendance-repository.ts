@@ -17,9 +17,11 @@ import {
   attendanceSchema,
   foodCollectionIdFor,
   foodCollectionSchema,
+  memberKeyFor,
   type Attendance,
   type FoodCollection,
   type MealType,
+  type ScanMember,
   type ScanOutcome,
 } from "@/core/models/attendance";
 import { registrationSchema, type Registration } from "@/core/models/registration";
@@ -27,7 +29,7 @@ import { eventSchema } from "@/core/models/event";
 import type { AttendanceRepository } from "@/core/repositories/attendance-repository";
 import { api } from "@/data/api-client";
 import { COLLECTIONS, firebaseAuth, firestore } from "../client";
-import { guard, stripUndefined, toRepositoryError } from "../mapping";
+import { guard, stripUndefined, timestampsToDates, toRepositoryError } from "../mapping";
 import { col, parseDoc, parseDocs, sortBy, subscribeList } from "../query-helpers";
 
 const attendance = () => col(COLLECTIONS.attendance);
@@ -73,7 +75,7 @@ export class FirestoreAttendanceRepository implements AttendanceRepository {
    * Manual (non-QR) entry is an admin action and goes through the server so
    * it lands in the audit log; volunteers cannot mark it from here.
    */
-  recordScan(input: { ticketCode: string; eventId: string; scannedBy: string; method?: "qr" | "manual"; gate?: string; scannedAt?: Date }): Promise<ScanOutcome> {
+  recordScan(input: { ticketCode: string; eventId: string; scannedBy: string; method?: "qr" | "manual"; gate?: string; scannedAt?: Date; memberKeys?: string[] }): Promise<ScanOutcome> {
     return guard("Recording check-in", async () => {
       if (input.method === "manual") {
         return api<ScanOutcome>("/api/admin/attendance/manual", {
@@ -88,52 +90,119 @@ export class FirestoreAttendanceRepository implements AttendanceRepository {
       const { registration } = resolved;
       const ref = doc(attendance(), attendanceIdFor(registration.id));
 
+      // Who this scan is for. No list means the whole entry — a solo ticket,
+      // or a team that walked in together.
+      const roster = registration.members.length
+        ? registration.members
+        : [{ name: registration.userName, email: registration.userEmail }];
+      const wanted = new Set(input.memberKeys ?? roster.map((m) => memberKeyFor(m.email)));
+      const at = input.scannedAt ?? new Date();
+
+      const describe = () => ({
+        id: registration.id,
+        userName: registration.userName,
+        ticketCode: registration.ticketCode,
+        ...(registration.teamName ? { teamName: registration.teamName } : {}),
+        memberCount: roster.length,
+      });
+
+      const view = (present: Map<string, Date>): ScanMember[] =>
+        roster.map((member) => {
+          const key = memberKeyFor(member.email);
+          const markedAt = present.get(key);
+          return { key, name: member.name, email: member.email, done: markedAt !== undefined, ...(markedAt ? { at: markedAt } : {}) };
+        });
+
       try {
         return await runTransaction(firestore(), async (tx) => {
           const existing = await tx.get(ref);
+          // Read the raw fields rather than the full validated model: this is
+          // the one place a document written under an older, less strict
+          // shape must still be recognised as existing. A schema mismatch
+          // silently returning "not found" here would make a second scan
+          // create a brand new record and double-count the gate.
+          const raw = existing.exists() ? (timestampsToDates(existing.data()) as Record<string, unknown>) : null;
+          const record: { members: { key: string; at: Date }[]; scannedAt?: Date; scannedByName?: string } | null = raw
+            ? {
+                members: Array.isArray(raw.members) ? (raw.members as { key: string; at: Date }[]) : [],
+                ...(raw.scannedAt instanceof Date ? { scannedAt: raw.scannedAt } : {}),
+                ...(typeof raw.scannedByName === "string" ? { scannedByName: raw.scannedByName } : {}),
+              }
+            : null;
 
-          if (existing.exists()) {
-            const record = parseDoc(attendanceSchema, existing, COLLECTIONS.attendance);
+          // A record with no member list predates per-member marking and
+          // stands for the whole entry.
+          const legacyWhole = record !== null && record.members.length === 0;
+          const present = new Map<string, Date>(
+            legacyWhole
+              ? roster.map((m) => [memberKeyFor(m.email), record!.scannedAt ?? at] as const)
+              : (record?.members ?? []).map((m) => [m.key, m.at] as const),
+          );
+
+          const adding = roster.filter((m) => wanted.has(memberKeyFor(m.email)) && !present.has(memberKeyFor(m.email)));
+
+          if (adding.length === 0) {
             return {
               result: "already-recorded",
               at: record?.scannedAt ?? new Date(),
               ...(record?.scannedByName ? { by: record.scannedByName } : {}),
+              registration: describe(),
+              members: view(present),
             } satisfies ScanOutcome;
           }
 
-          tx.set(
-            ref,
-            stripUndefined({
-              id: ref.id,
-              registrationId: registration.id,
-              eventId: registration.eventId,
-              festId: registration.festId,
-              userId: registration.userId,
-              userName: registration.userName,
-              userEmail: registration.userEmail,
-              ticketCode: registration.ticketCode,
-              teamName: registration.teamName,
-              method: "qr",
-              gate: input.gate,
-              scannedAt: serverTimestamp(),
-              scannedBy: input.scannedBy,
-              scannedByName: firebaseAuth().currentUser?.displayName ?? undefined,
-              createdAt: serverTimestamp(),
-              updatedAt: serverTimestamp(),
-            }),
-          );
+          const marked = adding.map((m) => ({
+            key: memberKeyFor(m.email),
+            name: m.name,
+            email: m.email.toLowerCase(),
+            at,
+            by: input.scannedBy,
+          }));
 
-          tx.update(doc(col(COLLECTIONS.fests), registration.festId), { "stats.checkIns": increment(1) });
+          if (record) {
+            // Second wave on the same ticket: extend, never replace. The
+            // rules refuse a write that shortens this array.
+            tx.update(ref, {
+              members: [...record.members, ...marked],
+              updatedAt: serverTimestamp(),
+            });
+          } else {
+            tx.set(
+              ref,
+              stripUndefined({
+                id: ref.id,
+                registrationId: registration.id,
+                eventId: registration.eventId,
+                festId: registration.festId,
+                userId: registration.userId,
+                userName: registration.userName,
+                userEmail: registration.userEmail,
+                ticketCode: registration.ticketCode,
+                teamName: registration.teamName,
+                members: marked,
+                memberCount: roster.length,
+                method: input.method === "manual" ? "manual" : "qr",
+                gate: input.gate,
+                scannedAt: serverTimestamp(),
+                scannedBy: input.scannedBy,
+                scannedByName: firebaseAuth().currentUser?.displayName ?? undefined,
+                createdAt: serverTimestamp(),
+                updatedAt: serverTimestamp(),
+              }),
+            );
+
+            // The fest counter counts entries through the gate, not heads —
+            // it has always meant "tickets scanned", so it moves once.
+            tx.update(doc(col(COLLECTIONS.fests), registration.festId), { "stats.checkIns": increment(1) });
+          }
+
+          for (const m of marked) present.set(m.key, at);
 
           return {
             result: "ok",
-            registration: {
-              id: registration.id,
-              userName: registration.userName,
-              ticketCode: registration.ticketCode,
-              ...(registration.teamName ? { teamName: registration.teamName } : {}),
-              memberCount: registration.members.length,
-            },
+            registration: describe(),
+            marked: marked.map((m) => m.key),
+            members: view(present),
           } satisfies ScanOutcome;
         });
       } catch (error) {
@@ -210,71 +279,119 @@ export class FirestoreAttendanceRepository implements AttendanceRepository {
    * first gap; two counters serving the same team at once cannot both take
    * serving 3.
    */
-  recordMeal(input: { ticketCode: string; eventId: string; mealType: MealType; servedOn: string; collectedBy: string; post?: string; scannedAt?: Date }): Promise<ScanOutcome> {
+  recordMeal(input: { ticketCode: string; eventId: string; mealType: MealType; servedOn: string; collectedBy: string; post?: string; scannedAt?: Date; memberKeys?: string[] }): Promise<ScanOutcome> {
     return guard("Recording meal", async () => {
       const resolved = await resolveTicket(input.ticketCode, input.eventId);
       if (!resolved.ok) return resolved.outcome;
 
       const { registration } = resolved;
-      const of = Math.max(1, registration.members.length);
+      const roster = registration.members.length
+        ? registration.members
+        : [{ name: registration.userName, email: registration.userEmail }];
+      const of = roster.length;
+      const wanted = new Set(input.memberKeys ?? roster.map((m) => memberKeyFor(m.email)));
+
+      const describe = () => ({
+        id: registration.id,
+        userName: registration.userName,
+        ticketCode: registration.ticketCode,
+        ...(registration.teamName ? { teamName: registration.teamName } : {}),
+        memberCount: of,
+      });
 
       try {
         return await runTransaction(firestore(), async (tx) => {
-          let next = 0;
-          let last: { collectedAt?: Date; collectedByName?: string } | null = null;
-          for (let n = 1; n <= of; n += 1) {
-            const snap = await tx.get(doc(meals(), foodCollectionIdFor(registration.id, input.servedOn, input.mealType, n)));
-            if (!snap.exists()) {
-              next = n;
-              break;
+          // One document per member per round: a second helping is a write
+          // to an id that already exists, which is a conflict rather than a
+          // count that two counters could race past.
+          const taken = new Map<string, { at: Date; by?: string | undefined }>();
+          let serving = 0;
+
+          for (const member of roster) {
+            const key = memberKeyFor(member.email);
+            const snap = await tx.get(doc(meals(), foodCollectionIdFor(registration.id, input.servedOn, input.mealType, key)));
+            if (snap.exists()) {
+              // Raw fields, not the validated model — see the matching note
+              // in recordScan. A schema mismatch here must not read back as
+              // "nobody has collected this yet".
+              const raw = timestampsToDates(snap.data()) as Record<string, unknown>;
+              taken.set(key, {
+                at: raw.collectedAt instanceof Date ? raw.collectedAt : new Date(),
+                by: typeof raw.collectedByName === "string" ? raw.collectedByName : undefined,
+              });
             }
-            const rec = parseDoc(foodCollectionSchema, snap, COLLECTIONS.foodCollections);
-            last = { collectedAt: rec?.collectedAt, collectedByName: rec?.collectedByName };
           }
 
-          if (next === 0) {
+          // Records written before per-member meals counted servings instead
+          // of naming them. Read those too, so a round already served under
+          // the old scheme is not served a second time.
+          for (let n = 1; n <= of; n += 1) {
+            const snap = await tx.get(doc(meals(), foodCollectionIdFor(registration.id, input.servedOn, input.mealType, n)));
+            if (!snap.exists()) break;
+            serving = n;
+          }
+
+          const legacyCovered = roster.slice(0, serving).map((m) => memberKeyFor(m.email));
+          for (const key of legacyCovered) if (!taken.has(key)) taken.set(key, { at: new Date() });
+
+          const serve = roster.filter((m) => wanted.has(memberKeyFor(m.email)) && !taken.has(memberKeyFor(m.email)));
+
+          const view = (): ScanMember[] =>
+            roster.map((member) => {
+              const key = memberKeyFor(member.email);
+              const already = taken.get(key);
+              return { key, name: member.name, email: member.email, done: already !== undefined, ...(already ? { at: already.at } : {}) };
+            });
+
+          if (serve.length === 0) {
+            const last = [...taken.values()].at(-1);
             return {
               result: "already-recorded",
-              at: last?.collectedAt ?? new Date(),
-              ...(last?.collectedByName ? { by: last.collectedByName } : {}),
+              at: last?.at ?? new Date(),
+              ...(last?.by ? { by: last.by } : {}),
+              registration: describe(),
+              members: view(),
             } satisfies ScanOutcome;
           }
 
-          const ref = doc(meals(), foodCollectionIdFor(registration.id, input.servedOn, input.mealType, next));
-          tx.set(
-            ref,
-            stripUndefined({
-              id: ref.id,
-              registrationId: registration.id,
-              eventId: registration.eventId,
-              festId: registration.festId,
-              userId: registration.userId,
-              userName: registration.userName,
-              ticketCode: registration.ticketCode,
-              teamName: registration.teamName,
-              mealType: input.mealType,
-              servedOn: input.servedOn,
-              serving: next,
-              post: input.post,
-              collectedAt: input.scannedAt ?? serverTimestamp(),
-              collectedBy: input.collectedBy,
-              collectedByName: firebaseAuth().currentUser?.displayName ?? undefined,
-              queuedOffline: Boolean(input.scannedAt),
-              createdAt: serverTimestamp(),
-              updatedAt: serverTimestamp(),
-            }),
-          );
+          for (const member of serve) {
+            const key = memberKeyFor(member.email);
+            serving += 1;
+            const ref = doc(meals(), foodCollectionIdFor(registration.id, input.servedOn, input.mealType, key));
+            tx.set(
+              ref,
+              stripUndefined({
+                id: ref.id,
+                registrationId: registration.id,
+                eventId: registration.eventId,
+                festId: registration.festId,
+                userId: registration.userId,
+                userName: registration.userName,
+                ticketCode: registration.ticketCode,
+                teamName: registration.teamName,
+                mealType: input.mealType,
+                servedOn: input.servedOn,
+                serving,
+                memberKey: key,
+                memberName: member.name,
+                post: input.post,
+                collectedAt: input.scannedAt ?? serverTimestamp(),
+                collectedBy: input.collectedBy,
+                collectedByName: firebaseAuth().currentUser?.displayName ?? undefined,
+                queuedOffline: Boolean(input.scannedAt),
+                createdAt: serverTimestamp(),
+                updatedAt: serverTimestamp(),
+              }),
+            );
+            taken.set(key, { at: input.scannedAt ?? new Date() });
+          }
 
           return {
             result: "ok",
-            registration: {
-              id: registration.id,
-              userName: registration.userName,
-              ticketCode: registration.ticketCode,
-              ...(registration.teamName ? { teamName: registration.teamName } : {}),
-              memberCount: of,
-            },
-            serving: { n: next, of },
+            registration: describe(),
+            serving: { n: serving, of },
+            marked: serve.map((m) => memberKeyFor(m.email)),
+            members: view(),
           } satisfies ScanOutcome;
         });
       } catch (error) {

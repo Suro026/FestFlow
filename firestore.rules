@@ -244,16 +244,25 @@ service cloud.firestore {
                  || onRegistration(registrationId);
       allow list: if staffOk() || isOwner(resource.data.userId);
 
-      // Scanning happens on the organizer's device, so this one write stays
-      // client-side. The document id is the registration id, which makes a
-      // second scan an *update* rather than a create — and updates are denied
-      // below. That is what turns a double scan into an honest "already
-      // checked in" instead of a silently overwritten timestamp.
+      // Scanning happens on the volunteer's device, so this one write stays
+      // client-side. The document id is the registration id, so there is one
+      // record per entry however many times its QR is scanned.
       allow create: if isScanner(request.resource.data.festId)
                     && request.resource.data.scannedBy == uid()
                     && request.resource.data.registrationId == registrationId;
 
-      allow update: if false;
+      // A team shares one QR and arrives in waves, so the second scan has to
+      // add the people who have now turned up. That is the only thing it may
+      // do: the members array may grow and never shrink, and nothing else
+      // about the record — who it belongs to, when it was first scanned, who
+      // scanned it — may change. A scanner that could shorten the list could
+      // un-attend someone, and a scanner that could rewrite `festId` could
+      // move a check-in to a fest it does not work at.
+      allow update: if isScanner(resource.data.festId)
+                    && onlyChanged(['members', 'updatedAt'])
+                    && request.resource.data.members is list
+                    && request.resource.data.members.size() > resource.data.get('members', []).size()
+                    && request.resource.data.members.size() <= 50;
 
       // Undoing a mistaken check-in is an admin action, not an organizer one.
       allow delete: if adminOk() && managesFest(resource.data.festId);
@@ -268,14 +277,35 @@ service cloud.firestore {
                  || (resource != null && isOwner(resource.data.userId));
       allow list: if staffOk() || isOwner(resource.data.userId);
 
-      // Same trick as attendance: the id encodes entry + day + meal slot, so
-      // collecting the same meal twice is an update, and updates are denied.
+      // The id encodes entry + day + meal round + *member*, so one person
+      // collecting the same round twice is a write to a document that already
+      // exists. Updates are denied, which turns that into a refusal rather
+      // than a second helping.
       allow create: if isScanner(request.resource.data.festId)
                     && request.resource.data.collectedBy == uid();
 
       allow update: if false;
       allow delete: if adminOk() && managesFest(resource.data.festId);
     }
+
+    // What a volunteer may NOT do is as important as what they may, and it is
+    // worth naming in one place because the UI is not the boundary:
+    //
+    //   registrations   read within their fest, never write — the roster is
+    //                   the students' and the admins', and `allow update` on
+    //                   /registrations is owner-only for a cancellation
+    //   certificates    admin+ only on the staff side; a volunteer reads
+    //                   nothing here, not even for their own fest
+    //   auditLog,
+    //   emailLog        adminOk() only — a volunteer reading the trail could
+    //                   read every email address the fest has ever mailed
+    //   users           a volunteer can read profiles for the gate, but
+    //                   `allow update` is the owner's alone, so no edits
+    //   fests           stats only, and only while scanning
+    //
+    // Export is not a permission because there is no export: a volunteer's
+    // screens read the roster for the event they are rostered on and nothing
+    // paginates past it.
 
     // ---------------------------------------------------------------- results
 
@@ -298,11 +328,14 @@ service cloud.firestore {
       // concerned — `published` is absent on everything issued before the
       // release desk, which reads as released, because those were already
       // emailed.
+      // Staff reads are admin+, not any staff: a volunteer works a gate and
+      // has no business reading who won what, still less listing every
+      // certificate a fest has issued.
       allow get: if (isOwner(resource.data.userId)
                      && resource.data.revoked == false
                      && resource.data.get('published', true) == true)
-                 || managesFest(resource.data.festId);
-      allow list: if staffOk()
+                 || (adminOk() && managesFest(resource.data.festId));
+      allow list: if adminOk()
                   || (isOwner(resource.data.userId)
                       && resource.data.revoked == false
                       && resource.data.get('published', true) == true);

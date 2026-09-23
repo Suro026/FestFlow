@@ -4,11 +4,25 @@ import * as React from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import { Check, Flashlight, WarningCircle } from "@phosphor-icons/react";
+import { Check, Flashlight, MagnifyingGlass, WarningCircle } from "@phosphor-icons/react";
 import { useAuth, useRepositories } from "@/components/providers";
 import { RequireRole } from "@/components/shell/require-role";
 import { Camera, type CameraHandle } from "@/components/scanner/camera";
-import { decideEntry, decideMeal, parseTicketCode, useScannerSync } from "@/lib/offline/scanner";
+import {
+  UNDO_WINDOW_MS,
+  canUndo,
+  decideEntry,
+  decideMeal,
+  manualSearch,
+  parseTicketCode,
+  peekEntry,
+  peekMeal,
+  undoRemainingMs,
+  undoScan,
+  useScannerSync,
+  type PeekResult,
+} from "@/lib/offline/scanner";
+import { listToday, type HistoryEntry, type RosterEntry } from "@/lib/offline/db";
 import { Seg, Input } from "@/components/ui/field";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogActions, DialogContent } from "@/components/ui/overlays";
@@ -33,8 +47,14 @@ export default function ScanPage() {
  *
  * Dark chrome (neutral-900) so the camera reads as the page; the accent inset
  * frame for an accepted scan, the neutral one for a duplicate. Every decision
- * is made locally against the cached roster; the sync banner says exactly
- * how many writes are waiting.
+ * is made locally against the cached roster; the sync banner says exactly how
+ * many writes are waiting.
+ *
+ * A team shares one QR. Scanning it never marks the whole team by surprise:
+ * for anyone with more than one member on the ticket, the scan is a *look*
+ * first — who has arrived, who has not — and the volunteer ticks who is
+ * actually here before anything is written. A solo ticket has nothing to
+ * choose, so it stays one tap.
  */
 const Scanner = () => {
   const { session, profile } = useAuth();
@@ -46,6 +66,7 @@ const Scanner = () => {
   const eventId = params.get("eventId") ?? "";
   const mode = (params.get("mode") === "meal" ? "meal" : "entry") as Mode;
   const gate = params.get("gate") ?? undefined;
+  const openSearch = params.get("search") === "1";
 
   const fest = useQuery({ queryKey: ["fest-slug", festSlug], enabled: Boolean(festSlug), queryFn: () => repos.fests.getBySlug(festSlug) });
   const events = useQuery({
@@ -61,10 +82,19 @@ const Scanner = () => {
   const sync = useScannerSync(repos, session?.uid, event);
   const camera = React.useRef<CameraHandle>(null);
   const [outcome, setOutcome] = React.useState<ScanOutcome | null>(null);
+  const [lastHistoryId, setLastHistoryId] = React.useState<string | null>(null);
+  const [preview, setPreview] = React.useState<{ code: string; peek: PeekResult } | null>(null);
+  const [selected, setSelected] = React.useState<Set<string>>(new Set());
   const [manual, setManual] = React.useState(false);
   const [manualCode, setManualCode] = React.useState("");
+  const [search, setSearch] = React.useState(false);
+  const [searching, setSearching] = React.useState(false);
+  const [searchTerm, setSearchTerm] = React.useState("");
+  const [searchResults, setSearchResults] = React.useState<RosterEntry[]>([]);
+  const [history, setHistory] = React.useState(false);
   const [cameraError, setCameraError] = React.useState<string | null>(null);
   const [torch, setTorch] = React.useState(false);
+  const [, forceTick] = React.useReducer((n: number) => n + 1, 0);
   const today = new Date().toISOString().slice(0, 10);
   const [mealType, setMealType] = React.useState<MealType>(() => {
     const h = new Date().getHours();
@@ -72,6 +102,42 @@ const Scanner = () => {
   });
 
   const busy = React.useRef(false);
+
+  // Ticks once a second while an undo window is open, so the countdown moves.
+  React.useEffect(() => {
+    if (!lastHistoryId) return;
+    const id = setInterval(forceTick, 1000);
+    return () => clearInterval(id);
+  }, [lastHistoryId]);
+
+  // "Manual search" from the dashboard skips straight past the camera.
+  React.useEffect(() => {
+    if (openSearch && event) setSearch(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openSearch, event?.id]);
+
+  const commit = React.useCallback(
+    async (code: string, memberKeys?: string[]) => {
+      if (!event || !session) return;
+      const result =
+        mode === "meal"
+          ? await decideMeal({ event, code, gate, scannedBy: session.uid, online: sync.online, mealType, servedOn: today, post: gate, ...(memberKeys ? { memberKeys } : {}) })
+          : await decideEntry({ event, code, gate, scannedBy: session.uid, online: sync.online, ...(memberKeys ? { memberKeys } : {}) });
+
+      setOutcome(result);
+      setPreview(null);
+      if (result.result === "ok") {
+        const recent = await listToday(event.id);
+        setLastHistoryId(recent[0]?.id ?? null);
+      } else {
+        setLastHistoryId(null);
+      }
+      if (navigator.vibrate) navigator.vibrate(result.result === "ok" ? 40 : [30, 60, 30]);
+      if (sync.online) void sync.sync();
+      else void sync.refreshState();
+    },
+    [event, session, mode, gate, mealType, today, sync],
+  );
 
   const handle = React.useCallback(
     async (raw: string) => {
@@ -83,20 +149,56 @@ const Scanner = () => {
       }
       busy.current = true;
       try {
-        const result =
-          mode === "meal"
-            ? await decideMeal({ event, code, gate, scannedBy: session.uid, online: sync.online, mealType, servedOn: today, post: gate })
-            : await decideEntry({ event, code, gate, scannedBy: session.uid, online: sync.online });
-        setOutcome(result);
-        if (navigator.vibrate) navigator.vibrate(result.result === "ok" ? 40 : [30, 60, 30]);
-        if (sync.online) void sync.sync();
-        else void sync.refreshState();
+        const peek = mode === "meal" ? await peekMeal(event.id, code, mealType, today) : await peekEntry(event.id, code);
+
+        // Nothing to choose: a solo ticket, an error, or a team already fully
+        // marked. Commit straight away — the existing single-tap flow.
+        if (peek.result !== "ready" || peek.registration.memberCount <= 1 || peek.complete) {
+          if (peek.result === "ready") await commit(code);
+          else {
+            setOutcome(peek);
+            setPreview(null);
+          }
+          return;
+        }
+
+        // A team with someone still outstanding: show the checklist rather
+        // than guessing who is actually present.
+        setPreview({ code, peek });
+        setSelected(new Set(peek.members.filter((m) => !m.done).map((m) => m.key)));
       } finally {
         busy.current = false;
       }
     },
-    [event, session, mode, gate, mealType, today, sync],
+    [event, session, mode, mealType, today, commit],
   );
+
+  const runSearch = React.useCallback(
+    async (term: string) => {
+      setSearchTerm(term);
+      if (!event || term.trim().length < 2) {
+        setSearchResults([]);
+        return;
+      }
+      setSearching(true);
+      try {
+        setSearchResults(await manualSearch(event.id, term));
+      } finally {
+        setSearching(false);
+      }
+    },
+    [event],
+  );
+
+  const undo = async () => {
+    if (!lastHistoryId) return;
+    const result = await undoScan(lastHistoryId);
+    if (result.ok) {
+      setLastHistoryId(null);
+      setOutcome(null);
+      await sync.refreshState();
+    }
+  };
 
   const scansToday = sync.history.filter((h) => h.outcome === "ok" && new Date(h.at).toISOString().slice(0, 10) === today).length;
   const scannerName = profile?.fullName?.split(/\s+/)[0] ?? "you";
@@ -160,12 +262,81 @@ const Scanner = () => {
     );
   }
 
+  /* ── the team checklist: who is actually here ── */
+  if (preview && preview.peek.result === "ready") {
+    const { registration, members } = preview.peek;
+    const toggle = (key: string) => {
+      // A member already marked cannot be unmarked from here — that would
+      // let one scan quietly undo a record another scan already made. Undo
+      // exists for a mistake made seconds ago; this is not that.
+      if (members.find((m) => m.key === key)?.done) return;
+      setSelected((prev) => {
+        const next = new Set(prev);
+        if (next.has(key)) next.delete(key);
+        else next.add(key);
+        return next;
+      });
+    };
+
+    return (
+      <Shell title={event.title} sub={`${gate ?? (mode === "meal" ? "Food counter" : "Gate")} · ${scannerName}`} mode={mode}>
+        <div className="flex flex-1 flex-col">
+          <div className="px-[18px] pt-4">
+            <div className="text-[20px] font-medium tracking-[-0.015em]">{registration.teamName ?? registration.userName}</div>
+            <div className="mt-1 text-[12.5px] text-neutral-500">
+              {registration.teamName ? `Team · ${registration.memberCount} members` : registration.userName} · {registration.ticketCode}
+            </div>
+          </div>
+          <div className="mt-3.5 flex flex-col gap-[7px] px-[18px]">
+            {members.map((member) => (
+              <label
+                key={member.key}
+                className={`panel flex items-center gap-3 px-3.5 py-3 ${member.done ? "opacity-60" : "cursor-pointer"}`}
+              >
+                <input
+                  type="checkbox"
+                  checked={member.done || selected.has(member.key)}
+                  disabled={member.done}
+                  onChange={() => toggle(member.key)}
+                  className="h-[18px] w-[18px] flex-none accent-accent"
+                />
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-[14px]">{member.name}</div>
+                  <div className="truncate text-[11px] text-neutral-500">{member.email}</div>
+                </div>
+                {member.done ? <Tag tone="accent" check>{mode === "meal" ? "Served" : "Present"}</Tag> : null}
+              </label>
+            ))}
+          </div>
+          <div className="mt-3 px-[18px] text-[12px] text-neutral-500">
+            {mode === "meal"
+              ? "Mark only who is collecting this round. Scan the same QR again for anyone who arrives later."
+              : "Late arrivals scan the same QR again — only the ones you tick here are marked now."}
+          </div>
+        </div>
+        <div className="flex gap-[9px] border-t border-divider bg-bg px-[18px] pb-[calc(22px+env(safe-area-inset-bottom))] pt-3.5">
+          <Button variant="secondary" className="flex-1" onClick={() => setPreview(null)}>
+            Cancel
+          </Button>
+          <Button variant="primary" className="flex-1" disabled={selected.size === 0} onClick={() => void commit(preview.code, [...selected])}>
+            {mode === "meal" ? `Serve ${selected.size || ""}` : `Mark ${selected.size || ""} present`}
+          </Button>
+        </div>
+      </Shell>
+    );
+  }
+
   /* ── result screens ── */
   if (outcome) {
-    const next = () => setOutcome(null);
+    const next = () => {
+      setOutcome(null);
+      setLastHistoryId(null);
+    };
     const mealLabel = mealType[0]!.toUpperCase() + mealType.slice(1);
+    const remainingMs = lastHistoryId ? undoRemainingMs({ at: Date.now() }) : 0;
 
     if (outcome.result === "ok") {
+      const outstanding = (outcome.members ?? []).filter((m) => !m.done);
       return (
         <Shell title={event.title} sub={`${gate ?? (mode === "meal" ? "Food counter" : "Gate")} · ${scannerName}`} mode={mode} bare>
           <div className="flex flex-1 flex-col justify-center px-[22px] shadow-[inset_0_0_0_3px_var(--color-accent)]">
@@ -174,7 +345,9 @@ const Scanner = () => {
             </div>
             <div className="text-[34px] font-medium leading-[1.05] tracking-[-0.025em]">{mode === "meal" ? `${mealLabel} served` : "Checked in"}</div>
             <div className="mt-3 text-[15px] text-neutral-300">
-              {outcome.registration.userName}
+              {outcome.marked && outcome.marked.length < outcome.registration.memberCount
+                ? (outcome.members ?? []).filter((m) => outcome.marked?.includes(m.key)).map((m) => m.name).join(", ")
+                : outcome.registration.userName}
               {outcome.registration.teamName ? ` · Team ${outcome.registration.teamName}` : ""}
             </div>
             <div className="code mt-[5px] text-neutral-500">{outcome.registration.ticketCode}</div>
@@ -185,7 +358,7 @@ const Scanner = () => {
                 </MetaRow>
               ) : outcome.registration.memberCount > 1 ? (
                 <MetaRow label="Team">
-                  {outcome.registration.teamName ?? "Team"} · {outcome.registration.memberCount} members
+                  {outcome.registration.teamName ?? "Team"} · {outcome.registration.memberCount - outstanding.length} of {outcome.registration.memberCount} {mode === "meal" ? "served" : "present"}
                 </MetaRow>
               ) : null}
               {mode === "meal" ? <MetaRow label="This slot">{`Day · ${formatCalendarDate(today)} ${mealLabel.toLowerCase()} · ${formatClock(new Date())}`}</MetaRow> : null}
@@ -198,9 +371,20 @@ const Scanner = () => {
                 {gate ? ` · ${gate}` : ""}
               </MetaRow>
             </MetaList>
-            {mode === "meal" ? <div className="mt-4 text-[12.5px] text-neutral-400">A second scan for the same slot is refused, not double counted.</div> : null}
+            {outstanding.length > 0 ? (
+              <div className="mt-4 text-[12.5px] text-accent-300">
+                Still to come: {outstanding.map((m) => m.name).join(", ")} — scan the same QR again when they arrive.
+              </div>
+            ) : mode === "meal" ? (
+              <div className="mt-4 text-[12.5px] text-neutral-400">A second scan for the same slot is refused, not double counted.</div>
+            ) : null}
           </div>
           <div className="px-[18px] pb-[calc(22px+env(safe-area-inset-bottom))] pt-3.5">
+            {lastHistoryId && remainingMs > 0 ? (
+              <Button variant="secondary" block className="mb-2" onClick={undo}>
+                Undo · {Math.ceil(remainingMs / 1000)}s
+              </Button>
+            ) : null}
             <Button variant="primary" size="lg" block onClick={next}>
               Scan next
             </Button>
@@ -313,7 +497,7 @@ const Scanner = () => {
             </div>
           </div>
         ) : (
-          <Camera ref={camera} active={!manual} onDecode={handle} onError={setCameraError} className="absolute inset-0 [&_video]:h-full [&_video]:w-full [&_video]:object-cover" />
+          <Camera ref={camera} active={!manual && !search} onDecode={handle} onError={setCameraError} className="absolute inset-0 [&_video]:h-full [&_video]:w-full [&_video]:object-cover" />
         )}
         <div className="viewfinder pointer-events-none absolute left-[52px] right-[52px] top-1/2 aspect-square -translate-y-1/2">
           <span />
@@ -327,7 +511,10 @@ const Scanner = () => {
       <div className="border-t border-divider bg-bg px-[18px] pb-[calc(22px+env(safe-area-inset-bottom))] pt-3.5">
         <div className="flex gap-[9px]">
           <Button variant="secondary" className="flex-1" onClick={() => setManual(true)}>
-            Enter code manually
+            Enter code
+          </Button>
+          <Button variant="secondary" className="flex-1" onClick={() => { setSearch(true); void runSearch(""); }}>
+            <MagnifyingGlass size={15} /> Search
           </Button>
           <Button
             variant="secondary"
@@ -341,9 +528,9 @@ const Scanner = () => {
           </Button>
         </div>
         <div className="mt-[9px] flex justify-between text-[11.5px] text-neutral-500">
-          <span>
+          <button type="button" className="underline decoration-dotted underline-offset-2" onClick={() => setHistory(true)}>
             {sync.lastSyncAt ? `Last sync ${formatRelative(sync.lastSyncAt)}` : sync.online ? "Synced" : "Never synced"} · {scansToday} scan{scansToday === 1 ? "" : "s"} today
-          </span>
+          </button>
           <span>
             {sync.rosterCount} on roster{sync.rosterRefreshedAt ? ` · ${formatRelative(sync.rosterRefreshedAt)}` : ""}
           </span>
@@ -370,7 +557,130 @@ const Scanner = () => {
           </form>
         </DialogContent>
       </Dialog>
+
+      <Dialog open={search} onOpenChange={setSearch}>
+        <DialogContent title="Find a registration" description="By registration id, team name, student name or phone.">
+          <Input
+            value={searchTerm}
+            onChange={(e) => void runSearch(e.target.value)}
+            placeholder="Rahul, Null Pointers, +91…"
+            autoFocus
+            className="mb-3"
+          />
+          {searching ? (
+            <Skeleton className="h-24" />
+          ) : searchTerm.trim().length < 2 ? (
+            <div className="py-6 text-center text-[12.5px] text-neutral-500">Type at least two characters.</div>
+          ) : searchResults.length === 0 ? (
+            <div className="py-6 text-center text-[12.5px] text-neutral-500">Nothing on the roster matches.</div>
+          ) : (
+            <div className="flex max-h-[320px] flex-col gap-1.5 overflow-y-auto">
+              {searchResults.map((row) => (
+                <button
+                  key={row.registrationId}
+                  type="button"
+                  className="panel flex items-center justify-between gap-3 px-3 py-2.5 text-left hover:bg-surface"
+                  onClick={() => {
+                    setSearch(false);
+                    void handle(row.ticketCode);
+                  }}
+                >
+                  <div className="min-w-0">
+                    <div className="truncate text-[13.5px]">{row.teamName ?? row.userName}</div>
+                    <div className="truncate text-[11px] text-neutral-500">
+                      {row.teamName ? `${row.userName} · ` : ""}
+                      {row.ticketCode}
+                    </div>
+                  </div>
+                  <Tag tone={row.status === "cancelled" ? "neutral" : "outline"}>{row.status}</Tag>
+                </button>
+              ))}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      <HistoryDialog open={history} onClose={() => setHistory(false)} eventId={event.id} gate={gate} />
     </Shell>
+  );
+};
+
+/**
+ * Today's scans from this device — the columns the spec asks for, and
+ * nothing to export. `listToday` is read fresh on open rather than reused
+ * from the live sync state, so a scan made a minute ago while the dialog was
+ * closed is not missing from it.
+ */
+const HistoryDialog = ({ open, onClose, eventId, gate }: { open: boolean; onClose: () => void; eventId: string; gate?: string }) => {
+  const [rows, setRows] = React.useState<HistoryEntry[]>([]);
+  const [, forceTick] = React.useReducer((n: number) => n + 1, 0);
+
+  React.useEffect(() => {
+    if (!open) return;
+    void listToday(eventId).then(setRows);
+    const id = setInterval(forceTick, 1000);
+    return () => clearInterval(id);
+  }, [open, eventId]);
+
+  const undoRow = async (row: HistoryEntry) => {
+    const result = await undoScan(row.id);
+    if (result.ok) setRows(await listToday(eventId));
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onClose}>
+      <DialogContent title="Today's scans" description={`${rows.length} on this device · ${new Date().toLocaleDateString("en-GB", { day: "numeric", month: "short" })}`} size="md">
+        {rows.length === 0 ? (
+          <div className="py-8 text-center text-[12.5px] text-neutral-500">Nothing scanned yet today.</div>
+        ) : (
+          <div className="max-h-[420px] overflow-y-auto">
+            <table className="table">
+              <thead>
+                <tr>
+                  <th>Time</th>
+                  <th>Student / Team</th>
+                  <th>Mode</th>
+                  <th>Gate</th>
+                  <th>Status</th>
+                  <th />
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((row) => (
+                  <tr key={row.id}>
+                    <td className="whitespace-nowrap">{formatClock(new Date(row.at))}</td>
+                    <td className="truncate">{row.teamName ?? row.userName}</td>
+                    <td className="whitespace-nowrap">{row.kind === "meal" ? (row.mealType ?? "meal") : "Entry"}</td>
+                    <td className="whitespace-nowrap text-neutral-500">{row.gate ?? gate ?? "—"}</td>
+                    <td className="whitespace-nowrap">
+                      {row.undone ? (
+                        <Tag tone="neutral">Undone</Tag>
+                      ) : row.outcome === "ok" ? (
+                        <Tag tone="accent">Recorded</Tag>
+                      ) : row.outcome === "already-recorded" ? (
+                        <Tag tone="outline">Duplicate</Tag>
+                      ) : (
+                        <Tag tone="neutral">{row.outcome}</Tag>
+                      )}
+                    </td>
+                    <td className="whitespace-nowrap text-right">
+                      {canUndo(row) ? (
+                        <button type="button" className="btn btn-ghost text-[12px]" onClick={() => void undoRow(row)}>
+                          Undo
+                        </button>
+                      ) : null}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+        <div className="mt-3 text-[11px] text-neutral-500">
+          A scan can be undone within {UNDO_WINDOW_MS / 1000} seconds of being taken. After that it is part of the record.
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 };
 

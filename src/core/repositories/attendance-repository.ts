@@ -30,6 +30,13 @@ export interface AttendanceRepository {
     gate?: string;
     /** For a scan taken offline and synced later: when it really happened. */
     scannedAt?: Date;
+    /**
+     * Which people on the entry this scan is for, by `memberKeyFor(email)`.
+     *
+     * A team shares one QR and arrives in waves, so a scan marks a subset.
+     * Absent means the whole entry, which is what a solo ticket always is.
+     */
+    memberKeys?: string[];
   }): Promise<ScanOutcome>;
 
   getByRegistration(registrationId: string): Promise<Attendance | null>;
@@ -73,6 +80,8 @@ export interface AttendanceRepository {
     collectedBy: string;
     post?: string;
     scannedAt?: Date;
+    /** Which members are collecting this round. Absent means everyone on the entry. */
+    memberKeys?: string[];
   }): Promise<ScanOutcome>;
 
   listMealsByEvent(eventId: string, servedOn?: string): Promise<FoodCollection[]>;

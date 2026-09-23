@@ -143,10 +143,12 @@ describe("notifications", () => {
 });
 
 describe("certificates, email log, audit log", () => {
-  it("a certificate is readable by its recipient and staff, never client-written", async () => {
+  it("a certificate is readable by its recipient and admin+ staff, never client-written", async () => {
     await assertSucceeds(getDoc(doc(as(student), "certificates", "ev1_stu1")));
     await assertFails(getDoc(doc(as(stranger), "certificates", "ev1_stu1")));
-    await assertSucceeds(getDoc(doc(as(volunteer), "certificates", "ev1_stu1")));
+    await assertSucceeds(getDoc(doc(as(admin), "certificates", "ev1_stu1")));
+    // A volunteer scans a gate; certificates are an admin+ concern.
+    await assertFails(getDoc(doc(as(volunteer), "certificates", "ev1_stu1")));
     await assertFails(updateDoc(doc(as(student), "certificates", "ev1_stu1"), { type: "winner" }));
   });
   it("emailLog and auditLog are admin-scoped reads and server-only writes", async () => {
