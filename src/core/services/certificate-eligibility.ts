@@ -1,4 +1,5 @@
 import type { CertificateDraft, CertificateType } from "../models/certificate";
+import { holdsSeat } from "../models/registration";
 import type { Registration } from "../models/registration";
 import type { Result } from "../models/result";
 
@@ -102,7 +103,10 @@ export const computeCertificateEligibility = (
     }
   }
 
-  const confirmed = registrations.filter((registration) => registration.status === "confirmed");
+  // A draft team that turned up and was scanned in participated; the state
+  // is about whether the roster was complete, not about attendance, and
+  // attendance is what a participation certificate attests to.
+  const confirmed = registrations.filter((registration) => holdsSeat(registration.status));
 
   // Rule 2: attendance is the gate.
   const attended = confirmed.filter((registration) =>

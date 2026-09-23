@@ -14,6 +14,13 @@ describe("validateRegistration", () => {
   });
   it("enforces team min and max", () => {
     expect(validateRegistration({ eventId: "e", teamName: "T", members: [m("a@x.test")] }, team)).toMatchObject({ ok: false, message: expect.stringContaining("at least 2") });
+    // The server allows a short team through: it becomes a draft and
+    // confirms when enough people accept or join with the code.
+    expect(validateRegistration({ eventId: "e", teamName: "T", members: [m("a@x.test")] }, team, { allowIncomplete: true })).toEqual({ ok: true });
+    // The maximum is never negotiable, incomplete or not.
+    expect(
+      validateRegistration({ eventId: "e", teamName: "T", members: ["a", "b", "c", "d", "e"].map((x) => m(`${x}@x.test`)) }, team, { allowIncomplete: true }),
+    ).toMatchObject({ ok: false, message: expect.stringContaining("at most 4") });
     expect(validateRegistration({ eventId: "e", teamName: "T", members: ["a", "b", "c", "d", "e"].map((s) => m(`${s}@x.test`)) }, team)).toMatchObject({ ok: false, message: expect.stringContaining("at most 4") });
   });
   it("requires a team name for team events", () => {

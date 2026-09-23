@@ -13,7 +13,7 @@ import { NotificationBell } from "@/components/shell/notifications";
 import { useAuth, useRepositories } from "@/components/providers";
 import { bucketEntries, useMyEntries } from "@/components/student/use-my-entries";
 import { Avatar, Dialog, DialogActions, DialogContent } from "@/components/ui/overlays";
-import { Field, Input } from "@/components/ui/field";
+import { Field, Input, NativeSelect } from "@/components/ui/field";
 import { Button } from "@/components/ui/button";
 import { Kick, MetaList, MetaRow, Skeleton, Tag } from "@/components/ui/primitives";
 import { phoneSchema, shortTextSchema } from "@/core/models/common";
@@ -25,6 +25,9 @@ const editSchema = z.object({
   college: shortTextSchema,
   studentId: shortTextSchema,
   department: z.string().trim().max(200).optional(),
+  year: z.string().trim().max(2).optional(),
+  gender: z.string().trim().max(60).optional(),
+  city: z.string().trim().max(200).optional(),
 });
 
 type EditValues = z.input<typeof editSchema>;
@@ -114,6 +117,11 @@ export default function ProfilePage() {
           </MetaRow>
           <MetaRow label="Phone">{maskPhone(profile.phone)}</MetaRow>
           <MetaRow label="College ID">{profile.studentId ?? "—"}</MetaRow>
+          <MetaRow label="Saved for forms">
+            {[profile.college, profile.department, profile.year ? `Year ${profile.year}` : null, profile.city]
+              .filter(Boolean)
+              .join(" · ") || "Nothing yet — registration forms will remember what you enter."}
+          </MetaRow>
           <MetaRow label="Notifications">Email</MetaRow>
           <MetaRow label="Download my data">
             <button type="button" className="text-accent" onClick={exportData}>
@@ -161,6 +169,9 @@ export default function ProfilePage() {
               college: profile.college ?? "",
               studentId: profile.studentId ?? "",
               department: profile.department ?? "",
+              year: profile.year ? String(profile.year) : "",
+              gender: profile.gender ?? "",
+              city: profile.city ?? "",
             }}
             photoUrl={profile.avatar}
             onSaved={async () => {
@@ -191,6 +202,12 @@ const EditForm = ({ defaults, photoUrl: initialPhoto, onSaved }: { defaults: Edi
         college: v.college,
         studentId: v.studentId,
         department: v.department || undefined,
+        // Remembered for every future registration form. See
+        // core/services/autofill.ts — this page is the one place these are
+        // edited; a registration only ever fills a gap.
+        ...(v.year && Number(v.year) >= 1 && Number(v.year) <= 6 ? { year: Number(v.year) } : {}),
+        ...(v.gender ? { gender: v.gender } : {}),
+        ...(v.city ? { city: v.city } : {}),
       });
       toast.success("Profile saved");
       await onSaved();
@@ -216,9 +233,36 @@ const EditForm = ({ defaults, photoUrl: initialPhoto, onSaved }: { defaults: Edi
           <Input id="e-sid" {...form.register("studentId")} />
         </Field>
       </div>
-      <Field label="Department" htmlFor="e-dept">
-        <Input id="e-dept" {...form.register("department")} />
-      </Field>
+      <div className="grid grid-cols-2 gap-3">
+        <Field label="Department" htmlFor="e-dept">
+          <Input id="e-dept" {...form.register("department")} />
+        </Field>
+        <Field label="Year of study" htmlFor="e-year" error={err.year?.message}>
+          <NativeSelect id="e-year" {...form.register("year")}>
+            <option value="">—</option>
+            {["1", "2", "3", "4", "5"].map((year) => (
+              <option key={year} value={year}>
+                {year}
+              </option>
+            ))}
+          </NativeSelect>
+        </Field>
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <Field label="City" htmlFor="e-city" error={err.city?.message}>
+          <Input id="e-city" {...form.register("city")} />
+        </Field>
+        <Field label="Gender" htmlFor="e-gender" error={err.gender?.message} hint="Optional — some fests ask.">
+          <NativeSelect id="e-gender" {...form.register("gender")}>
+            <option value="">Prefer not to say</option>
+            {["Female", "Male", "Non-binary", "Prefer not to say"].map((option) => (
+              <option key={option} value={option}>
+                {option}
+              </option>
+            ))}
+          </NativeSelect>
+        </Field>
+      </div>
       <DialogActions>
         <Button type="submit" variant="primary" loading={form.formState.isSubmitting}>
           Save

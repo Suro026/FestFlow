@@ -121,7 +121,15 @@ export const TeamCard = ({ entry }: { entry: Entry }) => {
           </div>
         </div>
         <div className="flex gap-[7px]">
-          {attendance ? <Tag tone="accent" check>Checked in</Tag> : registration.status === "waitlisted" ? <Tag tone="neutral">Waitlisted</Tag> : null}
+          {attendance ? (
+            <Tag tone="accent" check>Checked in</Tag>
+          ) : registration.status === "waitlisted" ? (
+            <Tag tone="neutral">Waitlisted</Tag>
+          ) : registration.status === "draft" ? (
+            <Tag tone="outline">Not confirmed yet</Tag>
+          ) : (
+            <Tag tone="accent">Confirmed</Tag>
+          )}
           <Tag tone="outline">
             {registration.members.length}/{teamSize.max} members
           </Tag>
@@ -132,6 +140,28 @@ export const TeamCard = ({ entry }: { entry: Entry }) => {
         <div className="mb-3 text-[12px] text-accent-300">
           {shortfall.missing > 0 ? `Needs ${shortfall.missing} more member${shortfall.missing === 1 ? "" : "s"} — this event requires ${teamSize.min}. ` : ""}
           {shortfall.pending > 0 ? `${shortfall.pending} invitation${shortfall.pending === 1 ? "" : "s"} awaiting a reply.` : ""}
+        </div>
+      ) : null}
+
+      {/* The code is the fast path: read it out, they type it, they are in.
+          Hidden once the team is full, where it can do nothing. */}
+      {canEdit && registration.joinCode && registration.members.length < teamSize.max ? (
+        <div className="mb-3 flex flex-wrap items-center gap-2 rounded-md bg-bg/40 px-3 py-2">
+          <span className="text-[12px] text-neutral-500">Join code</span>
+          <span className="font-mono text-[15px] tracking-[0.2em]">{registration.joinCode}</span>
+          <button
+            type="button"
+            className="btn btn-ghost text-[12px]"
+            onClick={() => {
+              navigator.clipboard
+                .writeText(registration.joinCode!)
+                .then(() => toast.success("Code copied"))
+                .catch(() => toast.error("Couldn't reach the clipboard — read it out instead."));
+            }}
+          >
+            Copy
+          </button>
+          <span className="text-[11.5px] text-neutral-500">Anyone with it joins from Teams.</span>
         </div>
       ) : null}
 

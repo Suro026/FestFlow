@@ -3,12 +3,13 @@
 import * as React from "react";
 import QRCode from "react-qr-code";
 import { toast } from "sonner";
-import { DownloadSimple } from "@phosphor-icons/react";
+import { DownloadSimple, Printer, Wallet } from "@phosphor-icons/react";
 import type { Registration } from "@/core/models/registration";
 import type { Attendance, FoodCollection } from "@/core/models/attendance";
 import { Kick, Tag } from "@/components/ui/primitives";
 import { Button } from "@/components/ui/button";
 import { formatClock } from "@/lib/utils";
+import { WALLET_SUPPORT } from "@/core/services/wallet";
 
 /**
  * The digital ticket — 2b.
@@ -85,7 +86,7 @@ export const DigitalTicket = ({
   };
 
   return (
-    <div className="overflow-hidden rounded-lg shadow-md">
+    <div className="ticket-print overflow-hidden rounded-lg shadow-md">
       <div className="px-[18px] pb-3.5 pt-4">
         <Kick className="mb-[5px]">
           {festName}
@@ -136,10 +137,39 @@ export const DigitalTicket = ({
       ) : null}
 
       {!compact ? (
-        <div className="border-t border-divider px-[18px] py-3">
-          <Button variant="secondary" block onClick={download}>
-            <DownloadSimple size={15} /> Download PNG
-          </Button>
+        <div className="ticket-actions border-t border-divider px-[18px] py-3">
+          <div className="flex flex-wrap gap-2">
+            <Button variant="secondary" className="flex-1" onClick={download}>
+              <DownloadSimple size={15} /> Download PNG
+            </Button>
+            <Button variant="secondary" className="flex-1" onClick={() => window.print()}>
+              <Printer size={15} /> Print
+            </Button>
+          </div>
+
+          {/*
+            Wallet passes need credentials the college has to obtain — an
+            Apple Pass Type ID certificate, a Google issuer key — so the
+            buttons state that rather than pretending. Everything behind them
+            is built: see core/services/wallet.ts and the route it names.
+          */}
+          <div className="mt-2 flex flex-wrap gap-2">
+            {(["apple", "google"] as const).map((platform) => (
+              <Button
+                key={platform}
+                variant="ghost"
+                size="sm"
+                className="flex-1"
+                disabled
+                title={WALLET_SUPPORT[platform].requires}
+              >
+                <Wallet size={15} /> {platform === "apple" ? "Apple Wallet" : "Google Wallet"}
+              </Button>
+            ))}
+          </div>
+          <p className="mt-1.5 text-[11px] text-neutral-500">
+            Wallet passes are not enabled on this deployment. The pass above already works with no network, and prints.
+          </p>
         </div>
       ) : null}
     </div>

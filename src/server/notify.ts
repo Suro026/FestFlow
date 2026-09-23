@@ -78,7 +78,9 @@ export const activeParticipants = async (scope: { eventId: string } | { festId: 
   const db = adminDb();
   const field = "eventId" in scope ? "eventId" : "festId";
   const value = "eventId" in scope ? scope.eventId : scope.festId;
-  const snap = await db.collection(COLLECTIONS.registrations).where(field, "==", value).where("status", "==", "confirmed").get();
+  // Draft teams are registered people who have not finished assembling; an
+  // announcement about the event is as much theirs as anyone's.
+  const snap = await db.collection(COLLECTIONS.registrations).where(field, "==", value).where("status", "in", ["draft", "confirmed"]).get();
 
   const out = new Map<string, { userId: string; email: string; name: string; registrationId: string; eventId: string; eventTitle: string }>();
   for (const doc of snap.docs) {

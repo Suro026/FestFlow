@@ -9,9 +9,46 @@ import {
 import { answersSchema } from "./registration-fields";
 import type { TeamSize } from "./event";
 
-export const REGISTRATION_STATUSES = ["confirmed", "waitlisted", "cancelled"] as const;
+/**
+ * Where an entry stands.
+ *
+ *   draft       a team that does not yet meet its event's minimum. It holds
+ *               its seats — losing them while the last teammate is deciding
+ *               would be the worst possible moment — but it is not a
+ *               registration yet, and it says so on the pass.
+ *   confirmed   a seat, a ticket, a place at the gate
+ *   waitlisted  no seat yet; promoted transactionally when one frees up
+ *   cancelled   the seat is back
+ */
+export const REGISTRATION_STATUSES = ["draft", "confirmed", "waitlisted", "cancelled"] as const;
 export const registrationStatusSchema = z.enum(REGISTRATION_STATUSES);
 export type RegistrationStatus = z.infer<typeof registrationStatusSchema>;
+
+/**
+ * Does this entry occupy a seat?
+ *
+ * A draft team does, which is the point of the state: the seats are held
+ * while the team assembles. Everything that counts capacity has to agree on
+ * this, so it is one function rather than a condition repeated five times.
+ */
+export const holdsSeat = (status: RegistrationStatus): boolean => status === "confirmed" || status === "draft";
+
+/** Is this entry live — neither cancelled nor waiting for a seat? */
+export const isActiveEntry = (status: RegistrationStatus): boolean => holdsSeat(status);
+
+/**
+ * How many members have actually said yes, and whether that is enough.
+ *
+ * The leader always counts: they registered. A solo entry is complete by
+ * definition.
+ */
+export const acceptedCount = (members: readonly { isLeader?: boolean; inviteStatus?: string }[]): number =>
+  members.filter((member) => member.isLeader === true || member.inviteStatus === "accepted").length;
+
+export const teamIsComplete = (
+  members: readonly { isLeader?: boolean; inviteStatus?: string }[],
+  teamSize: { min: number },
+): boolean => acceptedCount(members) >= teamSize.min;
 
 /**
  * A member of a team entry.
@@ -82,6 +119,12 @@ export const registrationSchema = z
     seats: z.number().int().min(1).default(1),
 
     ticketCode: ticketCodeSchema,
+    /**
+     * The code a teammate types to join, instead of waiting to be invited by
+     * email. Short and readable because it gets read out across a room.
+     * Teams only, and it stops working the moment the team is full.
+     */
+    joinCode: z.string().regex(/^[0-9A-HJ-NP-TV-Z]{6}$/).optional(),
     status: registrationStatusSchema.default("confirmed"),
 
     /**
@@ -125,6 +168,27 @@ const TICKET_ALPHABET = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
  * The random source is a parameter because `crypto` is reached differently on
  * web and in React Native, and `src/core` must not depend on either.
  */
+/**
+ * A six-character team code from the same unambiguous alphabet as the ticket.
+ *
+ * It is not a secret — it lets someone join a team, which the leader can undo
+ * — so six characters is the right trade between "safe to shout" and "tedious
+ * to type". A collision is harmless: joining is looked up by code *and*
+ * event.
+ */
+export const generateJoinCode = (randomBytes: (size: number) => Uint8Array): string => {
+  const bytes = randomBytes(6);
+  let code = "";
+  for (let i = 0; i < 6; i += 1) code += TICKET_ALPHABET[(bytes[i] ?? 0) % TICKET_ALPHABET.length];
+  return code;
+};
+
+export const joinCodeSchema = z
+  .string()
+  .trim()
+  .toUpperCase()
+  .regex(/^[0-9A-HJ-NP-TV-Z]{6}$/, "A join code is six letters and numbers");
+
 export const generateTicketCode = (randomBytes: (size: number) => Uint8Array): string => {
   const bytes = randomBytes(10);
   let code = "";
@@ -164,6 +228,17 @@ export const validateRegistration = (
   // (which has everything).
   input: { eventId?: string; teamName?: string | undefined; members: readonly { email: string }[] },
   event: { eventType: "solo" | "team"; teamSize: TeamSize },
+  options: {
+    /**
+     * Accept a team that has not reached its minimum yet.
+     *
+     * The leader registering alone and handing out the join code is a normal
+     * way to form a team, so the minimum is not a precondition of creating
+     * the entry — it is what moves it from `draft` to `confirmed`. The server
+     * passes this; the form uses the default so it can warn early.
+     */
+    allowIncomplete?: boolean;
+  } = {},
 ): { ok: true } | { ok: false; message: string } => {
   const count = input.members.length;
 
@@ -172,7 +247,7 @@ export const validateRegistration = (
       return { ok: false, message: "This is a solo event; register only yourself" };
     }
   } else {
-    if (count < event.teamSize.min) {
+    if (!options.allowIncomplete && count < event.teamSize.min) {
       return {
         ok: false,
         message: `This event needs at least ${event.teamSize.min} team members`,

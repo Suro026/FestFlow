@@ -1,4 +1,4 @@
-import { teamActionSchema } from "@/core/models/registration";
+import { holdsSeat, teamActionSchema, teamIsComplete, type RegistrationStatus } from "@/core/models/registration";
 import { ApiError, authenticate, handler, ok, readBody } from "@/server/api";
 import { RATE_LIMITS } from "@/server/rate-limit";
 import { COLLECTIONS, FieldValue, Timestamp, adminDb } from "@/server/firebase-admin";
@@ -59,25 +59,49 @@ export const POST = handler(async (request, context) => {
     const frozen =
       attendanceSnap.exists || event.status === "ongoing" || event.status === "completed" || event.status === "cancelled";
     const now = Timestamp.now();
-    const confirmed = reg.status === "confirmed";
+    const status = (reg.status ?? "confirmed") as RegistrationStatus;
+    // A draft team occupies its seats while it assembles, so both states move
+    // the counters; only a waitlisted entry takes nothing yet.
+    const seated = holdsSeat(status);
+    const confirmed = status === "confirmed";
     const eventRef = eventSnap.ref;
     const festRef = db.collection(COLLECTIONS.fests).doc(String(reg.festId));
 
     const adjustSeats = (delta: number) => {
       tx.update(regRef, { seats: FieldValue.increment(delta) });
-      if (confirmed) {
+      if (seated) {
         tx.update(eventRef, { registeredCount: FieldValue.increment(delta), updatedAt: FieldValue.serverTimestamp() });
         tx.update(festRef, { "stats.registrations": FieldValue.increment(delta) });
       }
     };
 
-    const write = (next: MemberDoc[], extra: Record<string, unknown> = {}) =>
+    /**
+     * The team's state follows its roster.
+     *
+     * Enough people have said yes → confirmed; not any more → back to draft,
+     * which is what stops an incomplete team holding a ticket it cannot use.
+     * A waitlisted or cancelled entry is left alone: its state is about a
+     * seat, not about the roster. So is a team that has already been scanned
+     * in — by then the roster is a record, not a plan.
+     */
+    const nextStatus = (next: MemberDoc[]): RegistrationStatus | undefined => {
+      if (!seated || attendanceSnap.exists) return undefined;
+      const complete = teamIsComplete(next, teamSize);
+      const wanted: RegistrationStatus = complete ? "confirmed" : "draft";
+      return wanted === status ? undefined : wanted;
+    };
+
+    const write = (next: MemberDoc[], extra: Record<string, unknown> = {}) => {
+      const moved = nextStatus(next);
       tx.update(regRef, {
         members: next.map((m) => compact(m)),
         memberEmails: next.map((m) => m.email),
+        ...(moved ? { status: moved } : {}),
         updatedAt: FieldValue.serverTimestamp(),
         ...extra,
       });
+      return moved;
+    };
 
     switch (input.action) {
       case "rename": {
@@ -119,9 +143,9 @@ export const POST = handler(async (request, context) => {
           inviteStatus: "pending",
           invitedAt: now,
         });
-        write([...members, member]);
+        const moved = write([...members, member]);
         adjustSeats(1);
-        return { kind: "invite" as const, member, reg, event };
+        return { kind: "invite" as const, member, reg, event, moved };
       }
 
       case "remove": {
@@ -131,26 +155,26 @@ export const POST = handler(async (request, context) => {
         const target = members.find((m) => m.email === email);
         if (!target) throw ApiError.notFound("That person isn't on this team.");
         if (target.isLeader) throw ApiError.unprocessable("The leader can't be removed — cancel the entry instead.");
-        write(members.filter((m) => m.email !== email));
+        const moved = write(members.filter((m) => m.email !== email));
         adjustSeats(-1);
-        return { kind: "remove" as const, target, reg };
+        return { kind: "remove" as const, target, reg, moved };
       }
 
       case "accept": {
         if (!me || me.isLeader) throw ApiError.forbidden("You're not invited to this team.");
         if (me.inviteStatus === "accepted") return { kind: "noop" as const };
-        write(
+        const moved = write(
           members.map((m) => (m.email === caller.email ? { ...m, userId: caller.uid, inviteStatus: "accepted", respondedAt: now } : m)),
         );
-        return { kind: "accept" as const, me, reg };
+        return { kind: "accept" as const, me, reg, moved };
       }
 
       case "decline": {
         if (!me || me.isLeader) throw ApiError.forbidden("You're not invited to this team.");
         if (frozen) throw ApiError.unprocessable("The event has started, so the entry can't change now.");
-        write(members.filter((m) => m.email !== caller.email));
+        const moved = write(members.filter((m) => m.email !== caller.email));
         adjustSeats(-1);
-        return { kind: "decline" as const, me, reg };
+        return { kind: "decline" as const, me, reg, moved };
       }
     }
   });
@@ -193,9 +217,15 @@ export const POST = handler(async (request, context) => {
     await mailer.send(teamUpdateEmail({ to: outcome.target.email, recipientName: outcome.target.name, teamName, eventTitle, change: "removed", meta: meta(outcome.target.userId) }));
   } else if (outcome.kind === "accept") {
     await tell(leaderUid, "team_update", `${outcome.me.name} joined ${teamName}`, eventTitle);
+    if (outcome.moved === "confirmed") {
+      await tell(leaderUid, "team_update", `${teamName} is confirmed`, `${eventTitle} · your pass is ready`);
+    }
     if (leaderEmail) await mailer.send(teamUpdateEmail({ to: leaderEmail, recipientName: leaderName, teamName, eventTitle, change: "accepted", memberName: outcome.me.name, meta: meta(leaderUid) }));
   } else if (outcome.kind === "decline") {
     await tell(leaderUid, "team_update", `${outcome.me.name} declined to join ${teamName}`, `${eventTitle} · a seat was released`);
+    if (outcome.moved === "draft") {
+      await tell(leaderUid, "team_update", `${teamName} is below its minimum`, `${eventTitle} · add someone to confirm the entry`);
+    }
     if (leaderEmail) await mailer.send(teamUpdateEmail({ to: leaderEmail, recipientName: leaderName, teamName, eventTitle, change: "declined", memberName: outcome.me.name, meta: meta(leaderUid) }));
   }
 

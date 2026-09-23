@@ -1,3 +1,4 @@
+import type { RegistrationStatus } from "@/core/models/registration";
 /**
  * The scanner's local database.
  *
@@ -27,7 +28,7 @@ export interface RosterEntry {
   userEmail: string;
   teamName?: string;
   memberCount: number;
-  status: "confirmed" | "waitlisted" | "cancelled";
+  status: RegistrationStatus;
 }
 
 export interface QueuedScan {

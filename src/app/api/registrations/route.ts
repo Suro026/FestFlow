@@ -1,8 +1,12 @@
 import {
   createRegistrationSchema,
+  generateJoinCode,
   generateTicketCode,
+  teamIsComplete,
   validateRegistration,
 } from "@/core/models/registration";
+import { autofillFor, profileMemoryFrom, profileUpdatesFrom } from "@/core/services/autofill";
+import { visibleFields } from "@/core/models/registration-fields";
 import { isRegistrationOpen } from "@/core/models/event";
 import { cleanAnswers, registrationFieldsSchema, validateAnswers } from "@/core/models/registration-fields";
 import { ApiError, authenticate, handler, ok, readBody } from "@/server/api";
@@ -62,7 +66,9 @@ export const POST = handler(async (request) => {
     const event = eventSnap.data()!;
     const teamSize = event.teamSize ?? { min: 1, max: 1 };
 
-    const check = validateRegistration(input, { eventType: event.eventType ?? "solo", teamSize });
+    // A short team is allowed in: it lands as a draft and confirms when
+    // enough people accept or join with the code.
+    const check = validateRegistration(input, { eventType: event.eventType ?? "solo", teamSize }, { allowIncomplete: true });
     if (!check.ok) throw ApiError.unprocessable(check.message);
 
     // The fest is the outer gate: its own switch closes every event at once,
@@ -83,14 +89,20 @@ export const POST = handler(async (request) => {
     const parsedFields = registrationFieldsSchema.safeParse(fest.registrationFields);
     const fields = parsedFields.success ? parsedFields.data : undefined;
 
+    // Auto-fill runs here too, not only in the form. A student whose profile
+    // already holds their college should not be refused because a client
+    // (the app, a script, a future mobile build) did not send it — the
+    // profile is the answer, and this is where that is settled.
+    const { answers: withMemory } = autofillFor(fields, profileMemoryFrom(profile), input.answers);
+
     // The client checks these too, for instant feedback. This is the copy
     // that decides — a hand-rolled POST gets the same answer.
-    const problems = validateAnswers(fields, input.answers);
+    const problems = validateAnswers(fields, withMemory);
     if (Object.keys(problems).length > 0) {
       throw new ApiError(422, "missing-answers", Object.values(problems)[0] ?? "Some required details are missing.", problems);
     }
 
-    const answers = cleanAnswers(fields, input.answers);
+    const answers = cleanAnswers(fields, withMemory);
 
     const seats = input.members.length;
     const capacity = Number(event.capacity ?? 0);
@@ -167,7 +179,17 @@ export const POST = handler(async (request) => {
       });
     });
 
-    const status = waitlist ? "waitlisted" : "confirmed";
+    // A team that does not yet meet its minimum is a draft: it holds its
+    // seats (losing them while the last teammate decides would be the worst
+    // possible moment) but it is not a registration until enough people have
+    // said yes. Everyone the leader lists starts as invited, so a team event
+    // with a minimum above one always begins here.
+    const complete = event.eventType !== "team" || teamIsComplete(members, teamSize);
+    const status = waitlist ? "waitlisted" : complete ? "confirmed" : "draft";
+
+    // A short code the leader can read out. Teams only — a solo entry has
+    // nobody to join it.
+    const joinCode = event.eventType === "team" ? generateJoinCode(randomBytes) : undefined;
 
     tx.set(
       regRef,
@@ -184,6 +206,7 @@ export const POST = handler(async (request) => {
         memberEmails: members.map((m) => m.email),
         seats,
         ticketCode,
+        ...(joinCode ? { joinCode } : {}),
         status,
         eventTitle: event.title,
         userName: leaderName,
@@ -194,18 +217,30 @@ export const POST = handler(async (request) => {
       }),
     );
 
-    if (status === "confirmed") {
+    // A draft holds its seats exactly as a confirmed entry does, so the
+    // counters move for both. Only the waitlist takes nothing yet.
+    if (status === "confirmed" || status === "draft") {
       tx.update(eventRef, { registeredCount: FieldValue.increment(seats), updatedAt: FieldValue.serverTimestamp() });
       tx.update(db.collection(COLLECTIONS.fests).doc(String(event.festId)), {
         "stats.registrations": FieldValue.increment(seats),
       });
     }
 
-    return { regRef, status, event };
+    return { regRef, status, event, answers, fields };
   });
 
   const saved = await result.regRef.get();
   const registration = docToJson(saved)!;
+
+  // Remember what they told us, so the next event's form arrives filled in.
+  // Only fields the profile did not already hold; a registration answer never
+  // rewrites a profile the student has edited themselves.
+  const updates = profileUpdatesFrom(visibleFields(result.fields), result.answers, profileMemoryFrom(profile));
+  if (Object.keys(updates).length > 0) {
+    await userSnap.ref
+      .set({ ...updates, updatedAt: FieldValue.serverTimestamp() }, { merge: true })
+      .catch((error: unknown) => console.warn("[registrations] could not remember profile fields", error));
+  }
 
   // Side effects after the transaction — none of these should be able to
   // roll back a seat that was correctly granted.
@@ -217,7 +252,12 @@ export const POST = handler(async (request) => {
   await notify({
     userId: caller.uid,
     type: "registration_confirmed",
-    title: result.status === "waitlisted" ? "You're on the waitlist" : "You're in",
+    title:
+      result.status === "waitlisted"
+        ? "You're on the waitlist"
+        : result.status === "draft"
+          ? "Your team is not complete yet"
+          : "You're in",
     body: `${result.event.title} · ${festName}`,
     link: `/registered/${saved.id}`,
     festId: String(result.event.festId),

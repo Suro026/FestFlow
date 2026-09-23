@@ -36,7 +36,7 @@ describe("visibleFields", () => {
     // it did, or every registration already open starts failing validation.
     expect(visibleFields(undefined)).toEqual([]);
     expect(validateAnswers(undefined, {})).toEqual({});
-    expect(cleanAnswers(undefined, { phone: "+919" })).toEqual({});
+    expect(cleanAnswers(undefined, { phone: "+919000000000" })).toEqual({});
   });
 
   it("appends custom questions after the built-ins, hidden ones excluded", () => {
@@ -77,8 +77,8 @@ describe("validateAnswers", () => {
 
   it("refuses a value that is not one of the listed choices", () => {
     const fields = config({ custom: [{ key: "size", label: "Size", type: "select", requirement: "required", options: ["S", "M"] }] });
-    expect(validateAnswers(fields, { phone: "+919", college: "SRM", size: "XL" }).size).toContain("listed options");
-    expect(validateAnswers(fields, { phone: "+919", college: "SRM", size: "M" })).toEqual({});
+    expect(validateAnswers(fields, { phone: "+919000000000", college: "SRM", size: "XL" }).size).toContain("listed options");
+    expect(validateAnswers(fields, { phone: "+919000000000", college: "SRM", size: "M" })).toEqual({});
   });
 
   it("treats whitespace as missing", () => {
@@ -87,8 +87,8 @@ describe("validateAnswers", () => {
 
   it("checks a number field is a number", () => {
     const fields = config({ custom: [{ key: "age", label: "Age", type: "number", requirement: "required" }] });
-    expect(validateAnswers(fields, { phone: "+919", college: "SRM", age: "twenty" }).age).toContain("number");
-    expect(validateAnswers(fields, { phone: "+919", college: "SRM", age: "20" })).toEqual({});
+    expect(validateAnswers(fields, { phone: "+919000000000", college: "SRM", age: "twenty" }).age).toContain("number");
+    expect(validateAnswers(fields, { phone: "+919000000000", college: "SRM", age: "20" })).toEqual({});
   });
 });
 

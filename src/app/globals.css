@@ -534,3 +534,69 @@
 #qr-reader__dashboard, #qr-reader__status_span, #qr-reader__header_message,
 #qr-reader img[alt="Info icon"], #qr-reader__scan_region img { display: none !important; }
 #qr-reader__scan_region { min-height: 0 !important; }
+
+/* ───────────────────────────── print ─────────────────────────────
+   A pass people can put in a pocket.
+
+   Printing a dark UI wastes a cartridge and produces something unreadable,
+   so the printed ticket is inverted to ink on white, everything around it is
+   dropped, and the QR — the only part that matters to a scanner — is given
+   the whole width at a size that survives a cheap printer. */
+@media print {
+  @page {
+    margin: 14mm;
+  }
+
+  body {
+    background: #fff !important;
+    color: #161826 !important;
+  }
+
+  /* Only the ticket survives. `visibility` rather than `display`, because
+     hiding the ticket's ancestors would take the ticket with them — this is
+     the one pattern that works in every browser without :has(). */
+  body * {
+    visibility: hidden;
+  }
+
+  .ticket-print,
+  .ticket-print * {
+    visibility: visible;
+  }
+
+  .ticket-actions,
+  .ticket-actions * {
+    visibility: hidden;
+  }
+
+  .ticket-print {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    box-shadow: none !important;
+    border: 1px solid #c9cbd6 !important;
+    border-radius: 8px;
+    max-width: 100mm;
+    margin: 0 auto;
+    background: #fff !important;
+    color: #161826 !important;
+    break-inside: avoid;
+  }
+
+  .ticket-print .kick,
+  .ticket-print .text-neutral-500 {
+    color: #595d6c !important;
+  }
+
+  .ticket-print .tag {
+    border: 1px solid #c9cbd6 !important;
+    color: #161826 !important;
+    background: none !important;
+  }
+
+  /* Links print their target in a dark UI otherwise. */
+  a[href]::after {
+    content: "" !important;
+  }
+}

@@ -1,4 +1,5 @@
 import { COLLECTIONS, adminDb } from "./firebase-admin";
+import type { RegistrationStatus } from "@/core/models/registration";
 
 /**
  * Public lookups — what a stranger with a QR code is allowed to learn.
@@ -88,7 +89,7 @@ export interface PublicTicket {
   venue: string | null;
   teamName: string | null;
   memberCount: number;
-  status: "confirmed" | "waitlisted" | "cancelled";
+  status: RegistrationStatus;
   entryAt: string | null;
   entryGate: string | null;
 }

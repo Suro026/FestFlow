@@ -49,6 +49,8 @@ export default function RegisteredPage() {
   const { registration, event, fest } = entry;
   const teammates = registration.members.filter((m) => !m.isLeader).map((m) => m.name.split(/\s+/)[0]);
   const waitlisted = registration.status === "waitlisted";
+  const draft = registration.status === "draft";
+  const short = draft ? Math.max(0, (event?.teamSize.min ?? 1) - registration.members.filter((m) => m.isLeader || m.inviteStatus === "accepted").length) : 0;
   // A teammate opening the team pass sees the same ticket, with copy that
   // doesn't pretend they did the registering.
   const isLeader = !session || registration.userId === session.uid;
@@ -60,12 +62,39 @@ export default function RegisteredPage() {
         <Check size={28} weight="bold" />
       </div>
       <h1 className="text-[31px] leading-[1.06] tracking-[-0.025em]">
-        {waitlisted ? "You're on the list" : isLeader ? "You're in" : `You're on ${registration.teamName ?? "the team"}`}
+        {waitlisted
+          ? "You're on the list"
+          : draft
+            ? "Seats held for your team"
+            : isLeader
+              ? "You're in"
+              : `You're on ${registration.teamName ?? "the team"}`}
       </h1>
       <p className="mt-2.5 text-[14px] text-neutral-300">
-        {registration.teamName ? `Team ${registration.teamName} is` : "You're"} {waitlisted ? "waitlisted for" : "registered for"}{" "}
-        {registration.eventTitle}.{!isLeader ? " One ticket admits the whole team." : ""}
+        {draft ? (
+          <>
+            Team {registration.teamName} has its seats for {registration.eventTitle}. It is confirmed once{" "}
+            {short === 1 ? "one more person" : `${short} more people`} joins — until then the ticket is not valid at the gate.
+          </>
+        ) : (
+          <>
+            {registration.teamName ? `Team ${registration.teamName} is` : "You're"} {waitlisted ? "waitlisted for" : "registered for"}{" "}
+            {registration.eventTitle}.{!isLeader ? " One ticket admits the whole team." : ""}
+          </>
+        )}
       </p>
+
+      {/* The moment the code is most useful: the leader has just registered
+          and the people they need are standing next to them. */}
+      {isLeader && registration.joinCode && registration.type === "team" ? (
+        <div className="mt-4 flex flex-wrap items-center gap-2 rounded-md bg-surface px-3.5 py-3">
+          <span className="text-[12px] text-neutral-500">Join code</span>
+          <span className="font-mono text-[19px] tracking-[0.2em]">{registration.joinCode}</span>
+          <span className="w-full text-[11.5px] text-neutral-500 sm:w-auto">
+            Teammates enter it under Teams — no invitation needed.
+          </span>
+        </div>
+      ) : null}
 
       <div className="mt-5">
         <div className="mb-3 flex items-baseline justify-between">

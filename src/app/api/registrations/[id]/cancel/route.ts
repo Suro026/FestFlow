@@ -1,3 +1,4 @@
+import { holdsSeat, teamIsComplete, type RegistrationStatus } from "@/core/models/registration";
 import { ApiError, authenticate, handler, ok } from "@/server/api";
 import { RATE_LIMITS } from "@/server/rate-limit";
 import { COLLECTIONS, FieldValue, adminDb } from "@/server/firebase-admin";
@@ -36,7 +37,9 @@ export const POST = handler(async (request, context) => {
       throw ApiError.unprocessable("This event has already started, so the entry can't be cancelled.");
     }
 
-    const wasConfirmed = reg.status === "confirmed";
+    // A draft team holds its seats, so cancelling one frees them and can
+    // promote from the waitlist exactly as a confirmed entry does.
+    const wasConfirmed = holdsSeat((reg.status ?? "confirmed") as RegistrationStatus);
     const seats = Number(reg.seats ?? (Array.isArray(reg.members) ? reg.members.length : 1));
 
     // Find a waitlisted entry that fits the freed seats, before writing.
@@ -63,7 +66,16 @@ export const POST = handler(async (request, context) => {
     if (wasConfirmed) {
       let delta = -seats;
       if (promote) {
-        tx.update(promote.ref, { status: "confirmed", updatedAt: FieldValue.serverTimestamp() });
+        // A promoted team that is still short of its minimum becomes a draft,
+        // not a confirmed entry — it now holds seats, but it is not a team
+        // yet. Solo entries and complete teams go straight to confirmed.
+        const promotedData = promote.data();
+        const promotedMembers = (promotedData.members ?? []) as { isLeader?: boolean; inviteStatus?: string }[];
+        const promotedStatus =
+          promotedData.type === "team" && !teamIsComplete(promotedMembers, (event.teamSize ?? { min: 1, max: 1 }) as { min: number })
+            ? "draft"
+            : "confirmed";
+        tx.update(promote.ref, { status: promotedStatus, updatedAt: FieldValue.serverTimestamp() });
         delta += Number(promote.data().seats ?? 1);
       }
       tx.update(eventRef, { registeredCount: FieldValue.increment(delta), updatedAt: FieldValue.serverTimestamp() });
