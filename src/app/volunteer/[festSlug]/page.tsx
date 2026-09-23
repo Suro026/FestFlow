@@ -109,9 +109,12 @@ export default function VolunteerHomePage() {
               </div>
             </div>
             {shift.duty !== "crowd" ? (
-              <div className="px-[15px] pb-3.5">
-                <Button asChild variant="primary" size="lg" block>
-                  <Link href={scanHref(basePath, shift)}>Open scanner</Link>
+              <div className="flex gap-2 px-[15px] pb-3.5">
+                <Button asChild variant="primary" size="lg" className="flex-1">
+                  <Link href={scanHref(basePath, shift)}>Quick scan</Link>
+                </Button>
+                <Button asChild variant="secondary" size="lg" className="flex-1">
+                  <Link href={`${scanHref(basePath, shift)}${scanHref(basePath, shift).includes("?") ? "&" : "?"}search=1`}>Manual search</Link>
                 </Button>
               </div>
             ) : null}

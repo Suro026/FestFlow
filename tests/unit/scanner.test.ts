@@ -1,7 +1,8 @@
 import "fake-indexeddb/auto";
 import { beforeEach, describe, expect, it } from "vitest";
 import { decideEntry, decideMeal, parseTicketCode } from "@/lib/offline/scanner";
-import { listQueue, replaceCheckins, replaceMeals, replaceRoster, type RosterEntry } from "@/lib/offline/db";
+import { clearEvent, listQueue, replaceCheckins, replaceMeals, replaceRoster, type RosterEntry } from "@/lib/offline/db";
+import { memberKeyFor } from "@/core/models/attendance";
 import { event } from "./fixtures";
 
 /**
@@ -12,18 +13,26 @@ import { event } from "./fixtures";
 const ev = event({ id: "ev1", title: "Capture the Flag" });
 const other = event({ id: "ev2", slug: "quiz", title: "Quiz Prelims" });
 
-const roster = (over: Partial<RosterEntry> = {}): RosterEntry => ({
-  ticketCode: "FF-7K2M9QX4TB",
-  registrationId: "reg1",
-  eventId: "ev1",
-  festId: "fest1",
-  userId: "u1",
-  userName: "Ishita Rao",
-  userEmail: "ishita@x.test",
-  memberCount: 1,
-  status: "confirmed",
-  ...over,
-});
+const roster = (over: Partial<RosterEntry> = {}): RosterEntry => {
+  const base = {
+    ticketCode: "FF-7K2M9QX4TB",
+    registrationId: "reg1",
+    eventId: "ev1",
+    festId: "fest1",
+    userId: "u1",
+    userName: "Ishita Rao",
+    userEmail: "ishita@x.test",
+    memberCount: 1,
+    status: "confirmed" as const,
+    ...over,
+  };
+  const members = over.members ?? [{ key: memberKeyFor(base.userEmail), name: base.userName, email: base.userEmail }];
+  return {
+    ...base,
+    members,
+    search: over.search ?? [base.registrationId, base.ticketCode, base.teamName, base.userName, ...members.flatMap((m) => [m.name, m.email])].filter(Boolean).join(" ").toLowerCase(),
+  };
+};
 
 const scan = (code: string, e = ev) => decideEntry({ event: e, code, scannedBy: "vol1", online: false, gate: "Gate A" });
 
@@ -84,22 +93,50 @@ describe("decideEntry (offline)", () => {
 
 describe("decideMeal (offline)", () => {
   beforeEach(async () => {
-    await replaceRoster("ev1", [roster({ ticketCode: "FF-TEAMPASS01", registrationId: "reg3", teamName: "Null Pointers", memberCount: 2 })]);
+    await clearEvent("ev1");
+    await replaceRoster("ev1", [
+      roster({
+        ticketCode: "FF-TEAMPASS01",
+        registrationId: "reg3",
+        teamName: "Null Pointers",
+        memberCount: 2,
+        members: [
+          { key: memberKeyFor("lead@x.test"), name: "Ishita Rao", email: "lead@x.test" },
+          { key: memberKeyFor("mate@x.test"), name: "Rahul Nair", email: "mate@x.test" },
+        ],
+      }),
+    ]);
     await replaceMeals("ev1", []);
   });
 
   const meal = (code: string) => decideMeal({ event: ev, code, scannedBy: "vol1", online: false, mealType: "lunch", servedOn: "2026-09-25" });
 
-  it("serves one meal per team member, then refuses", async () => {
-    expect(await meal("FF-TEAMPASS01")).toMatchObject({ result: "ok", serving: { n: 1, of: 2 } });
+  it("serves everyone still outstanding, then refuses", async () => {
+    // No selection means "whoever has not eaten yet" — the same default the
+    // gate uses for late arrivals.
     expect(await meal("FF-TEAMPASS01")).toMatchObject({ result: "ok", serving: { n: 2, of: 2 } });
     expect(await meal("FF-TEAMPASS01")).toMatchObject({ result: "already-recorded" });
+  });
+
+  it("serves only the members the volunteer ticked", async () => {
+    const lead = memberKeyFor("lead@x.test");
+    const mate = memberKeyFor("mate@x.test");
+
+    const first = await decideMeal({ event: ev, code: "FF-TEAMPASS01", scannedBy: "vol1", online: false, mealType: "lunch", servedOn: "2026-09-25", memberKeys: [lead] });
+    expect(first).toMatchObject({ result: "ok", serving: { n: 1, of: 2 }, marked: [lead] });
+
+    // The one who ate is refused; the one who has not is served.
+    const again = await decideMeal({ event: ev, code: "FF-TEAMPASS01", scannedBy: "vol1", online: false, mealType: "lunch", servedOn: "2026-09-25", memberKeys: [lead] });
+    expect(again.result).toBe("already-recorded");
+
+    const second = await decideMeal({ event: ev, code: "FF-TEAMPASS01", scannedBy: "vol1", online: false, mealType: "lunch", servedOn: "2026-09-25", memberKeys: [mate] });
+    expect(second).toMatchObject({ result: "ok", serving: { n: 2, of: 2 }, marked: [mate] });
   });
 
   it("keeps meal slots independent", async () => {
     await meal("FF-TEAMPASS01");
     await meal("FF-TEAMPASS01");
     const dinner = await decideMeal({ event: ev, code: "FF-TEAMPASS01", scannedBy: "vol1", online: false, mealType: "dinner", servedOn: "2026-09-25" });
-    expect(dinner).toMatchObject({ result: "ok", serving: { n: 1, of: 2 } });
+    expect(dinner).toMatchObject({ result: "ok", serving: { n: 2, of: 2 } });
   });
 });

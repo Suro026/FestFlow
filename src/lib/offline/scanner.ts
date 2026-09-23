@@ -3,7 +3,7 @@
 import * as React from "react";
 import type { Repositories } from "@/core/repositories";
 import type { Event } from "@/core/models/event";
-import type { MealType, ScanOutcome } from "@/core/models/attendance";
+import { memberKeyFor, type MealType, type ScanMember, type ScanOutcome } from "@/core/models/attendance";
 import { RepositoryError } from "@/core/models/common";
 import {
   countCheckins,
@@ -12,8 +12,9 @@ import {
   findAnywhere,
   findInRoster,
   getCheckin,
+  getHistoryEntry,
+  getMealRecord,
   getMeta,
-  getServed,
   listHistory,
   listQueue,
   markCheckedIn,
@@ -23,8 +24,12 @@ import {
   replaceMeals,
   replaceRoster,
   rosterSize,
+  searchRoster,
   setMeta,
   setServed,
+  unmarkCheckedIn,
+  unsetServed,
+  updateHistory,
   updateQueued,
   type HistoryEntry,
   type RosterEntry,
@@ -61,27 +66,57 @@ export const refreshRoster = async (repos: Repositories, event: Event): Promise<
     event.mealSlots.length ? repos.attendance.listMealsByEvent(event.id) : Promise.resolve([]),
   ]);
 
-  const roster: RosterEntry[] = registrations.map((r) => ({
-    ticketCode: r.ticketCode,
-    registrationId: r.id,
-    eventId: r.eventId,
-    festId: r.festId,
-    userId: r.userId,
-    userName: r.userName,
-    userEmail: r.userEmail,
-    teamName: r.teamName,
-    memberCount: Math.max(1, r.members.length),
-    status: r.status,
-  }));
+  const roster: RosterEntry[] = registrations.map((r) => {
+    const members = (r.members.length ? r.members : [{ name: r.userName, email: r.userEmail }]).map((m) => ({
+      key: memberKeyFor(m.email),
+      name: m.name,
+      email: m.email,
+      ...("phone" in m && m.phone ? { phone: m.phone } : {}),
+      ...("college" in m && m.college ? { college: m.college } : {}),
+    }));
+
+    return {
+      ticketCode: r.ticketCode,
+      registrationId: r.id,
+      eventId: r.eventId,
+      festId: r.festId,
+      userId: r.userId,
+      userName: r.userName,
+      userEmail: r.userEmail,
+      teamName: r.teamName,
+      memberCount: members.length,
+      status: r.status,
+      members,
+      // Everything manual search matches on, flattened once here so a lookup
+      // at the gate is a substring test over cached text rather than a query.
+      search: [r.id, r.ticketCode, r.teamName, r.userName, r.userEmail, ...members.flatMap((m) => [m.name, m.email, m.phone, m.college])]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase(),
+    };
+  });
 
   await replaceRoster(event.id, roster);
-  await replaceCheckins(event.id, attendance.map((a) => ({ registrationId: a.registrationId, at: a.scannedAt.getTime() })));
+  await replaceCheckins(
+    event.id,
+    attendance.map((a) => ({
+      registrationId: a.registrationId,
+      at: a.scannedAt.getTime(),
+      members: (a.members ?? []).map((m) => m.key),
+    })),
+  );
 
-  const servings = new Map<string, { registrationId: string; servedOn: string; mealType: string; served: number }>();
+  const servings = new Map<string, { registrationId: string; servedOn: string; mealType: string; served: number; members: string[] }>();
   for (const m of meals) {
     const key = `${m.registrationId}:${m.servedOn}:${m.mealType}`;
     const cur = servings.get(key);
-    servings.set(key, { registrationId: m.registrationId, servedOn: m.servedOn, mealType: m.mealType, served: Math.max(cur?.served ?? 0, m.serving) });
+    servings.set(key, {
+      registrationId: m.registrationId,
+      servedOn: m.servedOn,
+      mealType: m.mealType,
+      served: Math.max(cur?.served ?? 0, m.serving),
+      members: [...(cur?.members ?? []), ...(m.memberKey ? [m.memberKey] : [])],
+    });
   }
   await replaceMeals(event.id, [...servings.values()]);
   await setMeta(`roster:${event.id}:refreshedAt`, Date.now());
@@ -91,13 +126,82 @@ export const refreshRoster = async (repos: Repositories, event: Event): Promise<
 
 /* ───────────── local decisions ───────────── */
 
+/** What a lookup (no write) tells the gate before it commits anything. */
+export type PeekResult =
+  | { result: "not-found" }
+  | { result: "wrong-event"; expectedEventTitle: string }
+  | { result: "cancelled" }
+  | {
+      result: "ready";
+      registration: { id: string; userName: string; ticketCode: string; teamName?: string; memberCount: number };
+      members: ScanMember[];
+      /** True when nobody is left to mark for this action. */
+      complete: boolean;
+    };
+
+/** Looks a code up against the cached roster without writing anything. */
+export const peekEntry = async (eventId: string, code: string): Promise<PeekResult> => {
+  const entry = await findInRoster(eventId, code);
+  if (!entry) {
+    const elsewhere = await findAnywhere(code);
+    return elsewhere ? { result: "wrong-event", expectedEventTitle: "another event" } : { result: "not-found" };
+  }
+  if (entry.status === "cancelled") return { result: "cancelled" };
+
+  const existing = await getCheckin(eventId, entry.registrationId);
+  const done = new Set<string>(existing ? (existing.members.length ? existing.members : entry.members.map((m) => m.key)) : []);
+
+  return {
+    result: "ready",
+    registration: { id: entry.registrationId, userName: entry.userName, ticketCode: entry.ticketCode, ...(entry.teamName ? { teamName: entry.teamName } : {}), memberCount: entry.memberCount },
+    members: entry.members.map((m) => ({ key: m.key, name: m.name, email: m.email, done: done.has(m.key), ...(done.has(m.key) && existing ? { at: new Date(existing.at) } : {}) })),
+    complete: entry.members.every((m) => done.has(m.key)),
+  };
+};
+
+/** Same lookup, for one meal round. */
+export const peekMeal = async (eventId: string, code: string, mealType: MealType, servedOn: string): Promise<PeekResult> => {
+  const entry = await findInRoster(eventId, code);
+  if (!entry) {
+    const elsewhere = await findAnywhere(code);
+    return elsewhere ? { result: "wrong-event", expectedEventTitle: "another event" } : { result: "not-found" };
+  }
+  if (entry.status === "cancelled") return { result: "cancelled" };
+
+  const record = await getMealRecord(eventId, entry.registrationId, servedOn, mealType);
+  const done = new Set<string>(record.members.length ? record.members : entry.members.slice(0, record.served).map((m) => m.key));
+
+  return {
+    result: "ready",
+    registration: { id: entry.registrationId, userName: entry.userName, ticketCode: entry.ticketCode, ...(entry.teamName ? { teamName: entry.teamName } : {}), memberCount: entry.memberCount },
+    members: entry.members.map((m) => ({ key: m.key, name: m.name, email: m.email, done: done.has(m.key) })),
+    complete: entry.members.every((m) => done.has(m.key)),
+  };
+};
+
 export interface DecideInput {
   event: Event;
   code: string;
   gate?: string;
   scannedBy: string;
   online: boolean;
+  /**
+   * Who this scan is for. Absent means everyone still outstanding on the
+   * entry — which is what a solo ticket always is, and what a team that
+   * walked in together is.
+   */
+  memberKeys?: string[];
 }
+
+/** The roster as the result screen shows it: who is done, who is not. */
+const membersView = (entry: RosterEntry, done: Set<string>, at?: number): ScanMember[] =>
+  entry.members.map((member) => ({
+    key: member.key,
+    name: member.name,
+    email: member.email,
+    done: done.has(member.key),
+    ...(done.has(member.key) && at ? { at: new Date(at) } : {}),
+  }));
 
 export const decideEntry = async (input: DecideInput): Promise<ScanOutcome> => {
   const { event, code } = input;
@@ -116,15 +220,44 @@ export const decideEntry = async (input: DecideInput): Promise<ScanOutcome> => {
   }
 
   const existing = await getCheckin(event.id, entry.registrationId);
-  if (existing) {
-    await pushHistory({ id: uid(), eventId: event.id, kind: "entry", at: Date.now(), ticketCode: code, userName: entry.userName, teamName: entry.teamName, outcome: "already-recorded", queued: false });
-    return { result: "already-recorded", at: new Date(existing.at), ...(existing.local ? { by: "this device" } : {}) };
+
+  // A record with no member list is a pre-per-member scan: it marked the
+  // whole entry, and is read that way.
+  const done = new Set<string>(
+    existing ? (existing.members.length ? existing.members : entry.members.map((m) => m.key)) : [],
+  );
+
+  const wanted = input.memberKeys?.length ? input.memberKeys : entry.members.map((m) => m.key);
+  const marking = wanted.filter((key) => !done.has(key));
+
+  if (marking.length === 0) {
+    await pushHistory({
+      id: uid(),
+      eventId: event.id,
+      kind: "entry",
+      at: Date.now(),
+      ticketCode: code,
+      userName: entry.userName,
+      teamName: entry.teamName,
+      outcome: "already-recorded",
+      queued: false,
+      registrationId: entry.registrationId,
+      ...(input.gate ? { gate: input.gate } : {}),
+    });
+    return {
+      result: "already-recorded",
+      at: new Date(existing?.at ?? Date.now()),
+      ...(existing?.local ? { by: "this device" } : {}),
+      registration: { id: entry.registrationId, userName: entry.userName, ticketCode: code, ...(entry.teamName ? { teamName: entry.teamName } : {}), memberCount: entry.memberCount },
+      members: membersView(entry, done, existing?.at),
+    };
   }
 
   const at = Date.now();
-  await markCheckedIn(event.id, entry.registrationId, at, true);
+  await markCheckedIn(event.id, entry.registrationId, at, true, marking);
+  const queueId = uid();
   await enqueue({
-    id: uid(),
+    id: queueId,
     kind: "entry",
     eventId: event.id,
     festId: entry.festId,
@@ -132,14 +265,36 @@ export const decideEntry = async (input: DecideInput): Promise<ScanOutcome> => {
     ticketCode: code,
     scannedAt: at,
     gate: input.gate,
+    memberKeys: marking,
     attempts: 0,
   });
-  await pushHistory({ id: uid(), eventId: event.id, kind: "entry", at, ticketCode: code, userName: entry.userName, teamName: entry.teamName, outcome: "ok", queued: !input.online });
+
+  const names = entry.members.filter((m) => marking.includes(m.key)).map((m) => m.name);
+  await pushHistory({
+    id: uid(),
+    eventId: event.id,
+    kind: "entry",
+    at,
+    ticketCode: code,
+    userName: entry.userName,
+    teamName: entry.teamName,
+    outcome: "ok",
+    queued: !input.online,
+    registrationId: entry.registrationId,
+    memberKeys: marking,
+    memberNames: names,
+    queueId,
+    ...(input.gate ? { gate: input.gate } : {}),
+  });
+
+  for (const key of marking) done.add(key);
 
   return {
     result: "ok",
     registration: { id: entry.registrationId, userName: entry.userName, ticketCode: code, ...(entry.teamName ? { teamName: entry.teamName } : {}), memberCount: entry.memberCount },
     queued: true,
+    marked: marking,
+    members: membersView(entry, done, at),
   };
 };
 
@@ -153,17 +308,47 @@ export const decideMeal = async (input: DecideInput & { mealType: MealType; serv
   }
   if (entry.status === "cancelled") return { result: "cancelled" };
 
-  const served = await getServed(event.id, entry.registrationId, input.servedOn, input.mealType);
-  if (served >= entry.memberCount) {
-    await pushHistory({ id: uid(), eventId: event.id, kind: "meal", at: Date.now(), ticketCode: code, userName: entry.userName, teamName: entry.teamName, outcome: "already-recorded", queued: false, mealType: input.mealType });
-    return { result: "already-recorded", at: new Date() };
+  const record = await getMealRecord(event.id, entry.registrationId, input.servedOn, input.mealType);
+
+  // An older device state counted servings without naming them; read the
+  // first N members as covered so nobody is served twice.
+  const done = new Set<string>(
+    record.members.length ? record.members : entry.members.slice(0, record.served).map((m) => m.key),
+  );
+
+  const wanted = input.memberKeys?.length ? input.memberKeys : entry.members.map((m) => m.key);
+  const serving = wanted.filter((key) => !done.has(key));
+
+  if (serving.length === 0) {
+    await pushHistory({
+      id: uid(),
+      eventId: event.id,
+      kind: "meal",
+      at: Date.now(),
+      ticketCode: code,
+      userName: entry.userName,
+      teamName: entry.teamName,
+      outcome: "already-recorded",
+      queued: false,
+      mealType: input.mealType,
+      registrationId: entry.registrationId,
+      servedOn: input.servedOn,
+      ...(input.post ? { gate: input.post } : {}),
+    });
+    return {
+      result: "already-recorded",
+      at: new Date(),
+      registration: { id: entry.registrationId, userName: entry.userName, ticketCode: code, ...(entry.teamName ? { teamName: entry.teamName } : {}), memberCount: entry.memberCount },
+      members: membersView(entry, done),
+    };
   }
 
   const at = Date.now();
-  const n = served + 1;
-  await setServed(event.id, entry.registrationId, input.servedOn, input.mealType, n);
+  const total = done.size + serving.length;
+  await setServed(event.id, entry.registrationId, input.servedOn, input.mealType, total, serving);
+  const queueId = uid();
   await enqueue({
-    id: uid(),
+    id: queueId,
     kind: "meal",
     eventId: event.id,
     festId: entry.festId,
@@ -173,17 +358,101 @@ export const decideMeal = async (input: DecideInput & { mealType: MealType; serv
     gate: input.post,
     mealType: input.mealType,
     servedOn: input.servedOn,
-    serving: n,
+    serving: total,
+    memberKeys: serving,
     attempts: 0,
   });
-  await pushHistory({ id: uid(), eventId: event.id, kind: "meal", at, ticketCode: code, userName: entry.userName, teamName: entry.teamName, outcome: "ok", queued: !input.online, mealType: input.mealType });
+
+  const names = entry.members.filter((m) => serving.includes(m.key)).map((m) => m.name);
+  await pushHistory({
+    id: uid(),
+    eventId: event.id,
+    kind: "meal",
+    at,
+    ticketCode: code,
+    userName: entry.userName,
+    teamName: entry.teamName,
+    outcome: "ok",
+    queued: !input.online,
+    mealType: input.mealType,
+    registrationId: entry.registrationId,
+    servedOn: input.servedOn,
+    memberKeys: serving,
+    memberNames: names,
+    queueId,
+    ...(input.post ? { gate: input.post } : {}),
+  });
+
+  for (const key of serving) done.add(key);
 
   return {
     result: "ok",
     registration: { id: entry.registrationId, userName: entry.userName, ticketCode: code, ...(entry.teamName ? { teamName: entry.teamName } : {}), memberCount: entry.memberCount },
     queued: true,
-    serving: { n, of: entry.memberCount },
+    serving: { n: total, of: entry.memberCount },
+    marked: serving,
+    members: membersView(entry, done, at),
   };
+};
+
+/* ───────────── manual search ───────────── */
+
+/**
+ * The fallback when a camera will not read a code: a dead phone screen, a
+ * cracked one, a printout that went through the rain.
+ *
+ * Runs against the cached roster, so it works with no network — which is the
+ * only reason it is worth having, because a gate with signal could just
+ * query. Matches a registration id, a ticket code, a team name, a person's
+ * name, their phone or their college.
+ */
+export const manualSearch = async (eventId: string, term: string, limit = 12): Promise<RosterEntry[]> =>
+  searchRoster(eventId, term, limit);
+
+/* ───────────── undo ───────────── */
+
+/** How long a volunteer may take a scan back. After this it is a record. */
+export const UNDO_WINDOW_MS = 30_000;
+
+export const canUndo = (entry: Pick<HistoryEntry, "at" | "outcome" | "undone">, now = Date.now()): boolean =>
+  entry.outcome === "ok" && entry.undone !== true && now - entry.at <= UNDO_WINDOW_MS;
+
+export const undoRemainingMs = (entry: Pick<HistoryEntry, "at">, now = Date.now()): number =>
+  Math.max(0, UNDO_WINDOW_MS - (now - entry.at));
+
+/**
+ * Takes back the last scan, if it is still within the window.
+ *
+ * Only a scan that has not synced yet can be undone cleanly: the queued write
+ * is dropped and the device's own state is rolled back. One that already
+ * reached the server is refused rather than deleted — a volunteer may not
+ * remove an attendance record, and the rules would refuse it anyway. Removing
+ * a synced check-in is an admin action, which is where it belongs.
+ */
+export const undoScan = async (
+  historyId: string,
+  now = Date.now(),
+): Promise<{ ok: true } | { ok: false; reason: "expired" | "synced" | "not-found" }> => {
+  const entry = await getHistoryEntry(historyId);
+  if (!entry || entry.outcome !== "ok") return { ok: false, reason: "not-found" };
+  if (entry.undone) return { ok: false, reason: "not-found" };
+  if (now - entry.at > UNDO_WINDOW_MS) return { ok: false, reason: "expired" };
+
+  // Still in the queue? Then nothing has left the device.
+  const queued = entry.queueId ? (await listQueue()).find((item) => item.id === entry.queueId) : undefined;
+  if (!queued) return { ok: false, reason: "synced" };
+
+  await dequeue(queued.id);
+
+  const keys = entry.memberKeys ?? [];
+  if (entry.kind === "entry" && entry.registrationId) {
+    await unmarkCheckedIn(entry.eventId, entry.registrationId, keys);
+  } else if (entry.kind === "meal" && entry.registrationId && entry.servedOn && entry.mealType) {
+    await unsetServed(entry.eventId, entry.registrationId, entry.servedOn, entry.mealType, keys);
+  }
+
+  await updateHistory({ ...entry, undone: true });
+  return { ok: true };
 };
 
 /* ───────────── sync ───────────── */
@@ -206,7 +475,16 @@ export const syncQueue = (repos: Repositories, scannedBy: string): Promise<{ syn
       try {
         const outcome =
           item.kind === "entry"
-            ? await repos.attendance.recordScan({ ticketCode: item.ticketCode, eventId: item.eventId, scannedBy, gate: item.gate, scannedAt: new Date(item.scannedAt) })
+            ? await repos.attendance.recordScan({
+                ticketCode: item.ticketCode,
+                eventId: item.eventId,
+                scannedBy,
+                gate: item.gate,
+                scannedAt: new Date(item.scannedAt),
+                // The subset this scan marked, so a queued second wave adds
+                // only its own people rather than the whole team.
+                ...(item.memberKeys?.length ? { memberKeys: item.memberKeys } : {}),
+              })
             : await repos.attendance.recordMeal({
                 ticketCode: item.ticketCode,
                 eventId: item.eventId,
@@ -215,13 +493,17 @@ export const syncQueue = (repos: Repositories, scannedBy: string): Promise<{ syn
                 mealType: item.mealType!,
                 servedOn: item.servedOn!,
                 scannedAt: new Date(item.scannedAt),
+                ...(item.memberKeys?.length ? { memberKeys: item.memberKeys } : {}),
               });
 
         if (outcome.result === "ok" || outcome.result === "already-recorded") {
           await dequeue(item.id);
           synced += 1;
-          if (item.kind === "entry" && outcome.result === "already-recorded") {
-            await markCheckedIn(item.eventId, item.registrationId, outcome.at.getTime(), false);
+          if (item.kind === "entry") {
+            // Whether we won the race or another device did, the record now
+            // exists on the server — record it as synced, not local.
+            const confirmedAt = outcome.result === "already-recorded" ? outcome.at.getTime() : item.scannedAt;
+            await markCheckedIn(item.eventId, item.registrationId, confirmedAt, false, item.memberKeys ?? []);
           }
         } else {
           // Not-found / cancelled / wrong-event from the server: the roster was

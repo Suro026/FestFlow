@@ -11,6 +11,30 @@ import { auditFieldsSchema, emailSchema, idSchema, shortTextSchema } from "./com
  * silent overwrite.
  */
 
+/**
+ * A member's key inside an entry.
+ *
+ * Attendance and meals are recorded per person — a team of four arrives in
+ * twos and eats at different times — so every record needs to name *which*
+ * member. The email is the stable identity (a member's index moves when the
+ * leader edits the roster, and their uid may not exist yet), but an email is
+ * not a legal document id, so it is folded into eight hex characters.
+ *
+ * FNV-1a: tiny, dependency-free, synchronous, and identical on the device and
+ * the server — which matters, because the offline scanner computes these keys
+ * with no network and the server must land on the same ones.
+ */
+export const memberKeyFor = (email: string): string => {
+  const text = email.trim().toLowerCase();
+  let hash = 0x811c9dc5;
+  for (let i = 0; i < text.length; i += 1) {
+    hash ^= text.charCodeAt(i);
+    // 32-bit FNV prime multiply, kept in range without BigInt.
+    hash = Math.imul(hash, 0x01000193) >>> 0;
+  }
+  return hash.toString(16).padStart(8, "0");
+};
+
 export const ATTENDANCE_METHODS = ["qr", "manual"] as const;
 export const attendanceMethodSchema = z.enum(ATTENDANCE_METHODS);
 export type AttendanceMethod = z.infer<typeof attendanceMethodSchema>;
@@ -29,6 +53,35 @@ export const attendanceSchema = z
     userEmail: emailSchema,
     ticketCode: shortTextSchema,
     teamName: shortTextSchema.optional(),
+
+    /**
+     * Who on the entry actually arrived.
+     *
+     * A team shares one QR and one attendance document, but its members turn
+     * up separately: the leader is scanned in at 09:40 and two more arrive at
+     * 10:15 on the same code. Each scan adds the members marked present and
+     * leaves the rest alone, so this array only ever grows — which is also
+     * what the Firestore rules enforce, because a scanner that could shorten
+     * it could un-attend someone.
+     *
+     * Empty on records written before per-member marking, which read as
+     * "everyone on the entry" — that is what those scans meant.
+     */
+    members: z
+      .array(
+        z.object({
+          /** `memberKeyFor(email)`. */
+          key: shortTextSchema,
+          name: shortTextSchema,
+          email: emailSchema,
+          at: z.coerce.date(),
+          /** uid of the volunteer who marked this person. */
+          by: idSchema.optional(),
+        }),
+      )
+      .default([]),
+    /** Members on the entry at the time of the first scan. */
+    memberCount: z.number().int().min(1).default(1),
 
     method: attendanceMethodSchema.default("qr"),
     /** Which gate the scan happened at, from the volunteer's post. */
@@ -54,6 +107,28 @@ export type Attendance = z.infer<typeof attendanceSchema>;
  */
 export const attendanceIdFor = (registrationId: string): string => registrationId;
 
+/**
+ * Which members of an entry are still to arrive.
+ *
+ * The scanner shows this on every scan of the same code: the ones already
+ * ticked are shown ticked and cannot be un-ticked, and only the rest are
+ * offered. An attendance record with no `members` array predates per-member
+ * marking and counts as everyone present.
+ */
+export const presentKeys = (attendance: Pick<Attendance, "members"> | null | undefined): Set<string> =>
+  new Set((attendance?.members ?? []).map((member) => member.key));
+
+export const isFullyPresent = (
+  attendance: Pick<Attendance, "members"> | null | undefined,
+  members: readonly { email: string }[],
+): boolean => {
+  if (!attendance) return false;
+  // A legacy record marked the whole entry.
+  if ((attendance.members ?? []).length === 0) return true;
+  const present = presentKeys(attendance);
+  return members.every((member) => present.has(memberKeyFor(member.email)));
+};
+
 /** Meals are tracked per slot so a two-day fest can hand out six meals. */
 export const MEAL_TYPES = ["breakfast", "lunch", "dinner", "snack"] as const;
 export const mealTypeSchema = z.enum(MEAL_TYPES);
@@ -78,6 +153,15 @@ export const foodCollectionSchema = z
 
     /** Which of the entry's servings this is, 1..memberCount. */
     serving: z.number().int().min(1).default(1),
+    /**
+     * The member this serving went to — `memberKeyFor(email)`.
+     *
+     * Absent on records written before per-member meals, which were counted
+     * rather than named. Present ones are what make "this person already had
+     * lunch" a write conflict instead of a count comparison.
+     */
+    memberKey: shortTextSchema.optional(),
+    memberName: shortTextSchema.optional(),
     /** The counter it was served from. */
     post: shortTextSchema.optional(),
     collectedAt: z.date(),
@@ -99,9 +183,34 @@ export const foodCollectionIdFor = (
   registrationId: string,
   servedOn: string,
   mealType: MealType,
-  /** 1-based serving index — a team of three collects three lunches. */
-  serving = 1,
-): string => `${registrationId}_${servedOn}_${mealType}_${serving}`;
+  /**
+   * The member's key, or a 1-based serving index for the pre-member scheme.
+   *
+   * Both forms live in the same collection and cannot collide: a member key
+   * is eight hex characters, a serving index is a small decimal. Old records
+   * keep working and keep counting.
+   */
+  member: string | number = 1,
+): string => `${registrationId}_${servedOn}_${mealType}_${member}`;
+
+/** The id for one member's serving of one meal round. */
+export const mealIdForMember = (
+  registrationId: string,
+  servedOn: string,
+  mealType: MealType,
+  email: string,
+): string => foodCollectionIdFor(registrationId, servedOn, mealType, memberKeyFor(email));
+
+/** One person on an entry, as the scanner shows them. */
+export interface ScanMember {
+  key: string;
+  name: string;
+  email: string;
+  /** Already marked — shown ticked, and not offered again. */
+  done: boolean;
+  /** When they were marked, for the ones already done. */
+  at?: Date | undefined;
+}
 
 /** What the scanner screens receive after a successful or rejected scan. */
 export type ScanOutcome =
@@ -112,8 +221,23 @@ export type ScanOutcome =
       queued?: boolean;
       /** Meals: which serving this was, of how many. */
       serving?: { n: number; of: number };
+      /** Who was marked by this scan. */
+      marked?: string[];
+      /** The whole roster for this entry, with what is already done. */
+      members?: ScanMember[];
     }
-  | { result: "already-recorded"; at: Date; by?: string }
+  | {
+      result: "already-recorded";
+      at: Date;
+      by?: string;
+      /**
+       * Present even on a duplicate: a team arriving in twos scans the same
+       * code again, and the screen has to show who is still outstanding
+       * rather than a flat "already checked in".
+       */
+      members?: ScanMember[];
+      registration?: { id: string; userName: string; ticketCode: string; teamName?: string; memberCount: number };
+    }
   | { result: "not-found" }
   | { result: "wrong-event"; expectedEventTitle: string }
   | { result: "cancelled" };
