@@ -10,9 +10,14 @@ const bodySchema = z.object({ dryRun: z.boolean().default(false) });
 /**
  * POST /api/admin/events/[id]/certificates — the post-event run.
  *
- * Refused until the event is marked completed: a certificate that says
- * "participated" for an event still in progress is a false statement, and
- * once issued it is emailed and cannot be un-sent.
+ * This *prepares*: it computes who is eligible and writes their certificates,
+ * and stops there. Nothing is emailed and the student sees nothing, because
+ * releasing is the platform owner's decision and happens at
+ * /api/admin/certificates/publish. That split is the whole point — an admin
+ * gets to find the misspelt name before four hundred PDFs go out.
+ *
+ * Still refused until the event is marked completed: a certificate that says
+ * "participated" for an event still in progress is a false statement.
  */
 export const POST = handler(async (request, context) => {
   const caller = await requirePermission(request, "certificate:issue");
@@ -31,12 +36,24 @@ export const POST = handler(async (request, context) => {
   }
 
   const appUrl = (process.env.NEXT_PUBLIC_APP_URL ?? new URL(request.url).origin).replace(/\/$/, "");
-  const summary = await issueCertificatesForEvent({ eventId: id, actorId: caller.uid, dryRun, appUrl });
+  const summary = await issueCertificatesForEvent({
+    eventId: id,
+    actorId: caller.uid,
+    dryRun,
+    appUrl,
+    // A super admin running this from the fest console releases in one step;
+    // anyone else prepares and hands over.
+    mode: caller.role === "super_admin" ? "publish" : "prepare",
+    ...(event.certificateTemplateUrl ? { templateUrl: String(event.certificateTemplateUrl) } : {}),
+  });
 
   if (!dryRun) {
     await audit(caller, {
-      action: "certificates_generated",
-      summary: `Generated certificates for "${event.title}" · ${summary.created} issued, ${summary.existing} already held one · ${summary.emailed} emailed, ${summary.skipped} awaiting an email provider, ${summary.failed} failed`,
+      action: caller.role === "super_admin" ? "certificates_published" : "certificates_generated",
+      summary:
+        caller.role === "super_admin"
+          ? `Released certificates for "${event.title}" · ${summary.published} to recipients, ${summary.emailed} emailed, ${summary.failed} failed`
+          : `Prepared certificates for "${event.title}" · ${summary.created} written, ${summary.existing} already held one — awaiting release`,
       festId: String(event.festId),
       eventId: id,
       subjectType: "event",

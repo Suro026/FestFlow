@@ -6,6 +6,7 @@ import {
   phoneSchema,
   shortTextSchema,
 } from "./common";
+import { answersSchema } from "./registration-fields";
 import type { TeamSize } from "./event";
 
 export const REGISTRATION_STATUSES = ["confirmed", "waitlisted", "cancelled"] as const;
@@ -94,6 +95,14 @@ export const registrationSchema = z
     userName: shortTextSchema,
     userEmail: emailSchema,
 
+    /**
+     * Answers to whatever the fest asks for, keyed by field. The questions
+     * live on the fest (`registrationFields`) and can change afterwards, so
+     * this is stored as given — a form redesign must not rewrite history, and
+     * an export of last year's entries has to still make sense.
+     */
+    answers: answersSchema.default({}),
+
     cancelledAt: z.date().optional(),
   })
   .merge(auditFieldsSchema);
@@ -132,6 +141,8 @@ export const generateTicketCode = (randomBytes: (size: number) => Uint8Array): s
 const baseCreateRegistration = z.object({
   eventId: idSchema,
   teamName: shortTextSchema.optional(),
+  /** Answers to the fest's own questions. Validated against its config. */
+  answers: answersSchema.default({}),
   members: z
     .array(teamMemberSchema.omit({ isLeader: true, userId: true, inviteStatus: true, invitedAt: true, respondedAt: true }))
     .min(1)
@@ -148,7 +159,10 @@ export type CreateRegistrationInput = z.infer<typeof baseCreateRegistration>;
  * the event document rather than trusting whatever the form validated.
  */
 export const validateRegistration = (
-  input: CreateRegistrationInput,
+  // Only the team shape matters here, so the parameter is narrowed to it:
+  // callers include the form (which has no answers yet) and the server
+  // (which has everything).
+  input: { eventId?: string; teamName?: string | undefined; members: readonly { email: string }[] },
   event: { eventType: "solo" | "team"; teamSize: TeamSize },
 ): { ok: true } | { ok: false; message: string } => {
   const count = input.members.length;

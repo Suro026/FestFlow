@@ -171,7 +171,10 @@ export const AdminShell = ({ children }: { children: React.ReactNode }) => {
                   <>
                     <MenuSeparator />
                     <MenuItem asChild>
-                      <Link href="/admin/fests">All fests</Link>
+                      <Link href="/admin/platform">Platform</Link>
+                    </MenuItem>
+                    <MenuItem asChild>
+                      <Link href="/admin/platform/fests">All fests</Link>
                     </MenuItem>
                     <MenuItem asChild>
                       <Link href="/admin/fests/new">Create a fest</Link>

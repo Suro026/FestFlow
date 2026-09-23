@@ -42,6 +42,12 @@ export const lookupCertificate = async (raw: string): Promise<{ certificate: Pub
   if (snap.empty) return { certificate: null, reason: "not-found" };
 
   const c = snap.docs[0]!.data();
+
+  // A certificate that has been prepared but not released does not exist as
+  // far as the public is concerned: nobody holds the number yet, and
+  // confirming it would announce a decision the owner has not made.
+  if (c.published === false) return { certificate: null, reason: "not-found" };
+
   const [attendance, fest, registration] = await Promise.all([
     db.collection(COLLECTIONS.attendance).doc(String(c.registrationId)).get(),
     db.collection(COLLECTIONS.fests).doc(String(c.festId)).get(),

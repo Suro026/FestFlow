@@ -252,6 +252,69 @@ describe("firestore.rules under the new roles", () => {
     await assertFails(getDocs(query(collection(as("vol1", token("volunteer", ["fest1"])), "auditLog"), where("festId", "==", "fest1"))));
   });
 
+  it("an admin editing their fest cannot touch the owner-only fields", async () => {
+    const adm = as("adm1", token("admin", ["fest1"]));
+    // Ordinary edits are still theirs.
+    await assertSucceeds(updateDoc(doc(adm, "fests", "fest1"), { name: "Renamed", updatedAt: new Date() }));
+    // Ownership, what the fest asks for, and archiving go through the server
+    // so they land in the audit trail.
+    await assertFails(updateDoc(doc(adm, "fests", "fest1"), { ownerId: "adm1", updatedAt: new Date() }));
+    await assertFails(updateDoc(doc(adm, "fests", "fest1"), { registrationFields: { builtIn: {}, custom: [] }, updatedAt: new Date() }));
+    await assertFails(updateDoc(doc(adm, "fests", "fest1"), { status: "archived", updatedAt: new Date() }));
+    await assertFails(updateDoc(doc(adm, "fests", "fest1"), { slug: "stolen", updatedAt: new Date() }));
+  });
+
+  it("nobody creates a fest from the client any more", async () => {
+    const root = as("root", token("super_admin"));
+    await assertFails(
+      setDoc(doc(root, "fests", "new-fest"), {
+        id: "new-fest",
+        slug: "new-fest",
+        name: "New",
+        status: "draft",
+        organizationName: "T",
+        startDate: "2026-09-25",
+        endDate: "2026-09-27",
+        stats: { events: 0, registrations: 0, checkIns: 0 },
+        createdBy: "root",
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      }),
+    );
+  });
+
+  it("a student cannot read a certificate that has not been released", async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      const db = ctx.firestore();
+      const base = {
+        userId: "stu1",
+        eventId: "ev1",
+        festId: "fest1",
+        registrationId: "reg1",
+        type: "participation",
+        recipientName: "S",
+        recipientEmail: "student@festflow.test",
+        eventTitle: "E",
+        festName: "F1",
+        revoked: false,
+        delivery: { status: "sent", attempts: 1 },
+        issuedAt: new Date(),
+        issuedBy: "adm1",
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+      await setDoc(doc(db, "certificates", "prepared"), { ...base, id: "prepared", certificateNumber: "FF-2026-AAAAAAAA", published: false });
+      await setDoc(doc(db, "certificates", "released"), { ...base, id: "released", certificateNumber: "FF-2026-BBBBBBBB", published: true });
+      // Issued before the release desk existed: no field at all.
+      await setDoc(doc(db, "certificates", "legacy"), { ...base, id: "legacy", certificateNumber: "FF-2026-CCCCCCCC" });
+    });
+
+    const stu = as("stu1", token("student"));
+    await assertFails(getDoc(doc(stu, "certificates", "prepared")));
+    await assertSucceeds(getDoc(doc(stu, "certificates", "released")));
+    await assertSucceeds(getDoc(doc(stu, "certificates", "legacy")));
+  });
+
   it("a legacy organizer token still works as a volunteer", async () => {
     const legacy = as("old1", token("organizer", ["fest1"]));
     await assertSucceeds(getDoc(doc(legacy, "registrations", "reg1")));

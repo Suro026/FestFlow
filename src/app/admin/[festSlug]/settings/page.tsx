@@ -7,6 +7,8 @@ import { useQueryClient } from "@tanstack/react-query";
 import { AdminPage, useFest } from "@/components/shell/admin-shell";
 import { useAuth, useRepositories } from "@/components/providers";
 import { FestFields, festFormSchema, fromFest, toUpdateFest, useFestForm } from "@/components/admin/fest-form";
+import { useFestAction } from "@/components/admin/platform-api";
+import { RegistrationFieldsEditor } from "@/components/admin/registration-fields-editor";
 import { Button } from "@/components/ui/button";
 import { AlertDialog, AlertDialogContent } from "@/components/ui/overlays";
 import { EmptyState, MetaList, MetaRow, PageHeading, Tag } from "@/components/ui/primitives";
@@ -28,6 +30,7 @@ export default function FestSettingsPage() {
   const [saving, setSaving] = React.useState(false);
   const [busy, setBusy] = React.useState<string | null>(null);
   const [confirm, setConfirm] = React.useState<"unpublish" | "archive" | null>(null);
+  const action = useFestAction();
 
   const isAdmin = session ? hasAtLeast(session.role, "admin") : false;
   const isSuper = session ? hasAtLeast(session.role, "super_admin") : false;
@@ -66,12 +69,21 @@ export default function FestSettingsPage() {
   const setStatus = async (status: "draft" | "published" | "archived", label: string) => {
     setBusy(status);
     try {
-      await repos.fests.setStatus(fest.id, status);
+      // Archiving and un-archiving are the platform owner's and travel
+      // through the server so they land in the audit trail; publishing and
+      // unpublishing are the running admin's and stay a direct write.
+      if (status === "archived") {
+        await action.mutateAsync({ id: fest.id, action: "archive" });
+      } else if (fest.status === "archived") {
+        await action.mutateAsync({ id: fest.id, action: "reopen", status });
+      } else {
+        await repos.fests.setStatus(fest.id, status);
+      }
       toast.success(label);
       setConfirm(null);
       refresh();
     } catch (error) {
-      toast.error(error instanceof RepositoryError ? error.message : "Couldn't update");
+      toast.error(error instanceof RepositoryError || error instanceof Error ? error.message : "Couldn't update");
     } finally {
       setBusy(null);
     }
@@ -110,6 +122,18 @@ export default function FestSettingsPage() {
             Discard
           </Button>
         </div>
+      ) : null}
+
+      {isSuper ? (
+        <section className="mt-10 border-t border-divider pt-7" aria-labelledby="fest-registration-fields">
+          <h2 id="fest-registration-fields" className="mb-1 text-[19px]">
+            What this fest asks for
+          </h2>
+          <p className="mb-5 max-w-[68ch] text-[13.5px] text-neutral-400">
+            The details every student provides when they register for any event in {fest.name}. Applies fest-wide; individual events do not override it.
+          </p>
+          <RegistrationFieldsEditor fest={fest} />
+        </section>
       ) : null}
 
       <div className="mt-8">

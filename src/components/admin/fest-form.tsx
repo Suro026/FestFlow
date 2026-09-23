@@ -5,8 +5,9 @@ import { useForm, type UseFormReturn } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import type { CreateFest, Fest, UpdateFest } from "@/core/models/fest";
+import { FEST_REGISTRATION_STATES, FEST_TYPES, FEST_TYPE_LABELS, FEST_VISIBILITIES, academicYearSchema, festRegistrationStateSchema, festTypeSchema, festVisibilitySchema, hexColorSchema } from "@/core/models/fest";
 import { calendarDateSchema, emailSchema, shortTextSchema } from "@/core/models/common";
-import { Field, Input, Textarea } from "@/components/ui/field";
+import { Field, Input, NativeSelect, Textarea } from "@/components/ui/field";
 import { ImageUploadField } from "@/components/ui/image-upload";
 import { slugify } from "@/lib/utils";
 
@@ -25,8 +26,16 @@ export const festFormSchema = z
     city: shortTextSchema,
     startDate: calendarDateSchema,
     endDate: calendarDateSchema,
+    festType: festTypeSchema,
+    academicYear: z.union([academicYearSchema, z.literal("")]).optional(),
+    themeColor: z.union([hexColorSchema, z.literal("")]).optional(),
+    visibility: festVisibilitySchema,
+    registrationState: festRegistrationStateSchema,
     bannerUrl: z.union([z.string().url("Enter a full URL").refine((v) => v.toLowerCase().startsWith("https://"), "Enter an https:// URL"), z.literal("")]).optional(),
     logoUrl: z.union([z.string().url("Enter a full URL").refine((v) => v.toLowerCase().startsWith("https://"), "Enter an https:// URL"), z.literal("")]).optional(),
+    heroUrl: z.union([z.string().url("Enter a full URL").refine((v) => v.toLowerCase().startsWith("https://"), "Enter an https:// URL"), z.literal("")]).optional(),
+    thumbnailUrl: z.union([z.string().url("Enter a full URL").refine((v) => v.toLowerCase().startsWith("https://"), "Enter an https:// URL"), z.literal("")]).optional(),
+    socialImageUrl: z.union([z.string().url("Enter a full URL").refine((v) => v.toLowerCase().startsWith("https://"), "Enter an https:// URL"), z.literal("")]).optional(),
     contactEmail: z.union([emailSchema, z.literal("")]).optional(),
     contactPhone: z.string().trim().max(20).optional(),
   })
@@ -47,8 +56,16 @@ export const toCreateFest = (v: FestFormOutput): CreateFest => ({
   city: v.city,
   startDate: v.startDate,
   endDate: v.endDate,
+  festType: v.festType,
+  academicYear: blank(v.academicYear),
+  themeColor: blank(v.themeColor),
+  visibility: v.visibility,
+  registrationState: v.registrationState,
   bannerUrl: blank(v.bannerUrl),
   logoUrl: blank(v.logoUrl),
+  heroUrl: blank(v.heroUrl),
+  thumbnailUrl: blank(v.thumbnailUrl),
+  socialImageUrl: blank(v.socialImageUrl),
   contactEmail: blank(v.contactEmail),
   contactPhone: blank(v.contactPhone),
 });
@@ -69,8 +86,16 @@ export const fromFest = (f: Fest): FestFormValues => ({
   city: f.city,
   startDate: f.startDate,
   endDate: f.endDate,
+  festType: f.festType ?? "other",
+  academicYear: f.academicYear ?? "",
+  themeColor: f.themeColor ?? "",
+  visibility: f.visibility ?? "public",
+  registrationState: f.registrationState ?? "open",
   bannerUrl: f.bannerUrl ?? "",
   logoUrl: f.logoUrl ?? "",
+  heroUrl: f.heroUrl ?? "",
+  thumbnailUrl: f.thumbnailUrl ?? "",
+  socialImageUrl: f.socialImageUrl ?? "",
   contactEmail: f.contactEmail ?? "",
   contactPhone: f.contactPhone ?? "",
 });
@@ -79,7 +104,30 @@ export const emptyFest = (): FestFormValues => {
   const d = new Date();
   d.setDate(d.getDate() + 30);
   const start = d.toISOString().slice(0, 10);
-  return { name: "", slug: "", tagline: "", description: "", organizationName: "", venue: "", city: "", startDate: start, endDate: start, bannerUrl: "", logoUrl: "", contactEmail: "", contactPhone: "" };
+  const year = new Date().getFullYear();
+  return {
+    name: "",
+    slug: "",
+    tagline: "",
+    description: "",
+    organizationName: "",
+    venue: "",
+    city: "",
+    startDate: start,
+    endDate: start,
+    festType: "tech",
+    academicYear: `${year}-${String((year + 1) % 100).padStart(2, "0")}`,
+    themeColor: "",
+    visibility: "public",
+    registrationState: "open",
+    bannerUrl: "",
+    logoUrl: "",
+    heroUrl: "",
+    thumbnailUrl: "",
+    socialImageUrl: "",
+    contactEmail: "",
+    contactPhone: "",
+  };
 };
 
 export const useFestForm = (defaults: FestFormValues) =>
@@ -103,6 +151,18 @@ export const FestFields = ({ form, lockSlug, festId }: { form: Form; lockSlug?: 
       </Field>
       <Field label="Address" htmlFor="f-slug" error={err.slug?.message} hint={lockSlug ? "Locked once published — it is the fest's URL." : "festflow.app/f/…"}>
         <Input id="f-slug" disabled={lockSlug} className="font-mono text-[13px]" {...form.register("slug", { onChange: () => (touched.current = true) })} />
+      </Field>
+      <Field label="Kind of fest" htmlFor="f-type" error={err.festType?.message}>
+        <NativeSelect id="f-type" {...form.register("festType")}>
+          {FEST_TYPES.map((t) => (
+            <option key={t} value={t}>
+              {FEST_TYPE_LABELS[t]}
+            </option>
+          ))}
+        </NativeSelect>
+      </Field>
+      <Field label="Academic year" htmlFor="f-year" error={err.academicYear?.message} hint="2025-26">
+        <Input id="f-year" placeholder="2025-26" {...form.register("academicYear")} />
       </Field>
       <Field label="Tagline" htmlFor="f-tag" error={err.tagline?.message} className="sm:col-span-2">
         <Input id="f-tag" placeholder="Three days, 42 events, one pass." {...form.register("tagline")} />
@@ -147,6 +207,60 @@ export const FestFields = ({ form, lockSlug, festId }: { form: Form; lockSlug?: 
         error={err.logoUrl?.message}
         hint="Square · PNG, JPEG or WebP up to 2 MB"
       />
+      <ImageUploadField
+        id="f-hero"
+        label="Hero poster"
+        kind="festHero"
+        ownerId={festId}
+        aspect="1200/1600"
+        value={form.watch("heroUrl") ?? ""}
+        onChange={(url) => form.setValue("heroUrl", url, { shouldDirty: true, shouldValidate: true })}
+        error={err.heroUrl?.message}
+        hint="The tall artwork at the top of the fest page · up to 6 MB"
+      />
+      <ImageUploadField
+        id="f-thumb"
+        label="Thumbnail"
+        kind="festThumbnail"
+        ownerId={festId}
+        aspect="4/3"
+        value={form.watch("thumbnailUrl") ?? ""}
+        onChange={(url) => form.setValue("thumbnailUrl", url, { shouldDirty: true, shouldValidate: true })}
+        error={err.thumbnailUrl?.message}
+        hint="The explorer card · 800×600 is plenty"
+      />
+      <ImageUploadField
+        id="f-social"
+        label="Social poster"
+        kind="festSocial"
+        ownerId={festId}
+        aspect="1200/630"
+        value={form.watch("socialImageUrl") ?? ""}
+        onChange={(url) => form.setValue("socialImageUrl", url, { shouldDirty: true, shouldValidate: true })}
+        error={err.socialImageUrl?.message}
+        hint="1200×630 — what WhatsApp and X show when the link is shared"
+      />
+      <Field label="Theme colour" htmlFor="f-theme" error={err.themeColor?.message} hint="Hex, e.g. #9184d9. Blank keeps the FestFlow accent.">
+        <Input id="f-theme" placeholder="#9184d9" className="font-mono text-[13px]" {...form.register("themeColor")} />
+      </Field>
+      <Field label="Visibility" htmlFor="f-vis" error={err.visibility?.message} hint="Unlisted is reachable by link but never listed.">
+        <NativeSelect id="f-vis" {...form.register("visibility")}>
+          {FEST_VISIBILITIES.map((v) => (
+            <option key={v} value={v}>
+              {v === "public" ? "Public — listed in Explore" : v === "unlisted" ? "Unlisted — by link only" : "Private — staff only"}
+            </option>
+          ))}
+        </NativeSelect>
+      </Field>
+      <Field label="Registration" htmlFor="f-reg" error={err.registrationState?.message} hint="Closes every event in the fest at once.">
+        <NativeSelect id="f-reg" {...form.register("registrationState")}>
+          {FEST_REGISTRATION_STATES.map((v) => (
+            <option key={v} value={v}>
+              {v === "open" ? "Open" : v === "closed" ? "Closed" : "Opening soon"}
+            </option>
+          ))}
+        </NativeSelect>
+      </Field>
       <Field label="Contact email" htmlFor="f-email" error={err.contactEmail?.message}>
         <Input id="f-email" type="email" placeholder="fest@college.edu" {...form.register("contactEmail")} />
       </Field>

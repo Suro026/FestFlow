@@ -75,6 +75,8 @@ export interface GenerateSummary {
   dryRun: boolean;
   eligible: number;
   created: number;
+  /** How many were released to their recipients in this run. */
+  published: number;
   existing: number;
   emailed: number;
   skipped: number;

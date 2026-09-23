@@ -30,6 +30,18 @@ const EXPECTED: Record<UserRole, Permission[]> = {
   super_admin: [...PERMISSIONS],
 };
 
+/** The verbs the spec reserves for the platform owner, written out. */
+const OWNER_ONLY: Permission[] = [
+  "fest:create",
+  "fest:delete",
+  "fest:archive",
+  "fest:transfer",
+  "fest:configureRegistration",
+  "certificate:publish",
+  "staff:createAdmin",
+  "platform:manage",
+];
+
 describe("roles", () => {
   it("is exactly the four roles, ordered", () => {
     expect([...USER_ROLES]).toEqual(["student", "volunteer", "admin", "super_admin"]);
@@ -79,13 +91,31 @@ describe("the permission matrix", () => {
     for (const p of ["event:create", "results:publish", "certificate:issue", "staff:createVolunteer", "audit:read"] as Permission[]) {
       expect(can("admin", p), p).toBe(true);
     }
-    for (const p of ["fest:create", "fest:delete", "staff:createAdmin", "platform:manage"] as Permission[]) {
+    for (const p of OWNER_ONLY) {
       expect(can("admin", p), p).toBe(false);
     }
   });
 
   it("super admin: everything", () => {
     for (const p of PERMISSIONS) expect(can("super_admin", p), p).toBe(true);
+  });
+
+  it("the owner-only set is exactly what admin lacks", () => {
+    const missing = PERMISSIONS.filter((p) => !can("admin", p));
+    expect([...missing].sort()).toEqual([...OWNER_ONLY].sort());
+  });
+
+  it("an admin prepares certificates; only the owner releases them", () => {
+    expect(can("admin", "certificate:issue")).toBe(true);
+    expect(can("admin", "certificate:publish")).toBe(false);
+    expect(can("super_admin", "certificate:publish")).toBe(true);
+    expect(can("volunteer", "certificate:issue")).toBe(false);
+  });
+
+  it("what a fest asks its students is the owner's, not the running admin's", () => {
+    expect(can("admin", "fest:update")).toBe(true);
+    expect(can("admin", "fest:configureRegistration")).toBe(false);
+    expect(can("super_admin", "fest:configureRegistration")).toBe(true);
   });
 });
 

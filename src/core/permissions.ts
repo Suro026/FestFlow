@@ -82,6 +82,10 @@ export const PERMISSIONS = [
   // Super admin only
   "fest:create",
   "fest:delete",
+  "fest:archive",
+  "fest:transfer",
+  "fest:configureRegistration",
+  "certificate:publish",
   "staff:createAdmin",
   "platform:manage",
 ] as const;
@@ -118,7 +122,20 @@ const ADMIN: Permission[] = [
   "upload:eventPoster",
 ];
 
-const SUPER_ADMIN: Permission[] = [...ADMIN, "fest:create", "fest:delete", "staff:createAdmin", "platform:manage"];
+const SUPER_ADMIN: Permission[] = [
+  ...ADMIN,
+  "fest:create",
+  "fest:delete",
+  // Archiving, ownership and what a fest asks its students are the owner's
+  // decisions, not the running admin's.
+  "fest:archive",
+  "fest:transfer",
+  "fest:configureRegistration",
+  // An admin prepares certificates; only the platform owner releases them.
+  "certificate:publish",
+  "staff:createAdmin",
+  "platform:manage",
+];
 
 export const ROLE_PERMISSIONS: Record<UserRole, ReadonlySet<Permission>> = {
   student: new Set(STUDENT),

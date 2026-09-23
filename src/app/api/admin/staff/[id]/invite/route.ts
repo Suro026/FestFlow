@@ -21,7 +21,7 @@ export const POST = handler(async (request, context) => {
   const delivery = await mailer.send(
     staffInviteEmail({
       to: String(data.email),
-      fullName: String(data.fullName ?? "there"),
+      fullName: String(data.name ?? data.fullName ?? "there"),
       roleLabel: String(data.role).replace("_", " "),
       setPasswordLink: link,
       invitedBy: caller.email,

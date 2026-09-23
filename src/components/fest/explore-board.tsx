@@ -191,7 +191,7 @@ export const ExploreBoard = ({ items }: { items: FestWithStats[] }) => {
                       href={`/f/${fest.slug}`}
                       className="rule-b flex gap-3 py-[13px] text-inherit no-underline"
                     >
-                      <Artwork src={fest.logoUrl ?? fest.bannerUrl} className="h-[60px] w-[60px] flex-none rounded-md" alt="" />
+                      <Artwork src={fest.logoUrl ?? fest.thumbnailUrl ?? fest.bannerUrl} className="h-[60px] w-[60px] flex-none rounded-md" alt="" />
                       <div className="min-w-0 flex-1">
                         <div className="mb-[3px] flex items-center gap-2">
                           <span className="truncate text-[15px] font-medium tracking-[-0.01em]">{fest.name}</span>

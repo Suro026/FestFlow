@@ -22,8 +22,12 @@ export default function FestsPage() {
   const router = useRouter();
   const fests = useManagedFests();
 
+  // The list moved into the platform section, where the owner-only verbs
+  // (archive, transfer, delete, registration fields) live beside it. This
+  // route stays for the links already in the wild.
   React.useEffect(() => {
-    if (session && !hasAtLeast(session.role, "super_admin")) router.replace("/admin");
+    if (!session) return;
+    router.replace(hasAtLeast(session.role, "super_admin") ? "/admin/platform/fests" : "/admin");
   }, [session, router]);
 
   const today = new Date().toISOString().slice(0, 10);

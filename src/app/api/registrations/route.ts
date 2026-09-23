@@ -4,6 +4,7 @@ import {
   validateRegistration,
 } from "@/core/models/registration";
 import { isRegistrationOpen } from "@/core/models/event";
+import { cleanAnswers, registrationFieldsSchema, validateAnswers } from "@/core/models/registration-fields";
 import { ApiError, authenticate, handler, ok, readBody } from "@/server/api";
 import { RATE_LIMITS } from "@/server/rate-limit";
 import { COLLECTIONS, FieldValue, Timestamp, adminDb } from "@/server/firebase-admin";
@@ -38,7 +39,7 @@ export const POST = handler(async (request) => {
 
   // The leader is always the caller. Whatever the form sent for row 0 is
   // replaced with the verified identity, so nobody registers "as" someone else.
-  const leaderName = String(profile.fullName ?? input.members[0]?.name ?? "").trim();
+  const leaderName = String(profile.name ?? profile.fullName ?? input.members[0]?.name ?? "").trim();
   if (!leaderName) throw ApiError.unprocessable("Add your name to your profile before registering.");
 
   // Resolve teammates who already have accounts, so their certificates can
@@ -63,6 +64,33 @@ export const POST = handler(async (request) => {
 
     const check = validateRegistration(input, { eventType: event.eventType ?? "solo", teamSize });
     if (!check.ok) throw ApiError.unprocessable(check.message);
+
+    // The fest is the outer gate: its own switch closes every event at once,
+    // and its field configuration is what the answers are checked against.
+    // Read inside the transaction, before any write, so a fest closed a
+    // second ago cannot let one more entry through.
+    const festSnap = await tx.get(db.collection(COLLECTIONS.fests).doc(String(event.festId)));
+    const fest = festSnap.data() ?? {};
+
+    if ((fest.registrationState ?? "open") !== "open") {
+      throw ApiError.unprocessable(
+        fest.registrationState === "upcoming"
+          ? "Registration for this fest has not opened yet."
+          : "Registration for this fest is closed.",
+      );
+    }
+
+    const parsedFields = registrationFieldsSchema.safeParse(fest.registrationFields);
+    const fields = parsedFields.success ? parsedFields.data : undefined;
+
+    // The client checks these too, for instant feedback. This is the copy
+    // that decides — a hand-rolled POST gets the same answer.
+    const problems = validateAnswers(fields, input.answers);
+    if (Object.keys(problems).length > 0) {
+      throw new ApiError(422, "missing-answers", Object.values(problems)[0] ?? "Some required details are missing.", problems);
+    }
+
+    const answers = cleanAnswers(fields, input.answers);
 
     const seats = input.members.length;
     const capacity = Number(event.capacity ?? 0);
@@ -129,9 +157,9 @@ export const POST = handler(async (request) => {
       return compact({
         name: i === 0 ? leaderName : m.name.trim(),
         email,
-        phone: i === 0 ? profile.phone : m.phone,
-        studentId: i === 0 ? profile.student?.studentId : m.studentId,
-        college: i === 0 ? profile.student?.college : m.college,
+        phone: i === 0 ? profile.phone ?? answers.phone : m.phone,
+        studentId: i === 0 ? profile.studentId ?? profile.student?.studentId ?? answers.rollNumber : m.studentId,
+        college: i === 0 ? profile.college ?? profile.student?.college ?? answers.college : m.college,
         userId: i === 0 ? caller.uid : userIdByEmail.get(email),
         isLeader: i === 0,
         inviteStatus: i === 0 ? "accepted" : "pending",
@@ -160,6 +188,7 @@ export const POST = handler(async (request) => {
         eventTitle: event.title,
         userName: leaderName,
         userEmail: caller.email,
+        ...(Object.keys(answers).length > 0 ? { answers } : {}),
         createdAt: FieldValue.serverTimestamp(),
         updatedAt: FieldValue.serverTimestamp(),
       }),
