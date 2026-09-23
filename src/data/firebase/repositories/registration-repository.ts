@@ -214,7 +214,8 @@ export class FirestoreRegistrationRepository implements RegistrationRepository {
           registrations(),
           where("userId", "==", userId),
           where("eventId", "==", eventId),
-          where("status", "in", ["confirmed", "waitlisted"]),
+          // A draft team is an entry too: it blocks a second one.
+          where("status", "in", ["draft", "confirmed", "waitlisted"]),
         ),
       );
       return snapshot.data().count > 0;
@@ -224,7 +225,7 @@ export class FirestoreRegistrationRepository implements RegistrationRepository {
   countByEvent(eventId: string): Promise<number> {
     return guard("Counting registrations", async () => {
       const snapshot = await getCountFromServer(
-        query(registrations(), where("eventId", "==", eventId), where("status", "==", "confirmed")),
+        query(registrations(), where("eventId", "==", eventId), where("status", "in", ["draft", "confirmed"])),
       );
       return snapshot.data().count;
     });
@@ -233,7 +234,7 @@ export class FirestoreRegistrationRepository implements RegistrationRepository {
   countByFest(festId: string): Promise<number> {
     return guard("Counting registrations", async () => {
       const snapshot = await getCountFromServer(
-        query(registrations(), where("festId", "==", festId), where("status", "==", "confirmed")),
+        query(registrations(), where("festId", "==", festId), where("status", "in", ["draft", "confirmed"])),
       );
       return snapshot.data().count;
     });

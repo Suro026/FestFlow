@@ -11,6 +11,7 @@ import type { Fest } from "@/core/models/fest";
 import { emailSchema, shortTextSchema, RepositoryError } from "@/core/models/common";
 import { validateRegistration } from "@/core/models/registration";
 import { cleanAnswers, validateAnswers, visibleFields, type RegistrationAnswers, type ResolvedField } from "@/core/models/registration-fields";
+import { autofill, profileMemoryFrom } from "@/core/services/autofill";
 import { useAuth, useRepositories } from "@/components/providers";
 import { Field, Input, NativeSelect, Textarea } from "@/components/ui/field";
 import { Button } from "@/components/ui/button";
@@ -64,16 +65,29 @@ export const RegistrationForm = ({ event, fest, onDone }: RegistrationFormProps)
 
   const questions = React.useMemo(() => visibleFields(fest.registrationFields), [fest.registrationFields]);
 
-  // Pre-fill from the profile: a student who has already told us their
-  // college should not type it again to enter a quiz.
-  const [answers, setAnswers] = React.useState<RegistrationAnswers>(() => {
-    const seed: RegistrationAnswers = {};
-    for (const field of questions) {
-      const fromProfile = field.profileKey ? profile?.[field.profileKey] : undefined;
-      if (fromProfile !== undefined && fromProfile !== null && String(fromProfile).trim()) seed[field.key] = String(fromProfile);
-    }
-    return seed;
-  });
+  /**
+   * The auto-fill engine, run once on open.
+   *
+   * Everything the profile already knows arrives filled in; `fresh` is what
+   * the student is actually being asked this time, which is what the heading
+   * below counts. The engine is the same function the server runs, so a form
+   * that looks complete here is complete there.
+   */
+  const prefilled = React.useMemo(
+    () => autofill(questions, profileMemoryFrom(profile as unknown as Record<string, unknown> | null)),
+    [questions, profile],
+  );
+  const known = React.useMemo(() => new Set(prefilled.filled), [prefilled]);
+  const fresh = prefilled.remaining;
+
+  const [answers, setAnswers] = React.useState<RegistrationAnswers>(prefilled.answers);
+
+  // The profile can arrive after the first render (it is subscribed live).
+  // Re-run the fill then — never overwriting anything already typed, which
+  // is the engine's first rule and the reason this is safe to repeat.
+  React.useEffect(() => {
+    setAnswers((current) => autofill(questions, profileMemoryFrom(profile as unknown as Record<string, unknown> | null), current).answers);
+  }, [questions, profile]);
   const [answerErrors, setAnswerErrors] = React.useState<Record<string, string>>({});
 
   const setAnswer = (key: string, value: string) => {
@@ -212,6 +226,13 @@ export const RegistrationForm = ({ event, fest, onDone }: RegistrationFormProps)
       {questions.length > 0 ? (
         <>
           <Kick className="mb-2 mt-5">{fest.name} asks</Kick>
+          {known.size > 0 ? (
+            <p className="mb-2.5 text-[12px] text-neutral-500">
+              {fresh.length === 0
+                ? `All ${questions.length} filled in from your profile — check them and you're done.`
+                : `${known.size} filled in from your profile · ${fresh.length} to answer.`}
+            </p>
+          ) : null}
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             {questions.map((field) => (
               <AnswerField
@@ -219,6 +240,7 @@ export const RegistrationForm = ({ event, fest, onDone }: RegistrationFormProps)
                 field={field}
                 value={answers[field.key] ?? ""}
                 error={answerErrors[field.key]}
+                fromProfile={known.has(field.key)}
                 onChange={(value) => setAnswer(field.key, value)}
               />
             ))}
@@ -229,7 +251,7 @@ export const RegistrationForm = ({ event, fest, onDone }: RegistrationFormProps)
       {isTeam ? (
         <div className="mt-3 text-[12px] text-accent-300">
           {needMore > 0
-            ? `This event needs at least ${event.teamSize.min} team members — add ${needMore} more.`
+            ? `This event needs ${event.teamSize.min} members. Register now and your entry is held as a draft — add ${needMore} more by email, or share the join code you get next.`
             : count < event.teamSize.max
               ? `You can add ${event.teamSize.max - count} more later.`
               : `That's the full team of ${event.teamSize.max}.`}
@@ -249,8 +271,8 @@ export const RegistrationForm = ({ event, fest, onDone }: RegistrationFormProps)
         <MetaRow label="Entry" className="bg-none py-0 pb-2.5">
           {event.entryFee > 0 ? `₹${event.entryFee.toLocaleString("en-IN")}` : "Free"} · {formatTeamSize(event.eventType, event.teamSize)}
         </MetaRow>
-        <Button type="submit" variant="primary" size="lg" block loading={form.formState.isSubmitting} disabled={needMore > 0}>
-          Confirm registration
+        <Button type="submit" variant="primary" size="lg" block loading={form.formState.isSubmitting}>
+          {needMore > 0 ? "Register and hold our seats" : "Confirm registration"}
         </Button>
       </div>
     </form>
@@ -266,22 +288,26 @@ const AnswerField = ({
   field,
   value,
   error,
+  fromProfile,
   onChange,
 }: {
   field: ResolvedField;
   value: string;
   error?: string;
+  /** Filled by the auto-fill engine rather than typed here. */
+  fromProfile?: boolean;
   onChange: (value: string) => void;
 }) => {
   const id = `q-${field.key}`;
   const label = field.requirement === "optional" ? `${field.label} (optional)` : field.label;
+  const hint = fromProfile ? [field.help, "From your profile — edit if it has changed."].filter(Boolean).join(" ") : field.help;
 
   return (
     <Field
       label={label}
       htmlFor={id}
       error={error}
-      {...(field.help ? { hint: field.help } : {})}
+      {...(hint ? { hint } : {})}
       className={field.type === "textarea" ? "sm:col-span-2" : undefined}
     >
       {field.options ? (

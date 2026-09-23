@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Page } from "@/components/shell/student-shell";
 import { useMyEntries } from "@/components/student/use-my-entries";
 import { InvitationCard, TeamCard } from "@/components/student/team-panel";
+import { JoinTeam } from "@/components/student/join-team";
 import { EmptyState, Kick, Skeleton } from "@/components/ui/primitives";
 import { Button } from "@/components/ui/button";
 
@@ -24,6 +25,8 @@ export default function TeamsPage() {
     <Page className="max-w-[720px] pb-8 pt-2">
       <h4 className="mb-1">Teams</h4>
       <div className="mb-4 text-[12.5px] text-neutral-500">Every team entry you’re part of, and who’s on it.</div>
+
+      <JoinTeam className="mb-6 border-b border-divider pb-5" />
 
       {isPending && entries.length === 0 ? (
         <>

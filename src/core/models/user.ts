@@ -45,6 +45,9 @@ export const userSchema = z
     year: yearSchema.optional(),
     /** College roll number. Students only. */
     studentId: shortTextSchema.optional(),
+    /** Self-described, free text, never required. */
+    gender: shortTextSchema.optional(),
+    city: shortTextSchema.optional(),
     /** Staff title, e.g. "Cultural secretary". */
     designation: shortTextSchema.optional(),
     /** Human-readable account id for staff — "ADM-2026-K4P7". Students have none. */
@@ -257,6 +260,8 @@ export const updateUserSchema = z.object({
   department: shortTextSchema.optional(),
   year: yearSchema.optional(),
   studentId: shortTextSchema.optional(),
+  gender: shortTextSchema.optional(),
+  city: shortTextSchema.optional(),
   designation: shortTextSchema.optional(),
   organization: shortTextSchema.optional(),
   bio: z.string().trim().max(600).optional(),

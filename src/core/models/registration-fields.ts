@@ -62,7 +62,7 @@ export interface FieldDefinition {
   placeholder?: string;
   options?: readonly string[];
   /** Which profile field pre-fills it, when the student has one. */
-  profileKey?: "name" | "email" | "phone" | "college" | "department" | "year" | "studentId";
+  profileKey?: "name" | "email" | "phone" | "college" | "department" | "year" | "studentId" | "gender" | "city";
   help?: string;
 }
 
@@ -73,9 +73,9 @@ export const BUILT_IN_FIELD_DEFINITIONS: Record<BuiltInField, FieldDefinition> =
   college: { label: "College", type: "text", profileKey: "college" },
   department: { label: "Department", type: "text", placeholder: "CSE", profileKey: "department" },
   year: { label: "Year of study", type: "select", options: ["1", "2", "3", "4", "5"], profileKey: "year" },
-  gender: { label: "Gender", type: "select", options: ["Female", "Male", "Non-binary", "Prefer not to say"] },
+  gender: { label: "Gender", type: "select", options: ["Female", "Male", "Non-binary", "Prefer not to say"], profileKey: "gender" },
   rollNumber: { label: "Roll number", type: "text", profileKey: "studentId" },
-  city: { label: "City", type: "text" },
+  city: { label: "City", type: "text", profileKey: "city" },
   github: { label: "GitHub", type: "url", placeholder: "https://github.com/…" },
   linkedin: { label: "LinkedIn", type: "url", placeholder: "https://linkedin.com/in/…" },
   resume: { label: "Resume", type: "url", placeholder: "https://…", help: "A link — Drive, Notion, a personal site." },
@@ -205,6 +205,9 @@ export type RegistrationAnswers = z.infer<typeof answersSchema>;
 
 const URL_RE = /^https?:\/\/[^\s]+\.[^\s]{2,}$/i;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+// Deliberately loose: 7–15 digits with the usual separators. Stricter than
+// this and a perfectly good number from the wrong country is refused.
+const PHONE_RE = /^\+?[0-9][0-9\s()-]{5,18}[0-9]$/;
 
 /**
  * Checks the answers against the fest's configuration.
@@ -229,6 +232,7 @@ export const validateAnswers = (
     }
 
     if (field.type === "url" && !URL_RE.test(value)) errors[field.key] = `${field.label} must be a link starting with https://`;
+    else if (field.type === "tel" && !PHONE_RE.test(value)) errors[field.key] = `${field.label} must be a phone number`;
     else if (field.type === "email" && !EMAIL_RE.test(value)) errors[field.key] = `${field.label} must be an email address`;
     else if (field.type === "number" && Number.isNaN(Number(value))) errors[field.key] = `${field.label} must be a number`;
     else if (field.options && !field.options.includes(value)) errors[field.key] = `Choose one of the listed options for ${field.label}`;

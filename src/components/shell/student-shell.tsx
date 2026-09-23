@@ -20,13 +20,14 @@ import { NotificationBell } from "./notifications";
 const TOP_LINKS = [
   { href: "/explore", label: "Explore", match: ["/explore", "/f/"] },
   { href: "/my-events", label: "My events", match: ["/my-events", "/my-pass", "/registered"] },
+  { href: "/my-registrations", label: "Registrations", match: ["/my-registrations"] },
   { href: "/teams", label: "Teams", match: ["/teams"] },
   { href: "/certificates", label: "Certificates", match: ["/certificates"] },
 ];
 
 const TAP_LINKS = [
   { href: "/explore", label: "Explore", icon: MagnifyingGlass, match: ["/explore", "/f/"] },
-  { href: "/my-pass", label: "My pass", icon: Ticket, match: ["/my-pass", "/my-events", "/registered", "/certificates"] },
+  { href: "/my-pass", label: "My pass", icon: Ticket, match: ["/my-pass", "/my-events", "/my-registrations", "/registered", "/certificates"] },
   { href: "/teams", label: "Teams", icon: UsersThree, match: ["/teams"] },
   { href: "/profile", label: "Profile", icon: UserIcon, match: ["/profile"] },
 ];
