@@ -9,7 +9,10 @@
  *   visibility          "public" — how every existing fest already behaved
  *   registrationState   "open" for a fest that has not ended, "closed" after
  *   ownerId             from `createdBy`, which is who has been running it
- *   registrationFields  the default question set
+ *   registrationFields  only with --with-fields: writing the default set onto
+ *                       a live fest makes phone and college required from
+ *                       that moment, which is the owner's call, not a
+ *                       migration's
  *   academicYear        derived from the start date (an Indian session runs
  *                       June–May, so January–May belongs to the year before)
  *
@@ -21,6 +24,7 @@ import { cert, getApps, initializeApp } from "firebase-admin/app";
 import { FieldValue, getFirestore } from "firebase-admin/firestore";
 
 const dryRun = process.argv.includes("--dry-run");
+const withFields = process.argv.includes("--with-fields");
 
 const raw = process.env.FIREBASE_SERVICE_ACCOUNT;
 if (!raw?.trim()) {
@@ -90,7 +94,14 @@ for (const doc of snapshot.docs) {
     next.registrationState = String(data.endDate ?? "") >= today ? "open" : "closed";
   }
   if (data.ownerId === undefined && data.createdBy) next.ownerId = data.createdBy;
-  if (data.registrationFields === undefined) next.registrationFields = DEFAULT_REGISTRATION_FIELDS;
+  // Deliberately NOT backfilled unless asked for with --with-fields.
+  //
+  // Writing the default set onto a fest that is already taking registrations
+  // makes phone and college required from that moment, and a student halfway
+  // through the form gets an error about a question they were never asked.
+  // An unconfigured fest asks nothing, exactly as it did before the feature;
+  // the owner turns the questions on from Settings when they want them.
+  if (withFields && data.registrationFields === undefined) next.registrationFields = DEFAULT_REGISTRATION_FIELDS;
   if (data.academicYear === undefined) {
     const year = academicYearFor(data.startDate);
     if (year) next.academicYear = year;
