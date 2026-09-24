@@ -112,6 +112,7 @@ const NAV = [
   { seg: "events", label: "Events", min: "volunteer" },
   { seg: "registrations", label: "Registrations", min: "volunteer" },
   { seg: "gate", label: "Gate", min: "volunteer" },
+  { seg: "analytics", label: "Analytics", min: "admin" },
   { seg: "certificates", label: "Certificates", min: "admin" },
   { seg: "volunteers", label: "Volunteers", min: "admin" },
   { seg: "staff", label: "Staff", min: "admin" },

@@ -24,7 +24,13 @@ export const GET = handler(async (request) => {
     return snapshot.data().count;
   };
 
-  const [fests, students, admins, volunteers, registrations, certificates, published] = await Promise.all([
+  // "Active" here means "profile document touched in the last 30 days" — an
+  // approximation, but the honest one: the alternative, scanning every Auth
+  // user's `lastSignInTime`, has no `count()` equivalent and would be the
+  // single most expensive thing this dashboard does.
+  const activeCutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+
+  const [fests, students, admins, volunteers, registrations, certificates, published, activeUsers30d] = await Promise.all([
     count(COLLECTIONS.fests),
     count(COLLECTIONS.users, (q) => q.where("role", "==", "student")),
     count(COLLECTIONS.users, (q) => q.where("role", "in", ["admin", "super_admin"])),
@@ -32,6 +38,7 @@ export const GET = handler(async (request) => {
     count(COLLECTIONS.registrations, (q) => q.where("status", "==", "confirmed")),
     count(COLLECTIONS.certificates, (q) => q.where("revoked", "==", false)),
     count(COLLECTIONS.fests, (q) => q.where("status", "==", "published")),
+    count(COLLECTIONS.users, (q) => q.where("updatedAt", ">=", activeCutoff)),
   ]);
 
   // The three tables. Deliberately short — a dashboard that lists fifty rows
@@ -106,6 +113,7 @@ export const GET = handler(async (request) => {
       volunteers,
       registrations,
       certificates,
+      activeUsers30d,
     },
     recentFests,
     recentAdmins,
