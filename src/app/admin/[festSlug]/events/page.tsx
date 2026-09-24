@@ -2,18 +2,24 @@
 
 import * as React from "react";
 import Link from "next/link";
+import { toast } from "sonner";
 import { AdminPage, useFest } from "@/components/shell/admin-shell";
 import { useFestEvents } from "@/components/admin/hooks";
+import { useRepositories } from "@/components/providers";
+import { RepositoryError } from "@/core/models/common";
 import { Seg, Input } from "@/components/ui/field";
 import { Button } from "@/components/ui/button";
 import { Bar, EmptyState, PageHeading, Skeleton, Tag } from "@/components/ui/primitives";
-import { CATEGORY_LABELS } from "@/components/event/event-card";
 import type { Event, EventStatus } from "@/core/models/event";
+import { categoryLabel } from "@/core/models/event";
 import { formatCalendarDate, formatTeamSize } from "@/lib/utils";
 
-type Filter = "all" | "live" | "published" | "draft" | "completed";
+type Filter = "all" | "live" | "published" | "draft" | "completed" | "archived";
 
 const matches = (event: Event, filter: Filter): boolean => {
+  const archived = event.visibility === "archived";
+  if (filter === "archived") return archived;
+  if (archived) return false; // an archived event only shows up under its own tab
   switch (filter) {
     case "live":
       return event.status === "ongoing";
@@ -44,19 +50,35 @@ const STATUS_TAG: Record<EventStatus, { tone: "accent" | "neutral" | "outline"; 
 export default function EventsPage() {
   const { fest, basePath } = useFest();
   const events = useFestEvents(fest.id);
+  const repos = useRepositories();
   const [filter, setFilter] = React.useState<Filter>("all");
   const [search, setSearch] = React.useState("");
+  const [busy, setBusy] = React.useState<string | null>(null);
+
+  const duplicate = async (event: Event) => {
+    setBusy(event.id);
+    try {
+      const copy = await repos.events.duplicate(event.id);
+      toast.success(`Duplicated as "${copy.title}"`);
+    } catch (error) {
+      toast.error(error instanceof RepositoryError ? error.message : "Couldn't duplicate");
+    } finally {
+      setBusy(null);
+    }
+  };
 
   const all = events.data ?? [];
   const term = search.trim().toLowerCase();
   const visible = all.filter((e) => matches(e, filter) && (!term || e.title.toLowerCase().includes(term) || e.venue.toLowerCase().includes(term)));
 
+  const active = all.filter((e) => e.visibility !== "archived");
   const counts = {
-    all: all.length,
-    live: all.filter((e) => e.status === "ongoing").length,
-    published: all.filter((e) => e.status === "published").length,
-    draft: all.filter((e) => e.status === "draft").length,
-    completed: all.filter((e) => e.status === "completed" || e.status === "cancelled").length,
+    all: active.length,
+    live: active.filter((e) => e.status === "ongoing").length,
+    published: active.filter((e) => e.status === "published").length,
+    draft: active.filter((e) => e.status === "draft").length,
+    completed: active.filter((e) => e.status === "completed" || e.status === "cancelled").length,
+    archived: all.filter((e) => e.visibility === "archived").length,
   };
 
   return (
@@ -83,6 +105,7 @@ export default function EventsPage() {
               { value: "published", label: `Published ${counts.published}` },
               { value: "draft", label: `Drafts ${counts.draft}` },
               { value: "completed", label: `Ended ${counts.completed}` },
+              ...(counts.archived > 0 ? [{ value: "archived" as Filter, label: `Archived ${counts.archived}` }] : []),
             ]}
             aria-label="Filter events"
           />
@@ -129,7 +152,7 @@ export default function EventsPage() {
                         {event.title}
                       </Link>
                       <div className="text-[11.5px] text-neutral-500">
-                        {CATEGORY_LABELS[event.category]} · {event.venue}
+                        {categoryLabel(event.category)} · {event.venue}
                       </div>
                     </td>
                     <td className="whitespace-nowrap">
@@ -156,6 +179,9 @@ export default function EventsPage() {
                       <Link href={`${href}/settings`} className="btn btn-ghost text-[12px]">
                         Settings
                       </Link>
+                      <button type="button" className="btn btn-ghost text-[12px]" disabled={busy === event.id} onClick={() => duplicate(event)}>
+                        Duplicate
+                      </button>
                     </td>
                   </tr>
                 );

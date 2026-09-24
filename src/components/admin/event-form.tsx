@@ -8,6 +8,7 @@ import { Plus, X } from "@phosphor-icons/react";
 import {
   EVENT_CATEGORIES,
   MEAL_TYPES_LIST,
+  categoryLabel,
   type CreateEvent,
   type Event,
   type UpdateEvent,
@@ -15,9 +16,10 @@ import {
 import { calendarDateSchema, clockTimeSchema, emailSchema } from "@/core/models/common";
 import { CheckOption, Field, Input, NativeSelect, RadioOption, Textarea } from "@/components/ui/field";
 import { ImageUploadField } from "@/components/ui/image-upload";
+import { PdfUploadField } from "@/components/ui/pdf-upload";
 import { Button } from "@/components/ui/button";
 import { Kick } from "@/components/ui/primitives";
-import { CATEGORY_LABELS, EventCard } from "@/components/event/event-card";
+import { EventCard } from "@/components/event/event-card";
 import { slugify } from "@/lib/utils";
 
 /**
@@ -40,12 +42,15 @@ export const eventFormSchema = z
       .max(60)
       .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "Lowercase letters, numbers and hyphens"),
     description: z.string().trim().max(5000).optional(),
-    category: z.enum(EVENT_CATEGORIES),
+    category: z.string().trim().min(1, "Pick or type a category").max(60),
+    visibility: z.enum(["public", "unlisted", "archived"]),
     venue: z.string().trim().min(1, "Where is it held?").max(200),
     date: calendarDateSchema,
     startTime: clockTimeSchema,
     endTime: z.union([clockTimeSchema, z.literal("")]).optional(),
     posterUrl: z.union([z.string().url("Enter a full URL").refine((v) => v.toLowerCase().startsWith("https://"), "Enter an https:// URL"), z.literal("")]).optional(),
+    rulebookUrl: z.union([z.string().url("Enter a full URL").refine((v) => v.toLowerCase().startsWith("https://"), "Enter an https:// URL"), z.literal("")]).optional(),
+    prizePool: z.string().trim().max(200).optional(),
     rulesText: z.string().max(10000).optional(),
     prizesText: z.string().max(4000).optional(),
     coordinators: z
@@ -108,11 +113,14 @@ export const toCreateEvent = (v: EventFormOutput, festId: string): CreateEvent =
   slug: v.slug,
   description: v.description || undefined,
   category: v.category,
+  visibility: v.visibility,
   venue: v.venue,
   date: v.date,
   startTime: v.startTime,
   endTime: v.endTime || undefined,
   posterUrl: v.posterUrl || undefined,
+  rulebookUrl: v.rulebookUrl || undefined,
+  prizePool: v.prizePool || undefined,
   rules: lines(v.rulesText),
   prizes: lines(v.prizesText),
   coordinators: v.coordinators.map((c) => ({ name: c.name, phone: c.phone || undefined, email: c.email || undefined })),
@@ -139,11 +147,14 @@ export const fromEvent = (event: Event): EventFormValues => ({
   slug: event.slug,
   description: event.description ?? "",
   category: event.category,
+  visibility: event.visibility ?? "public",
   venue: event.venue,
   date: event.date,
   startTime: event.startTime,
   endTime: event.endTime ?? "",
   posterUrl: event.posterUrl ?? "",
+  rulebookUrl: event.rulebookUrl ?? "",
+  prizePool: event.prizePool ?? "",
   rulesText: event.rules.join("\n"),
   prizesText: event.prizes.join("\n"),
   coordinators: event.coordinators.map((c) => ({ name: c.name, phone: c.phone ?? "", email: c.email ?? "" })),
@@ -165,11 +176,14 @@ export const emptyEvent = (festStart: string): EventFormValues => ({
   slug: "",
   description: "",
   category: "technical",
+  visibility: "public",
   venue: "",
   date: festStart,
   startTime: "10:00",
   endTime: "",
   posterUrl: "",
+  rulebookUrl: "",
+  prizePool: "",
   rulesText: "",
   prizesText: "",
   coordinators: [],
@@ -231,14 +245,15 @@ export const BasicsFields = ({ form, lockSlug, festId }: { form: Form; lockSlug?
       <Field label="Description" htmlFor="ev-desc" error={err.description?.message} className="sm:col-span-2">
         <Textarea id="ev-desc" rows={3} placeholder="What it is, who it's for, what happens on the day." {...form.register("description")} />
       </Field>
-      <Field label="Category" htmlFor="ev-cat" error={err.category?.message}>
-        <NativeSelect id="ev-cat" {...form.register("category")}>
+      <Field label="Category" htmlFor="ev-cat" error={err.category?.message} hint="Pick one, or type your own.">
+        <Input id="ev-cat" list="ev-cat-options" {...form.register("category")} />
+        <datalist id="ev-cat-options">
           {EVENT_CATEGORIES.map((c) => (
             <option key={c} value={c}>
-              {CATEGORY_LABELS[c]}
+              {categoryLabel(c)}
             </option>
           ))}
-        </NativeSelect>
+        </datalist>
       </Field>
       <Field label="Venue" htmlFor="ev-venue" error={err.venue?.message}>
         <Input id="ev-venue" placeholder="Tech Park Auditorium" {...form.register("venue")} />
@@ -254,9 +269,17 @@ export const BasicsFields = ({ form, lockSlug, festId }: { form: Form; lockSlug?
           <Input id="ev-end" type="time" {...form.register("endTime")} />
         </Field>
       </div>
+      <div className="sm:col-span-2">
+        <Kick className="mb-[9px]">Visibility</Kick>
+        <div className="flex flex-wrap gap-[18px]">
+          <RadioOption label="Public — listed on the fest page" value="public" {...form.register("visibility")} />
+          <RadioOption label="Unlisted — reachable by link only" value="unlisted" {...form.register("visibility")} />
+        </div>
+        <div className="mt-[9px] text-[12px] text-neutral-500">Archiving is a separate action, from the danger zone below — it needs no re-save.</div>
+      </div>
       <ImageUploadField
         id="ev-poster"
-        label="Poster"
+        label="Banner image"
         kind="eventPoster"
         ownerId={festId}
         aspect="1200/630"
@@ -266,11 +289,23 @@ export const BasicsFields = ({ form, lockSlug, festId }: { form: Form; lockSlug?
         hint="1200×630 works best · PNG, JPEG or WebP up to 5 MB"
         className="sm:col-span-2"
       />
+      <PdfUploadField
+        id="ev-rulebook"
+        label="Rulebook PDF"
+        ownerId={festId}
+        value={form.watch("rulebookUrl") ?? ""}
+        onChange={(url) => form.setValue("rulebookUrl", url, { shouldDirty: true, shouldValidate: true })}
+        error={err.rulebookUrl?.message}
+        className="sm:col-span-2"
+      />
+      <Field label="Prize pool" htmlFor="ev-pool" hint="Shown as a headline — line items go below." className="sm:col-span-2">
+        <Input id="ev-pool" placeholder="₹60,000 across three places" {...form.register("prizePool")} />
+      </Field>
       <Field label="Rules" htmlFor="ev-rules" hint="One per line." className="sm:col-span-2">
         <Textarea id="ev-rules" rows={4} {...form.register("rulesText")} />
       </Field>
       <Field label="Prizes" htmlFor="ev-prizes" hint="One per line." className="sm:col-span-2">
-        <Textarea id="ev-prizes" rows={2} placeholder="₹60,000 pool · internship shortlist for the top 3 teams" {...form.register("prizesText")} />
+        <Textarea id="ev-prizes" rows={2} placeholder="Winner: ₹30,000. Runner-up: ₹15,000." {...form.register("prizesText")} />
       </Field>
     </div>
   );
@@ -426,6 +461,7 @@ export const StudentPreview = ({ form, festSlug, festId }: { form: Form; festSlu
     title: v.title || "Untitled event",
     description: v.description || undefined,
     category: v.category ?? "other",
+    visibility: v.visibility ?? "public",
     eventType: v.eventType ?? "solo",
     teamSize: v.eventType === "team" ? { min: Number(v.teamMin) || 1, max: Number(v.teamMax) || 1 } : { min: 1, max: 1 },
     date: v.date || now.toISOString().slice(0, 10),
@@ -439,6 +475,8 @@ export const StudentPreview = ({ form, festSlug, festId }: { form: Form; festSlu
     waitlistEnabled: v.waitlistEnabled ?? false,
     entryFee: Number(v.entryFee) || 0,
     posterUrl: v.posterUrl || undefined,
+    rulebookUrl: v.rulebookUrl || undefined,
+    prizePool: v.prizePool || undefined,
     rules: lines(v.rulesText),
     prizes: lines(v.prizesText),
     coordinators: [],

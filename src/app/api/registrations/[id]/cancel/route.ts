@@ -75,7 +75,7 @@ export const POST = handler(async (request, context) => {
           promotedData.type === "team" && !teamIsComplete(promotedMembers, (event.teamSize ?? { min: 1, max: 1 }) as { min: number })
             ? "draft"
             : "confirmed";
-        tx.update(promote.ref, { status: promotedStatus, updatedAt: FieldValue.serverTimestamp() });
+        tx.update(promote.ref, { status: promotedStatus, promotedAt: FieldValue.serverTimestamp(), updatedAt: FieldValue.serverTimestamp() });
         delta += Number(promote.data().seats ?? 1);
       }
       tx.update(eventRef, { registeredCount: FieldValue.increment(delta), updatedAt: FieldValue.serverTimestamp() });

@@ -52,6 +52,9 @@ export interface EventRepository {
    */
   delete(id: string): Promise<void>;
 
+  /** Copies an event's shape into a fresh draft — no registrations, a new slug. */
+  duplicate(id: string): Promise<Event>;
+
   setStatus(id: string, status: EventStatus): Promise<void>;
 
   setRegistrationOpen(id: string, open: boolean): Promise<void>;

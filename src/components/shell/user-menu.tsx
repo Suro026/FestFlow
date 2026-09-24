@@ -32,6 +32,14 @@ export const UserMenu = ({ variant = "student" }: { variant?: "student" | "admin
   const name = profile?.fullName ?? session.displayName ?? session.email;
   const first = name.split(/\s+/)[0] ?? name;
   const isStaff = hasAtLeast(session.role, "volunteer");
+  const profileHref =
+    session.role === "super_admin"
+      ? "/admin/platform/profile"
+      : session.role === "admin"
+        ? "/admin/profile"
+        : session.role === "volunteer"
+          ? "/volunteer/profile"
+          : "/profile";
 
   return (
     <Menu>
@@ -49,7 +57,7 @@ export const UserMenu = ({ variant = "student" }: { variant?: "student" | "admin
       <MenuContent align="end">
         <MenuLabel>{session.email}</MenuLabel>
         <MenuItem asChild>
-          <Link href="/profile">
+          <Link href={profileHref}>
             <UserIcon size={15} /> Profile
           </Link>
         </MenuItem>

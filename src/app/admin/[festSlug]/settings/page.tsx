@@ -130,9 +130,12 @@ export default function FestSettingsPage() {
             What this fest asks for
           </h2>
           <p className="mb-5 max-w-[68ch] text-[13.5px] text-neutral-400">
-            The details every student provides when they register for any event in {fest.name}. Applies fest-wide; individual events do not override it.
+            The details every student provides when they register for any event in {fest.name}. An individual event can add its own questions on top of these from its own settings — this is the baseline every event starts from.
           </p>
-          <RegistrationFieldsEditor fest={fest} />
+          <RegistrationFieldsEditor
+            initial={fest.registrationFields}
+            onSave={(fields) => action.mutateAsync({ id: fest.id, action: "registrationFields", fields }).then(() => undefined)}
+          />
         </section>
       ) : null}
 

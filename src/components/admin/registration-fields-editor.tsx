@@ -3,7 +3,7 @@
 import * as React from "react";
 import { toast } from "sonner";
 import { Plus, Trash } from "@phosphor-icons/react";
-import type { Fest } from "@/core/models/fest";
+
 import {
   BUILT_IN_FIELDS,
   BUILT_IN_FIELD_DEFINITIONS,
@@ -18,7 +18,6 @@ import {
   type FieldRequirement,
   type RegistrationFields,
 } from "@/core/models/registration-fields";
-import { useFestAction } from "@/components/admin/platform-api";
 import { Button } from "@/components/ui/button";
 import { Field, Input, NativeSelect } from "@/components/ui/field";
 import { Kick, Note, Tag } from "@/components/ui/primitives";
@@ -42,9 +41,25 @@ const REQUIREMENT_LABELS: Record<FieldRequirement, string> = {
   hidden: "Not asked",
 };
 
-export const RegistrationFieldsEditor = ({ fest, onDone }: { fest: Fest; onDone?: () => void }) => {
-  const action = useFestAction();
-  const [fields, setFields] = React.useState<RegistrationFields>(() => fest.registrationFields ?? defaultRegistrationFields());
+export interface RegistrationFieldsEditorProps {
+  /** What is already saved — a fest's default set, or an event's own override. */
+  initial: RegistrationFields | undefined;
+  /** Persists the edited configuration. Throw to show the standard error toast. */
+  onSave: (fields: RegistrationFields) => Promise<void>;
+  onDone?: () => void;
+  /**
+   * Shown above the field list. An event's copy explains that this adds to
+   * the fest's own questions rather than replacing them; the fest's copy
+   * needs no such caveat.
+   */
+  note?: React.ReactNode;
+  /** Label on the primary button — "Save the form" for a fest, "Save override" for an event. */
+  saveLabel?: string;
+}
+
+export const RegistrationFieldsEditor = ({ initial, onSave, onDone, note, saveLabel = "Save the form" }: RegistrationFieldsEditorProps) => {
+  const [fields, setFields] = React.useState<RegistrationFields>(() => initial ?? defaultRegistrationFields());
+  const [saving, setSaving] = React.useState(false);
   const [newLabel, setNewLabel] = React.useState("");
 
   const setBuiltIn = (key: BuiltInField, requirement: FieldRequirement) =>
@@ -78,12 +93,15 @@ export const RegistrationFieldsEditor = ({ fest, onDone }: { fest: Fest; onDone?
     setFields((prev) => ({ ...prev, custom: prev.custom.filter((_, i) => i !== index) }));
 
   const save = async () => {
+    setSaving(true);
     try {
-      await action.mutateAsync({ id: fest.id, action: "registrationFields", fields });
+      await onSave(fields);
       toast.success("Registration form updated");
       onDone?.();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Couldn't save the fields");
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -93,6 +111,7 @@ export const RegistrationFieldsEditor = ({ fest, onDone }: { fest: Fest; onDone?
   return (
     <div className="grid grid-cols-1 gap-7 lg:grid-cols-[1fr_300px]">
       <div>
+        {note}
         <Kick className="mb-2">Standard details</Kick>
         <div className="flex flex-col">
           {editable.map((key) => {
@@ -211,8 +230,8 @@ export const RegistrationFieldsEditor = ({ fest, onDone }: { fest: Fest; onDone?
         </div>
 
         <div className="mt-6 flex flex-wrap gap-2">
-          <Button variant="primary" onClick={save} loading={action.isPending}>
-            Save the form
+          <Button variant="primary" onClick={save} loading={saving}>
+            {saveLabel}
           </Button>
           <Button variant="secondary" onClick={() => setFields(defaultRegistrationFields())}>
             Reset to defaults

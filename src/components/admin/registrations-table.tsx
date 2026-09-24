@@ -11,11 +11,12 @@ import { RepositoryError } from "@/core/models/common";
 import { hasAtLeast } from "@/core/models/user";
 import { useAuth, useRepositories } from "@/components/providers";
 import { useFest } from "@/components/shell/admin-shell";
+import { firebaseAuth } from "@/data/firebase/client";
 import { useFestAudit } from "./hooks";
 import { Input } from "@/components/ui/field";
 import { Button } from "@/components/ui/button";
 import { AlertDialog, AlertDialogContent, Avatar, Dialog, DialogActions, DialogContent } from "@/components/ui/overlays";
-import { EmptyState, Kick, MetaList, MetaRow, Skeleton, Tag } from "@/components/ui/primitives";
+import { EmptyState, Kick, Kpi, KpiStrip, MetaList, MetaRow, Skeleton, Tag } from "@/components/ui/primitives";
 import { formatCalendarDate, formatClock, formatRelative } from "@/lib/utils";
 
 /**
@@ -39,33 +40,10 @@ const statusTag = (r: Registration, att?: Attendance) => {
   if (att) return <Tag tone="accent" check>Checked in</Tag>;
   if (r.status === "waitlisted") return <Tag tone="neutral">Waitlisted</Tag>;
   if (r.status === "cancelled") return <Tag tone="neutral">Cancelled</Tag>;
+  if (r.status === "draft") return <Tag tone="outline">Draft team</Tag>;
   return <Tag tone="neutral">Confirmed</Tag>;
 };
 
-const toCsv = (rows: Registration[], attendance: Map<string, Attendance>, eventTitle?: (id: string) => string) => {
-  const head = ["Event", "Team", "Leader", "Email", "Members", "Member emails", "Ticket", "Status", "Registered", "Entry", "Entry method", "Gate"];
-  const esc = (v: unknown) => `"${String(v ?? "").replace(/"/g, '""')}"`;
-  const lines = rows.map((r) => {
-    const a = attendance.get(r.id);
-    return [
-      eventTitle ? eventTitle(r.eventId) : r.eventTitle,
-      r.teamName ?? "",
-      r.userName,
-      r.userEmail,
-      r.members.length,
-      r.members.map((m) => m.email).join("; "),
-      r.ticketCode,
-      a ? "checked_in" : r.status,
-      r.createdAt.toISOString(),
-      a ? a.scannedAt.toISOString() : "",
-      a ? a.method : "",
-      a?.gate ?? "",
-    ]
-      .map(esc)
-      .join(",");
-  });
-  return [head.map(esc).join(","), ...lines].join("\r\n");
-};
 
 export const RegistrationsTable = ({ registrations, attendance, events, event, loading }: RegistrationsTableProps) => {
   const { session } = useAuth();
@@ -73,7 +51,10 @@ export const RegistrationsTable = ({ registrations, attendance, events, event, l
   const { fest } = useFest();
   const [search, setSearch] = React.useState("");
   const [filter, setFilter] = React.useState<"all" | "confirmed" | "checked" | "waitlisted" | "cancelled">("all");
+  const [collegeFilter, setCollegeFilter] = React.useState("");
   const [open, setOpen] = React.useState<Registration | null>(null);
+  const [exportBusy, setExportBusy] = React.useState<"csv" | "xlsx" | "pdf" | null>(null);
+  const [showExportMenu, setShowExportMenu] = React.useState(false);
   const [override, setOverride] = React.useState("");
   const [overrideEvent, setOverrideEvent] = React.useState(event?.id ?? "");
   const [overriding, setOverriding] = React.useState(false);
@@ -88,32 +69,68 @@ export const RegistrationsTable = ({ registrations, attendance, events, event, l
       const att = attendance.get(r.id);
       const state = att ? "checked" : r.status;
       if (filter !== "all" && !(filter === "confirmed" ? r.status === "confirmed" && !att : state === filter)) return false;
+      if (collegeFilter.trim()) {
+        const college = r.answers?.college ?? r.members.find((m) => m.isLeader)?.college ?? r.members[0]?.college ?? "";
+        if (!college.toLowerCase().includes(collegeFilter.trim().toLowerCase())) return false;
+      }
       if (!term) return true;
       return [r.userName, r.userEmail, r.ticketCode, r.teamName, ...r.members.flatMap((m) => [m.name, m.email])]
         .some((v) => v?.toLowerCase().includes(term));
     });
-  }, [registrations, attendance, filter, search]);
+  }, [registrations, attendance, filter, search, collegeFilter]);
 
   const counts = React.useMemo(() => {
     const all = registrations ?? [];
+    const seated = (r: Registration) => r.status === "confirmed" || r.status === "draft";
     return {
+      total: all.length,
       confirmed: all.filter((r) => r.status === "confirmed").length,
+      draft: all.filter((r) => r.status === "draft").length,
       checked: all.filter((r) => attendance.has(r.id)).length,
       waitlisted: all.filter((r) => r.status === "waitlisted").length,
       cancelled: all.filter((r) => r.status === "cancelled").length,
-      seats: all.filter((r) => r.status === "confirmed").reduce((s, r) => s + r.seats, 0),
+      seats: all.filter(seated).reduce((s, r) => s + r.seats, 0),
+      capacityRemaining: event && event.capacity > 0 ? Math.max(0, event.capacity - event.registeredCount) : null,
     };
-  }, [registrations, attendance]);
+  }, [registrations, attendance, event]);
 
-  const exportCsv = () => {
-    const csv = toCsv(rows, attendance, event ? undefined : eventTitle);
-    const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${fest.slug}${event ? `-${event.slug}` : ""}-registrations.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
+  /**
+   * The real export — dynamic answers, college/phone/payment/QR columns —
+   * comes from the server route, which is the one place that has the fest's
+   * and the event's registration-field configuration to build the right
+   * header row from. This button just carries the filters already on
+   * screen.
+   */
+  const exportFile = async (format: "csv" | "xlsx" | "pdf") => {
+    setShowExportMenu(false);
+    setExportBusy(format);
+    try {
+      const params = new URLSearchParams({ festId: fest.id, format });
+      if (event) params.set("eventId", event.id);
+      if (filter === "confirmed") params.set("status", "confirmed");
+      else if (filter === "waitlisted") params.set("status", "waitlisted");
+      else if (filter === "cancelled") params.set("status", "cancelled");
+      if (collegeFilter.trim()) params.set("college", collegeFilter.trim());
+
+      const token = await firebaseAuth().currentUser?.getIdToken();
+      const res = await fetch(`/api/admin/registrations/export?${params.toString()}`, {
+        headers: token ? { authorization: `Bearer ${token}` } : {},
+      });
+      if (!res.ok) throw new Error(`Export failed (${res.status})`);
+      const blob = await res.blob();
+      const disposition = res.headers.get("content-disposition") ?? "";
+      const filename = /filename="([^"]+)"/.exec(disposition)?.[1] ?? `registrations.${format}`;
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      toast.error("Couldn't build that export — try again.");
+    } finally {
+      setExportBusy(null);
+    }
   };
 
   const markEntry = async () => {
@@ -159,21 +176,48 @@ export const RegistrationsTable = ({ registrations, attendance, events, event, l
 
   return (
     <>
+      <KpiStrip className="mb-4">
+        <Kpi value={String(counts.total)} label="Total registered" />
+        <Kpi value={String(counts.confirmed)} label="Confirmed" />
+        <Kpi value={String(counts.draft)} label="Draft teams" />
+        <Kpi value={String(counts.waitlisted)} label="Waitlist" />
+        <Kpi value={String(counts.checked)} label="Checked in" />
+        <Kpi value={counts.capacityRemaining === null ? "∞" : String(counts.capacityRemaining)} label="Capacity remaining" />
+      </KpiStrip>
+
       <div className="mb-3.5 flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-2">
           {chip("confirmed", "Confirmed", counts.confirmed, "accent")}
           {chip("checked", "Checked in", counts.checked, "neutral")}
           {chip("waitlisted", "Waitlisted", counts.waitlisted, "neutral")}
           {chip("cancelled", "Cancelled", counts.cancelled, "neutral")}
-          <span className="ml-1.5 text-[12px] text-neutral-500">One active registration per participant per event</span>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Input type="search" placeholder="Search name, email or ticket" value={search} onChange={(e) => setSearch(e.target.value)} className="w-full sm:w-[250px]" aria-label="Search registrations" />
-          <Button variant="secondary" onClick={exportCsv} disabled={rows.length === 0}>
-            <DownloadSimple size={15} /> Export CSV
-          </Button>
+          <Input type="search" placeholder="Search name, email or ticket" value={search} onChange={(e) => setSearch(e.target.value)} className="w-full sm:w-[210px]" aria-label="Search registrations" />
+          <Input type="search" placeholder="Filter by college" value={collegeFilter} onChange={(e) => setCollegeFilter(e.target.value)} className="w-full sm:w-[170px]" aria-label="Filter by college" />
+          <div className="relative">
+            <Button variant="secondary" onClick={() => setShowExportMenu((v) => !v)} disabled={rows.length === 0}>
+              <DownloadSimple size={15} /> Export
+            </Button>
+            {showExportMenu ? (
+              <div className="absolute right-0 top-full z-10 mt-1 w-[160px] rounded-md bg-surface p-1 shadow-[var(--shadow-md)]">
+                {(["csv", "xlsx", "pdf"] as const).map((fmt) => (
+                  <button
+                    key={fmt}
+                    type="button"
+                    className="block w-full rounded-sm px-2.5 py-1.5 text-left text-[13px] hover:bg-bg/60 disabled:opacity-50"
+                    disabled={exportBusy !== null}
+                    onClick={() => void exportFile(fmt)}
+                  >
+                    {exportBusy === fmt ? "Preparing…" : fmt.toUpperCase()}
+                  </button>
+                ))}
+              </div>
+            ) : null}
+          </div>
         </div>
       </div>
+      <div className="mb-3.5 text-[12px] text-neutral-500">One active registration per participant per event · export includes each fest's own registration questions</div>
 
       {loading ? (
         <Skeleton className="h-64" />
@@ -187,10 +231,13 @@ export const RegistrationsTable = ({ registrations, attendance, events, event, l
                 {event ? null : <th>Event</th>}
                 <th>Team</th>
                 <th>Leader</th>
+                <th>College</th>
+                <th>Phone</th>
                 <th>Members</th>
-                <th>Ticket</th>
+                <th>Ticket (QR)</th>
+                <th>Payment</th>
                 <th>Registered</th>
-                <th>Entry</th>
+                <th>Attendance</th>
                 <th>Status</th>
                 <th></th>
               </tr>
@@ -198,13 +245,20 @@ export const RegistrationsTable = ({ registrations, attendance, events, event, l
             <tbody>
               {rows.map((r) => {
                 const att = attendance.get(r.id);
+                const college = r.answers?.college ?? r.members.find((m) => m.isLeader)?.college ?? r.members[0]?.college ?? "—";
+                const phone = r.answers?.phone ?? r.members.find((m) => m.isLeader)?.phone ?? r.members[0]?.phone ?? "—";
+                const eventForRow = event ?? events.find((e) => e.id === r.eventId);
+                const payment = !eventForRow?.entryFee ? "Free" : `₹${eventForRow.entryFee.toLocaleString("en-IN")}`;
                 return (
                   <tr key={r.id}>
                     {event ? null : <td className="max-w-[180px] truncate">{eventTitle(r.eventId)}</td>}
                     <td>{r.teamName ?? <span className="text-neutral-500">Solo</span>}</td>
                     <td>{r.userName}</td>
+                    <td className="max-w-[140px] truncate">{college}</td>
+                    <td className="whitespace-nowrap">{phone}</td>
                     <td>{r.members.length}</td>
                     <td className="code text-[12.5px]">{r.ticketCode}</td>
+                    <td className="whitespace-nowrap">{payment}</td>
                     <td className="whitespace-nowrap">{formatCalendarDate(r.createdAt.toISOString().slice(0, 10))}</td>
                     <td className="whitespace-nowrap">{att ? `${formatClock(att.scannedAt)}${att.gate ? ` · ${att.gate}` : ""}${att.method === "manual" ? " · manual" : ""}` : "—"}</td>
                     <td>{statusTag(r, att)}</td>

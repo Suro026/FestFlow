@@ -182,7 +182,11 @@ export default function PlatformFestsPage() {
       <Dialog open={configuring !== null} onOpenChange={(open) => !open && setConfiguring(null)}>
         {configuring ? (
           <DialogContent title={`What ${configuring.name} asks for`} description="Applies to every event in this fest." size="lg">
-            <RegistrationFieldsEditor fest={configuring} onDone={() => setConfiguring(null)} />
+            <RegistrationFieldsEditor
+              initial={configuring.registrationFields}
+              onSave={(fields) => action.mutateAsync({ id: configuring.id, action: "registrationFields", fields }).then(() => undefined)}
+              onDone={() => setConfiguring(null)}
+            />
           </DialogContent>
         ) : null}
       </Dialog>

@@ -15,6 +15,7 @@ export type UploadKind =
   | "festThumbnail"
   | "festSocial"
   | "eventPoster"
+  | "eventRulebook"
   | "certificateTemplate"
   | "profilePhoto";
 
@@ -26,6 +27,7 @@ const LIMITS: Record<UploadKind, string> = {
   festSocial: "PNG, JPEG or WebP · up to 3 MB",
   certificateTemplate: "PNG, JPEG or WebP · up to 8 MB",
   eventPoster: "PNG, JPEG or WebP · up to 5 MB",
+  eventRulebook: "PDF · up to 10 MB",
   profilePhoto: "PNG, JPEG or WebP · up to 3 MB",
 };
 

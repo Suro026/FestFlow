@@ -1,4 +1,4 @@
-import { Timestamp, type DocumentSnapshot } from "firebase-admin/firestore";
+import { FieldValue, Timestamp, type DocumentSnapshot } from "firebase-admin/firestore";
 
 /**
  * Admin-SDK documents to JSON the client can parse.
@@ -20,13 +20,28 @@ export const toJson = <T = Record<string, unknown>>(value: unknown): T => {
 export const docToJson = <T = Record<string, unknown>>(snapshot: DocumentSnapshot): T | null =>
   snapshot.exists ? toJson<T>({ ...snapshot.data(), id: snapshot.id }) : null;
 
-/** Drops `undefined` so Firestore accepts the write. */
+/**
+ * Drops `undefined` so Firestore accepts the write.
+ *
+ * `FieldValue.serverTimestamp()`, `.delete()` and `.increment()` are opaque
+ * sentinel objects with no enumerable properties of their own (`increment`
+ * carries one, `operand`, but not the operation it names) — recursing into
+ * one the way a plain nested object is recursed into does not compact it, it
+ * destroys it, replacing "set this to the server's clock" with an empty
+ * object literal that Firestore stores exactly as given. They are passed
+ * through untouched, the same way `Date` and `Timestamp` already are.
+ */
 export const compact = <T extends Record<string, unknown>>(value: T): T => {
   const out: Record<string, unknown> = {};
   for (const [key, item] of Object.entries(value)) {
     if (item === undefined) continue;
     out[key] =
-      item !== null && typeof item === "object" && !Array.isArray(item) && !(item instanceof Date) && !(item instanceof Timestamp)
+      item !== null &&
+      typeof item === "object" &&
+      !Array.isArray(item) &&
+      !(item instanceof Date) &&
+      !(item instanceof Timestamp) &&
+      !(item instanceof FieldValue)
         ? compact(item as Record<string, unknown>)
         : item;
   }

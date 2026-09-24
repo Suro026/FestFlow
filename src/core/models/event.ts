@@ -6,23 +6,61 @@ import {
   idSchema,
   longTextSchema,
   shortTextSchema, httpsUrlSchema } from "./common";
+import { registrationFieldsSchema } from "./registration-fields";
 
 export const EVENT_TYPES = ["solo", "team"] as const;
 export const eventTypeSchema = z.enum(EVENT_TYPES);
 export type EventType = z.infer<typeof eventTypeSchema>;
 
+/**
+ * The built-in categories offered in the picker. Not a closed set: an admin
+ * types anything they like and it is stored as given (lowercased, for
+ * consistent filtering) — `categoryLabel()` below is what turns either kind
+ * back into a display string.
+ */
 export const EVENT_CATEGORIES = [
   "technical",
   "cultural",
   "sports",
+  "hackathon",
   "workshop",
   "seminar",
-  "hackathon",
-  "gaming",
+  "conference",
+  "esports",
   "other",
 ] as const;
+/** Still exported for anywhere a built-in value is asserted against. */
 export const eventCategorySchema = z.enum(EVENT_CATEGORIES);
-export type EventCategory = z.infer<typeof eventCategorySchema>;
+export type EventCategory = (typeof EVENT_CATEGORIES)[number];
+
+/** A free-text category, normalised to lowercase so filtering is exact-match. */
+export const eventCategoryValueSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .max(60)
+  .toLowerCase();
+
+const CATEGORY_LABELS: Record<EventCategory, string> = {
+  technical: "Technical",
+  cultural: "Cultural",
+  sports: "Sports",
+  hackathon: "Hackathon",
+  workshop: "Workshop",
+  seminar: "Seminar",
+  conference: "Conference",
+  esports: "Esports",
+  other: "Other",
+};
+
+/** "gaming" was the old name for "esports"; existing data reads under it. */
+const LEGACY_CATEGORY_LABELS: Record<string, string> = { gaming: "Esports" };
+
+/** The label for a category, built-in or custom. */
+export const categoryLabel = (category: string): string =>
+  CATEGORY_LABELS[category as EventCategory] ??
+  LEGACY_CATEGORY_LABELS[category] ??
+  (category.length ? category[0]!.toUpperCase() + category.slice(1) : "Event");
 
 export const EVENT_STATUSES = ["draft", "published", "ongoing", "completed", "cancelled"] as const;
 export const eventStatusSchema = z.enum(EVENT_STATUSES);
@@ -86,7 +124,8 @@ export const eventSchema = z
 
     title: shortTextSchema,
     description: longTextSchema.optional(),
-    category: eventCategorySchema.default("other"),
+    category: eventCategoryValueSchema.default("other"),
+    visibility: z.enum(["public", "unlisted", "archived"]).default("public"),
 
     eventType: eventTypeSchema.default("solo"),
     teamSize: teamSizeSchema.default({ min: 1, max: 1 }),
@@ -115,7 +154,11 @@ export const eventSchema = z
     entryFee: z.number().int().min(0).max(1000000).default(0),
 
     posterUrl: httpsUrlSchema.optional(),
+    /** The rulebook PDF, uploaded like any other asset — see `uploadKind`. */
+    rulebookUrl: httpsUrlSchema.optional(),
     rules: z.array(z.string().trim().max(500)).max(50).default([]),
+    /** A short free-text summary — "₹50,000 across 3 places". Line items stay in `prizes`. */
+    prizePool: shortTextSchema.optional(),
     prizes: z.array(z.string().trim().max(200)).max(20).default([]),
     coordinators: z.array(coordinatorSchema).max(10).default([]),
 
@@ -126,10 +169,20 @@ export const eventSchema = z
     status: eventStatusSchema.default("draft"),
 
     /**
+     * What this event asks its students for, on top of the fest's own
+     * defaults. Absent means "just the fest's questions" — an event does not
+     * have to configure anything to inherit a sensible form. See
+     * `core/models/registration-fields.ts` for how the two are merged.
+     */
+    registrationFields: z.lazy(() => registrationFieldsSchema).optional(),
+
+    /**
      * Set once results are published. The certificate pipeline reads this to
      * know an event is finished and eligibility can be computed.
      */
     resultsPublishedAt: z.date().optional(),
+
+    archivedAt: z.coerce.date().optional(),
 
     createdBy: idSchema,
   })
@@ -169,7 +222,8 @@ const eventWritableFields = {
   slug: slugSchema,
   title: shortTextSchema,
   description: longTextSchema.optional(),
-  category: eventCategorySchema.default("other"),
+  category: eventCategoryValueSchema.default("other"),
+  visibility: z.enum(["public", "unlisted", "archived"]).default("public"),
   eventType: eventTypeSchema.default("solo"),
   teamSize: teamSizeSchema.default({ min: 1, max: 1 }),
   date: calendarDateSchema,
@@ -182,12 +236,15 @@ const eventWritableFields = {
   waitlistEnabled: z.boolean().default(false),
   entryFee: z.number().int().min(0).max(1000000).default(0),
   posterUrl: httpsUrlSchema.optional(),
+  rulebookUrl: httpsUrlSchema.optional(),
   rules: z.array(z.string().trim().max(500)).max(50).default([]),
+  prizePool: shortTextSchema.optional(),
   prizes: z.array(z.string().trim().max(200)).max(20).default([]),
   coordinators: z.array(coordinatorSchema).max(10).default([]),
   gates: z.array(shortTextSchema).max(20).default([]),
   mealSlots: z.array(mealSlotSchema).max(30).default([]),
   status: eventStatusSchema.default("draft"),
+  registrationFields: z.lazy(() => registrationFieldsSchema).optional(),
 };
 
 /**
@@ -224,3 +281,91 @@ export type CreateEvent = z.infer<typeof createEventSchema>;
 export const updateEventSchema = z.object(eventWritableFields).partial();
 
 export type UpdateEvent = z.infer<typeof updateEventSchema>;
+
+/**
+ * Duplicating an event copies its shape, not its history: no attendees, no
+ * counter, a fresh slug, and it always lands as a draft so the coordinator
+ * reviews it before anyone can register.
+ */
+export const duplicateEventFrom = (event: Event, newSlug: string): CreateEvent => ({
+  festId: event.festId,
+  slug: newSlug,
+  title: `${event.title} (copy)`,
+  description: event.description,
+  category: event.category,
+  visibility: "public",
+  eventType: event.eventType,
+  teamSize: event.teamSize,
+  date: event.date,
+  startTime: event.startTime,
+  endTime: event.endTime,
+  venue: event.venue,
+  capacity: event.capacity,
+  registrationOpen: false,
+  registrationDeadline: event.registrationDeadline,
+  waitlistEnabled: event.waitlistEnabled,
+  entryFee: event.entryFee,
+  posterUrl: event.posterUrl,
+  rulebookUrl: event.rulebookUrl,
+  rules: event.rules,
+  prizePool: event.prizePool,
+  prizes: event.prizes,
+  coordinators: event.coordinators,
+  gates: event.gates,
+  mealSlots: event.mealSlots,
+  status: "draft",
+  registrationFields: event.registrationFields,
+});
+
+/* ───────────── scheduling conflicts ───────────── */
+
+export interface ScheduleConflict {
+  eventId: string;
+  eventTitle: string;
+  reason: "venue" | "coordinator" | "overlap";
+  detail: string;
+}
+
+const toRange = (event: Pick<Event, "date" | "startTime" | "endTime">): [number, number] => {
+  const start = new Date(`${event.date}T${event.startTime}:00`).getTime();
+  const end = new Date(`${event.date}T${event.endTime ?? "23:59"}:00`).getTime();
+  return [start, Number.isFinite(end) && end > start ? end : start + 60 * 60 * 1000];
+};
+
+const overlaps = (a: [number, number], b: [number, number]): boolean => a[0] < b[1] && b[0] < a[1];
+
+/**
+ * Warns before a save, never blocks one: a fest legitimately runs two
+ * simultaneous events at different venues, and a coordinator legitimately
+ * runs two events back to back. What is worth a warning is the same venue or
+ * the same coordinator double-booked for overlapping time — a schedule a
+ * human should look at before it goes out, not a rule that could be wrong
+ * about someone's actual plan.
+ */
+export const detectScheduleConflicts = (
+  candidate: Pick<Event, "date" | "startTime" | "endTime" | "venue" | "coordinators"> & { id?: string },
+  others: readonly Pick<Event, "id" | "title" | "date" | "startTime" | "endTime" | "venue" | "coordinators" | "status">[],
+): ScheduleConflict[] => {
+  if (candidate.date === "" || !candidate.startTime) return [];
+  const range = toRange(candidate);
+  const conflicts: ScheduleConflict[] = [];
+
+  for (const other of others) {
+    if (other.id === candidate.id) continue;
+    if (other.status === "cancelled") continue;
+    if (other.date !== candidate.date) continue;
+    if (!overlaps(range, toRange(other))) continue;
+
+    if (other.venue.trim().toLowerCase() === candidate.venue.trim().toLowerCase()) {
+      conflicts.push({ eventId: other.id, eventTitle: other.title, reason: "venue", detail: `${other.title} is also at ${other.venue} at an overlapping time.` });
+    }
+
+    const names = new Set(candidate.coordinators.map((c) => c.name.trim().toLowerCase()));
+    const shared = other.coordinators.find((c) => names.has(c.name.trim().toLowerCase()));
+    if (shared) {
+      conflicts.push({ eventId: other.id, eventTitle: other.title, reason: "coordinator", detail: `${shared.name} is also coordinating ${other.title} at an overlapping time.` });
+    }
+  }
+
+  return conflicts;
+};

@@ -18,9 +18,11 @@ import {
   type EventFormValues,
 } from "@/components/admin/event-form";
 import { Button } from "@/components/ui/button";
+import { categoryLabel, detectScheduleConflicts, type ScheduleConflict } from "@/core/models/event";
+import { useFestEvents } from "@/components/admin/hooks";
+import { AlertDialog, AlertDialogContent } from "@/components/ui/overlays";
 import { Kick, MetaList, MetaRow } from "@/components/ui/primitives";
 import { RepositoryError } from "@/core/models/common";
-import { CATEGORY_LABELS } from "@/components/event/event-card";
 import { formatCalendarDate, formatTeamSize } from "@/lib/utils";
 
 const STEPS = ["Basics", "Registration", "Review & publish"] as const;
@@ -35,6 +37,9 @@ export default function NewEventPage() {
   const { fest, basePath } = useFest();
   const repos = useRepositories();
   const router = useRouter();
+  const allEvents = useFestEvents(fest.id);
+  const [conflicts, setConflicts] = React.useState<ScheduleConflict[] | null>(null);
+  const [pendingStatus, setPendingStatus] = React.useState<"draft" | "published" | null>(null);
 
   const storageKey = `${DRAFT_KEY}.${fest.id}`;
   const initial = React.useMemo<EventFormValues>(() => {
@@ -90,18 +95,42 @@ export default function NewEventPage() {
       toast.error("Some fields need fixing");
       return;
     }
+    // trigger() has already validated; parse again to get the output type
+    // (numbers coerced, empty strings normalised) rather than raw form state.
+    const output = eventFormSchema.parse(form.getValues());
+
+    const found = detectScheduleConflicts(
+      {
+        date: output.date,
+        startTime: output.startTime,
+        endTime: output.endTime || undefined,
+        venue: output.venue,
+        coordinators: output.coordinators.map((c) => ({ name: c.name, phone: c.phone || undefined, email: c.email || undefined })),
+      },
+      allEvents.data ?? [],
+    );
+
+    if (found.length > 0) {
+      setConflicts(found);
+      setPendingStatus(status);
+      setSubmitting(null);
+      return;
+    }
+
+    await createNow(output);
+  };
+
+  const createNow = async (output: ReturnType<typeof eventFormSchema.parse>) => {
     try {
-      // trigger() has already validated; parse again to get the output type
-      // (numbers coerced, empty strings normalised) rather than raw form state.
-      const output = eventFormSchema.parse(form.getValues());
       const created = await repos.events.create(toCreateEvent(output, fest.id));
       window.localStorage.removeItem(storageKey);
-      toast.success(status === "published" ? "Event published" : "Draft saved");
+      toast.success(output.status === "published" ? "Event published" : "Draft saved");
       router.push(`${basePath}/events/${created.slug}/settings`);
     } catch (error) {
       toast.error(error instanceof RepositoryError ? error.message : "Couldn't save the event");
     } finally {
       setSubmitting(null);
+      setConflicts(null);
     }
   };
 
@@ -151,7 +180,7 @@ export default function NewEventPage() {
                 <MetaRow label="Address" mono>
                   /f/{fest.slug}/e/{v.slug || "—"}
                 </MetaRow>
-                <MetaRow label="Category">{CATEGORY_LABELS[v.category ?? "other"]}</MetaRow>
+                <MetaRow label="Category">{categoryLabel(v.category ?? "other")}</MetaRow>
                 <MetaRow label="When">
                   {formatCalendarDate(v.date)} · {v.startTime}
                   {v.endTime ? ` – ${v.endTime}` : ""}
@@ -195,6 +224,28 @@ export default function NewEventPage() {
       <div className="hidden lg:block">
         <StudentPreview form={form} festSlug={fest.slug} festId={fest.id} />
       </div>
+
+      <AlertDialog open={conflicts !== null} onOpenChange={(o) => !o && (setConflicts(null), setPendingStatus(null))}>
+        <AlertDialogContent
+          title="This clashes with another event"
+          description="It can still be created — this is a heads-up, not a block."
+          confirmLabel={pendingStatus === "published" ? "Publish anyway" : "Save anyway"}
+          loading={submitting !== null}
+          onConfirm={async () => {
+            setSubmitting(pendingStatus === "published" ? "publish" : "draft");
+            await createNow(eventFormSchema.parse(form.getValues()));
+            setPendingStatus(null);
+          }}
+        >
+          <ul className="mt-3 flex flex-col gap-2">
+            {(conflicts ?? []).map((c, i) => (
+              <li key={i} className="rounded-md bg-bg/40 px-3 py-2 text-[13px]">
+                {c.detail}
+              </li>
+            ))}
+          </ul>
+        </AlertDialogContent>
+      </AlertDialog>
     </AdminPage>
   );
 }

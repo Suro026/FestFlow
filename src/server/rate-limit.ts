@@ -79,6 +79,8 @@ const DEFAULT_POLICY = {
     staff: { bucket: "authenticated.staff", limit: 20, windowSeconds: 10 * 60 },
     /** Image uploads: each one decodes and re-encodes on the server. */
     uploads: { bucket: "authenticated.uploads", limit: 20, windowSeconds: 10 * 60 },
+    /** Registration exports: reads the whole fest's roster, builds a file. */
+    exports: { bucket: "authenticated.exports", limit: 20, windowSeconds: 10 * 60 },
     /** Everything else a signed-in student or admin does. */
     default: { bucket: "authenticated.default", limit: 240, windowSeconds: 60 },
   },
