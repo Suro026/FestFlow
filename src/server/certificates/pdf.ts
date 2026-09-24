@@ -56,7 +56,7 @@ export const renderCertificatePdf = async (input: CertificateRenderInput): Promi
   doc.setTitle(`${CERTIFICATE_LABELS[input.type]} — ${input.recipientName}`);
   doc.setAuthor(input.organizationName);
   doc.setSubject(`${input.eventTitle} · ${input.festName}`);
-  doc.setCreator("FestFlow");
+  doc.setCreator("Plansphere");
 
   const page = doc.addPage(A4_LANDSCAPE);
   const { width, height } = page.getSize();
@@ -141,7 +141,7 @@ export const renderCertificatePdf = async (input: CertificateRenderInput): Promi
   page.drawText(input.verifyUrl, { x: width - margin - regular.widthOfTextAtSize(input.verifyUrl, 10), y: 74, size: 10, font: regular, color: ACCENT });
 
   // Wordmark, bottom centre.
-  page.drawText("FestFlow", { x: centre("FestFlow", bold, 9), y: 44, size: 9, font: bold, color: MUTED });
+  page.drawText("Plansphere", { x: centre("Plansphere", bold, 9), y: 44, size: 9, font: bold, color: MUTED });
 
   return doc.save();
 };

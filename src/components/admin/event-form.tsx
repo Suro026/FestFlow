@@ -351,7 +351,7 @@ export const RegistrationFields = ({ form, locked }: { form: Form; locked?: { te
       <Field label="Registration closes" htmlFor="ev-deadline" error={err.registrationDeadline?.message} hint="Stays open through the whole day.">
         <Input id="ev-deadline" type="date" {...form.register("registrationDeadline")} />
       </Field>
-      <Field label="Entry fee (₹, 0 = free)" htmlFor="ev-fee" error={err.entryFee?.message} hint="Payments are collected outside FestFlow for now; this is shown to students.">
+      <Field label="Entry fee (₹, 0 = free)" htmlFor="ev-fee" error={err.entryFee?.message} hint="Payments are collected outside Plansphere for now; this is shown to students.">
         <Input id="ev-fee" type="number" min={0} {...form.register("entryFee", { valueAsNumber: true })} />
       </Field>
       <div className="flex flex-col gap-2.5 pt-1">

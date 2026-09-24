@@ -15,8 +15,8 @@ import { HeroField, Kick, Skeleton } from "@/components/ui/primitives";
 export const metadata: Metadata = {
   // A nested template so route titles keep the brand suffix (a template only
   // applies to the segment directly below the layout that defines it).
-  title: { default: "Account", template: "%s · FestFlow" },
-  description: "Sign in to FestFlow or create your student account.",
+  title: { default: "Account", template: "%s · Plansphere" },
+  description: "Sign in to Plansphere or create your student account.",
   robots: { index: false, follow: false },
 };
 

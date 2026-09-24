@@ -52,9 +52,9 @@ export const parseTicketCode = (raw: string): string | null => {
   const text = raw.trim();
   // Anchored after the code so an over-long or mangled code is not silently
   // truncated to a different, possibly valid, ticket.
-  const fromUrl = text.match(/\/t\/(FF-[0-9A-HJ-NP-Z]{10})(?![0-9A-Z])/i)?.[1];
+  const fromUrl = text.match(/\/t\/((?:PS|FF)-[0-9A-HJ-NP-Z]{10})(?![0-9A-Z])/i)?.[1];
   const code = (fromUrl ?? text).toUpperCase();
-  return /^FF-[0-9A-HJ-NP-Z]{10}$/.test(code) ? code : null;
+  return /^(?:PS|FF)-[0-9A-HJ-NP-Z]{10}$/.test(code) ? code : null;
 };
 
 /* ───────────── roster ───────────── */

@@ -127,8 +127,8 @@ if (!exists) {
     return res.status;
   };
 
-  const admin = await mint("ff-infra-admin@festflow.test", { role: "admin", festIds: [] });
-  const student = await mint("ff-infra-student@festflow.test", { role: "student", festIds: [] });
+  const admin = await mint("ff-infra-admin@plansphere.test", { role: "admin", festIds: [] });
+  const student = await mint("ff-infra-student@plansphere.test", { role: "student", festIds: [] });
   const stamp = Date.now();
   try {
     // Every upload goes through POST /api/uploads (Admin SDK). The rules must

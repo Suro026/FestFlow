@@ -18,10 +18,10 @@ export const appUrl = (): string => (process.env.NEXT_PUBLIC_APP_URL ?? "http://
 
 type Meta = NonNullable<EmailMessage["meta"]>;
 
-const shell = (heading: string, body: string, footnote = "FestFlow · plansphere.in — sent automatically, please do not reply."): string => `
+const shell = (heading: string, body: string, footnote = "Plansphere · plansphere.in — sent automatically, please do not reply."): string => `
 <div style="font-family:Inter,system-ui,-apple-system,'Segoe UI',sans-serif;background:#f4f4f8;padding:32px 16px;color:#1f2130">
   <div style="max-width:560px;margin:0 auto;background:#ffffff;border-radius:12px;padding:32px;border:1px solid #e4e4ec">
-    <div style="font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:#7b7d90;margin:0 0 14px">FestFlow</div>
+    <div style="font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:#7b7d90;margin:0 0 14px">Plansphere</div>
     <h1 style="margin:0 0 16px;font-size:21px;line-height:1.25;color:#161826;letter-spacing:-.01em">${escapeHtml(heading)}</h1>
     ${body}
     <hr style="border:none;border-top:1px solid #e4e4ec;margin:28px 0 16px" />
@@ -57,7 +57,7 @@ const rows = (items: Array<[string, string | undefined]>): string => `
 const textRows = (items: Array<[string, string | undefined]>): string[] =>
   items.filter((item): item is [string, string] => Boolean(item[1])).map(([label, value]) => `${label.padEnd(9)} ${value}`);
 
-const signoff = ["", "— FestFlow · plansphere.in"];
+const signoff = ["", "— Plansphere · plansphere.in"];
 
 /* ═══════════════════════════ 1. Registration confirmation ═══════════════════════════ */
 
@@ -240,7 +240,7 @@ export const certificateIssuedEmail = (input: {
     `Your ${label} for "${input.eventTitle}" at ${input.festName} is ready.`,
     `Certificate number: ${input.certificateNumber}`,
     "",
-    input.attachmentFilename ? "The PDF is attached, and it is also in your FestFlow account:" : "Download it from your FestFlow account:",
+    input.attachmentFilename ? "The PDF is attached, and it is also in your Plansphere account:" : "Download it from your Plansphere account:",
     link,
     "",
     "Anyone can check it is genuine at:",
@@ -257,7 +257,7 @@ export const certificateIssuedEmail = (input: {
         ["Number", input.certificateNumber],
         ["Verify", verify],
       ]) +
-      button(link, "View in FestFlow") +
+      button(link, "View in Plansphere") +
       small(input.attachmentFilename ? "The PDF is attached to this email too." : "Share the verification link with recruiters — it needs no account."),
   );
 
@@ -271,7 +271,7 @@ export const passwordResetEmail = (input: { to: string; recipientName?: string; 
   const text = [
     `Hello ${name},`,
     "",
-    "Someone asked to reset the password for this FestFlow account. If it was you, use the link below; it expires in one hour.",
+    "Someone asked to reset the password for this Plansphere account. If it was you, use the link below; it expires in one hour.",
     input.resetLink,
     "",
     "If you didn't ask for this, ignore this email — your password stays as it is.",
@@ -279,11 +279,11 @@ export const passwordResetEmail = (input: { to: string; recipientName?: string; 
   ].join("\n");
   const html = shell(
     "Reset your password",
-    p(`Hello ${escapeHtml(name)}, someone asked to reset the password for this FestFlow account. If it was you, set a new one below. The link expires in one hour.`) +
+    p(`Hello ${escapeHtml(name)}, someone asked to reset the password for this Plansphere account. If it was you, set a new one below. The link expires in one hour.`) +
       button(input.resetLink, "Choose a new password") +
       small("If you didn't ask for this, ignore this email — your password stays as it is."),
   );
-  return { to: input.to, subject: "Reset your FestFlow password", text, html, template: "password_reset", meta: input.meta };
+  return { to: input.to, subject: "Reset your Plansphere password", text, html, template: "password_reset", meta: input.meta };
 };
 
 /* ═══════════════════════════ 7. Organizer / staff invite ═══════════════════════════ */
@@ -293,7 +293,7 @@ export const staffInviteEmail = (input: { to: string; fullName: string; roleLabe
   const text = [
     `Hello ${input.fullName},`,
     "",
-    `You have been added to FestFlow as ${input.roleLabel} by ${input.invitedBy}.`,
+    `You have been added to Plansphere as ${input.roleLabel} by ${input.invitedBy}.`,
     "",
     "Set your password using the link below, then sign in:",
     input.setPasswordLink,
@@ -322,13 +322,13 @@ export const staffInviteEmail = (input: { to: string; fullName: string; roleLabe
     : small("This link expires. If it no longer works, ask for a new invitation.");
 
   const html = shell(
-    "You've been added to FestFlow",
+    "You've been added to Plansphere",
     p(`Hello ${escapeHtml(input.fullName)}, you have been added as <strong>${escapeHtml(input.roleLabel)}</strong> by ${escapeHtml(input.invitedBy)}. Set your password to activate the account.`) +
       button(input.setPasswordLink, "Set your password") +
       credentials,
   );
 
-  return { to: input.to, subject: "You've been added to FestFlow", text, html, template: "staff_invite", meta: input.meta };
+  return { to: input.to, subject: "You've been added to Plansphere", text, html, template: "staff_invite", meta: input.meta };
 };
 
 /* ═══════════════════════════ 8. Email verification ═══════════════════════════ */
@@ -338,19 +338,19 @@ export const emailVerificationEmail = (input: { to: string; recipientName?: stri
   const text = [
     `Hello ${name},`,
     "",
-    "Confirm this address to finish setting up your FestFlow account. Registrations, passes and certificates are sent here.",
+    "Confirm this address to finish setting up your Plansphere account. Registrations, passes and certificates are sent here.",
     input.verifyLink,
     "",
-    "If you didn't create a FestFlow account, ignore this email.",
+    "If you didn't create a Plansphere account, ignore this email.",
     ...signoff,
   ].join("\n");
   const html = shell(
     "Confirm your email",
-    p(`Hello ${escapeHtml(name)}, confirm this address to finish setting up your FestFlow account. Registrations, passes and certificates are sent here.`) +
+    p(`Hello ${escapeHtml(name)}, confirm this address to finish setting up your Plansphere account. Registrations, passes and certificates are sent here.`) +
       button(input.verifyLink, "Confirm email") +
-      small("If you didn't create a FestFlow account, ignore this email."),
+      small("If you didn't create a Plansphere account, ignore this email."),
   );
-  return { to: input.to, subject: "Confirm your email for FestFlow", text, html, template: "email_verification", meta: input.meta };
+  return { to: input.to, subject: "Confirm your email for Plansphere", text, html, template: "email_verification", meta: input.meta };
 };
 
 /* ═══════════════════════════ Event reminder / update / cancel ═══════════════════════════ */
@@ -443,7 +443,7 @@ export const announcementEmail = (input: { to: string; recipientName: string; fe
     input.title,
     p(`Hello ${escapeHtml(input.recipientName)}, a message from the organizers of <strong>${escapeHtml(input.festName)}</strong>:`) +
       `<div style="white-space:pre-wrap;color:#111827;font-size:14px;line-height:1.6;margin:0 0 6px">${escapeHtml(input.body)}</div>` +
-      button(link, "Open FestFlow"),
+      button(link, "Open Plansphere"),
   );
   return { to: input.to, subject: `${input.festName}: ${input.title}`, text, html, template: "announcement", meta: input.meta };
 };

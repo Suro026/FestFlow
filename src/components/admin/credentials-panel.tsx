@@ -11,7 +11,7 @@ import { cn } from "@/lib/utils";
  * The credentials of a just-created account, shown once.
  *
  * This is the only moment the temporary password exists outside the email
- * that carries it — Firebase keeps a hash and FestFlow writes nothing. So the
+ * that carries it — Firebase keeps a hash and Plansphere writes nothing. So the
  * panel is deliberately loud, offers copy buttons for each part, and starts
  * with the password masked: super admins create accounts with a colleague
  * looking over their shoulder more often than not.

@@ -35,7 +35,7 @@ const COPY: Record<Tab, { kick: string; title: string; sub: string }> = {
   student: {
     kick: "Welcome back",
     title: "Sign in",
-    sub: "Your passes, teams and certificates are here. New to FestFlow? Create an account — it takes a minute.",
+    sub: "Your passes, teams and certificates are here. New to Plansphere? Create an account — it takes a minute.",
   },
   organizer: {
     kick: "Organizers & volunteers",

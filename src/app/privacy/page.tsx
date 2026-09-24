@@ -6,7 +6,7 @@ import { SITE, absoluteUrl } from "@/lib/site";
 
 export const metadata: Metadata = {
   title: "Privacy Policy",
-  description: "What FestFlow stores about you, who can see it, which services process it, how long it stays, and the choices you have.",
+  description: "What Plansphere stores about you, who can see it, which services process it, how long it stays, and the choices you have.",
   alternates: { canonical: absoluteUrl("/privacy") },
 };
 
@@ -23,7 +23,7 @@ export default function PrivacyPage() {
         <Kick className="mb-2">Effective {SITE.legalUpdated}</Kick>
         <h1 className="mb-3 text-[32px] font-medium leading-[1.05] tracking-[-0.03em] sm:text-[40px]">Privacy Policy</h1>
         <p className="mb-9 max-w-[56ch] text-[15px] text-neutral-300">
-          FestFlow (operated as Plansphere, “we”) runs college fests: registrations, gate check-in, meals, results and certificates. This policy explains
+          Plansphere (“we”) runs college fests: registrations, gate check-in, meals, results and certificates. This policy explains
           what that involves for your personal data. It is written to be read, not skimmed past. It applies to plansphere.in and the emails we send.
         </p>
 
@@ -101,7 +101,7 @@ export default function PrivacyPage() {
         </Section>
 
         <Section title="8. Children">
-          <p>FestFlow is for college students and staff. It is not directed at children under 16, and we do not knowingly collect their data. If you believe a child has created an account, tell us and we will remove it.</p>
+          <p>Plansphere is for college students and staff. It is not directed at children under 16, and we do not knowingly collect their data. If you believe a child has created an account, tell us and we will remove it.</p>
         </Section>
 
         <Section title="9. Security">

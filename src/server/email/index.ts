@@ -7,7 +7,7 @@ export type { EmailMessage, EmailResult, EmailService, EmailAttachment, EmailTem
 export { EMAIL_TEMPLATES } from "./types";
 
 /** The sender identity for plansphere.in. Overridable per environment. */
-export const DEFAULT_FROM = "FestFlow <noreply@plansphere.in>";
+export const DEFAULT_FROM = "Plansphere <noreply@plansphere.in>";
 
 /* ───────────── console ───────────── */
 
@@ -64,7 +64,7 @@ class ResendEmailService implements EmailService {
   }
 
   async send(message: EmailMessage): Promise<EmailResult> {
-    const idempotencyKey = `festflow/${message.template}/${randomUUID()}`;
+    const idempotencyKey = `plansphere/${message.template}/${randomUUID()}`;
     let last: EmailResult = { ok: false, error: "not attempted", retryable: true };
 
     for (let attempt = 1; attempt <= RETRY_DELAYS_MS.length + 1; attempt += 1) {

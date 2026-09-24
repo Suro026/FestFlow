@@ -65,7 +65,7 @@ export interface EligibilityOutcome {
   drafts: CertificateDraft[];
 
   /**
-   * Attendees who earned a certificate but have no FestFlow account, so
+   * Attendees who earned a certificate but have no Plansphere account, so
    * nothing can be filed under "My Certificates" for them. Surfaced in the
    * dashboard rather than silently dropped — otherwise a team of four quietly
    * becomes a team of two at certificate time.

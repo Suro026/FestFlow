@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { cn } from "@/lib/utils";
+import { SITE } from "@/lib/site";
 
 /**
  * The wordmark. Nocturne's header brand is plain text at 18px/500; the role
@@ -16,7 +17,7 @@ export const Brand = ({
   className?: string;
 }) => (
   <Link href={href} className={cn("nav-brand", className)}>
-    FestFlow
+    {SITE.name}
     {role ? <span className="nav-role">{role}</span> : null}
   </Link>
 );

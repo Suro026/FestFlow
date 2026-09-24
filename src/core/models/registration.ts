@@ -92,10 +92,14 @@ export type TeamMember = z.infer<typeof teamMemberSchema>;
  * are photographed and shared, and a predictable one would let anyone forge a
  * ticket for an event they never registered for. The scanner looks the code up
  * rather than trusting anything encoded in it.
+ *
+ * `PS-` is the current prefix (Plansphere); `FF-` (FestFlow) is accepted too,
+ * because every ticket issued before the rename still has to scan — a QR
+ * code already printed or saved to a phone cannot be reissued.
  */
 export const ticketCodeSchema = z
   .string()
-  .regex(/^FF-[0-9A-HJ-NP-Z]{10}$/, "Not a valid ticket code");
+  .regex(/^(?:PS|FF)-[0-9A-HJ-NP-Z]{10}$/, "Not a valid ticket code");
 
 export const registrationSchema = z
   .object({
@@ -201,7 +205,7 @@ export const generateTicketCode = (randomBytes: (size: number) => Uint8Array): s
     code += TICKET_ALPHABET[byte % TICKET_ALPHABET.length];
   }
 
-  return `FF-${code}`;
+  return `PS-${code}`;
 };
 
 const baseCreateRegistration = z.object({

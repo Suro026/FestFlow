@@ -148,7 +148,7 @@ export default function PlatformAdminsPage() {
       )}
 
       <Note title="Where the password lives" className="mt-6 max-w-[62ch]">
-        Nowhere. Firebase stores a one-way hash, and FestFlow never writes a password to Firestore — the value above exists for as long as this page is open and then it is gone. If it is lost, issue another one; there is no way to read the old one back.
+        Nowhere. Firebase stores a one-way hash, and Plansphere never writes a password to Firestore — the value above exists for as long as this page is open and then it is gone. If it is lost, issue another one; there is no way to read the old one back.
       </Note>
     </>
   );

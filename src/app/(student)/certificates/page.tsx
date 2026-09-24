@@ -66,7 +66,7 @@ export default function CertificatesPage() {
           ) : null}
 
           <div className="px-0.5 py-1 text-[12px] text-neutral-500">
-            Anyone with the link can verify these — no FestFlow account needed.
+            Anyone with the link can verify these — no Plansphere account needed.
           </div>
         </div>
       )}

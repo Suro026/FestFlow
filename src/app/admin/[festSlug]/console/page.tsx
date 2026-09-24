@@ -194,7 +194,7 @@ export default function ConsolePage() {
             <MetaRow label="Checked in">{attended.data ?? "…"} entries eligible for participation certificates</MetaRow>
             <MetaRow label="Certificates issued">{issued.data ?? "…"}</MetaRow>
             <MetaRow label="Sends to">Each participant’s registered email</MetaRow>
-            <MetaRow label="Also appears in">Their FestFlow account, instantly</MetaRow>
+            <MetaRow label="Also appears in">Their Plansphere account, instantly</MetaRow>
           </MetaList>
           <div className="mt-4 flex flex-wrap gap-2">
             <Button asChild variant="secondary">

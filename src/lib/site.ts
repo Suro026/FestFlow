@@ -12,7 +12,7 @@ const raw = (process.env.NEXT_PUBLIC_APP_URL ?? "https://plansphere.in").trim();
 export const SITE_URL = raw.replace(/\/+$/, "").replace("://www.", "://") || "https://plansphere.in";
 
 export const SITE = {
-  name: "FestFlow",
+  name: "Plansphere",
   legalName: "Plansphere",
   tagline: "Every fest. One pass.",
   description:

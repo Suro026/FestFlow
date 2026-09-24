@@ -35,7 +35,7 @@ describe("VerifySearch", () => {
     render(<VerifySearch />);
     await user.type(screen.getByLabelText("Certificate number"), "FF-7K2M9QX4TB");
     await user.click(screen.getByRole("button", { name: "Verify" }));
-    expect(screen.getByRole("alert")).toHaveTextContent(/looks like FF-2026-7K2M9QX4/);
+    expect(screen.getByRole("alert")).toHaveTextContent(/looks like PS-2026-7K2M9QX4/);
     expect(push).not.toHaveBeenCalled();
   });
 

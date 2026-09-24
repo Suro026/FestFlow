@@ -38,9 +38,13 @@ const scan = (code: string, e = ev) => decideEntry({ event: e, code, scannedBy: 
 
 describe("parseTicketCode", () => {
   it("accepts a bare code, the public /t/ URL the QR encodes, and lowercase input", () => {
+    expect(parseTicketCode("PS-7K2M9QX4TB")).toBe("PS-7K2M9QX4TB");
+    expect(parseTicketCode("https://plansphere.in/t/PS-7K2M9QX4TB")).toBe("PS-7K2M9QX4TB");
+    expect(parseTicketCode("  ps-7k2m9qx4tb ")).toBe("PS-7K2M9QX4TB");
+  });
+  it("still scans a ticket issued before the Plansphere rename", () => {
     expect(parseTicketCode("FF-7K2M9QX4TB")).toBe("FF-7K2M9QX4TB");
     expect(parseTicketCode("https://plansphere.in/t/FF-7K2M9QX4TB")).toBe("FF-7K2M9QX4TB");
-    expect(parseTicketCode("  ff-7k2m9qx4tb ")).toBe("FF-7K2M9QX4TB");
   });
   it("rejects anything that is not a ticket", () => {
     expect(parseTicketCode("https://evil.example/t/FF-7K2M9QX4TB?x=1")).toBe("FF-7K2M9QX4TB"); // the code is what matters, not the host

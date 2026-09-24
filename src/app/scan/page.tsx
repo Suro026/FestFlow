@@ -548,7 +548,7 @@ const Scanner = () => {
             }}
             className="flex flex-col gap-3"
           >
-            <Input value={manualCode} onChange={(e) => setManualCode(e.target.value.toUpperCase())} placeholder="FF-XXXXXXXXXX" className="code text-[15px] tracking-[0.12em]" autoFocus autoCapitalize="characters" autoCorrect="off" spellCheck={false} />
+            <Input value={manualCode} onChange={(e) => setManualCode(e.target.value.toUpperCase())} placeholder="PS-XXXXXXXXXX" className="code text-[15px] tracking-[0.12em]" autoFocus autoCapitalize="characters" autoCorrect="off" spellCheck={false} />
             <DialogActions>
               <Button type="submit" variant="primary" disabled={!parseTicketCode(manualCode)}>
                 Check

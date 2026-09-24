@@ -52,7 +52,7 @@ describe("POST /api/registrations", () => {
     const res = await solo(a);
     expect(res.status).toBe(201);
     expect(res.body.registration).toMatchObject({ status: "confirmed", seats: 1, userId: a.uid, eventTitle: "Capture the Flag" });
-    expect(res.body.registration.ticketCode).toMatch(/^FF-[0-9A-HJ-NP-Z]{10}$/);
+    expect(res.body.registration.ticketCode).toMatch(/^PS-[0-9A-HJ-NP-Z]{10}$/);
     expect((await eventDoc()).registeredCount).toBe(1);
     expect((await festDoc()).stats.registrations).toBe(1);
 
@@ -114,7 +114,7 @@ describe("POST /api/registrations", () => {
     const tooBig = await reg(a, { teamName: "Trio", members: [{ name: "A", email: a.email }, { name: "B", email: b.email }, { name: "C", email: c.email }] });
     expect(tooBig.status).toBe(422);
     expect(tooBig.body.error).toMatch(/Only 2 seats left/);
-    const tooMany = await reg(a, { teamName: "Quad", members: [{ name: "A", email: a.email }, { name: "B", email: b.email }, { name: "C", email: c.email }, { name: "D", email: "d@festflow.test" }] });
+    const tooMany = await reg(a, { teamName: "Quad", members: [{ name: "A", email: a.email }, { name: "B", email: b.email }, { name: "C", email: c.email }, { name: "D", email: "d@plansphere.test" }] });
     expect(tooMany.status).toBe(422);
     expect((await eventDoc()).registeredCount).toBe(0);
   });
@@ -127,7 +127,7 @@ describe("POST /api/registrations", () => {
   });
 
   it("uses the verified identity for the leader whatever the body says", async () => {
-    const res = await reg(a, { teamName: "Spoof", members: [{ name: "Mallory", email: "mallory@festflow.test" }, { name: "Bob", email: b.email }] });
+    const res = await reg(a, { teamName: "Spoof", members: [{ name: "Mallory", email: "mallory@plansphere.test" }, { name: "Bob", email: b.email }] });
     expect(res.status).toBe(201);
     const leader = res.body.registration.members.find((m: { isLeader: boolean }) => m.isLeader);
     expect(leader).toMatchObject({ email: a.email, name: "Alice", userId: a.uid, inviteStatus: "accepted" });
@@ -171,7 +171,7 @@ describe("POST /api/registrations/[id]/team", () => {
     expect(invite.body.registration.seats).toBe(3);
     expect((await eventDoc()).registeredCount).toBe(3);
 
-    expect((await act(a, { action: "invite", member: { name: "Dee", email: "dee@festflow.test" } })).status).toBe(422); // max 3
+    expect((await act(a, { action: "invite", member: { name: "Dee", email: "dee@plansphere.test" } })).status).toBe(422); // max 3
     expect((await act(a, { action: "invite", member: { name: "Chen", email: c.email } })).status).toBe(409);
     expect((await act(a, { action: "remove", email: a.email })).status).toBe(422); // leader
 

@@ -23,9 +23,9 @@ const icsHref = (event: Event, fest: Fest): string => {
   const lines = [
     "BEGIN:VCALENDAR",
     "VERSION:2.0",
-    "PRODID:-//FestFlow//EN",
+    "PRODID:-//Plansphere//EN",
     "BEGIN:VEVENT",
-    `UID:${event.id}@festflow`,
+    `UID:${event.id}@plansphere`,
     `SUMMARY:${event.title} — ${fest.name}`,
     `DTSTART:${dt(event.date, event.startTime)}`,
     `DTEND:${dt(event.date, end)}`,

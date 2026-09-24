@@ -26,7 +26,7 @@ if (typeof window !== "undefined") {
   );
 }
 
-const APP_NAME = "festflow-admin";
+const APP_NAME = "plansphere-admin";
 
 /** Thrown when the service account is absent or unusable. */
 export class AdminNotConfiguredError extends Error {
@@ -109,7 +109,7 @@ const adminApp = (): App => {
   // emulator accepts any project id and never talks to Google. This is how
   // the emulator test suite and `firebase emulators:start` development run.
   if (process.env.FIRESTORE_EMULATOR_HOST) {
-    const projectId = process.env.GCLOUD_PROJECT ?? process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID ?? "festflow-emulator";
+    const projectId = process.env.GCLOUD_PROJECT ?? process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID ?? "plansphere-emulator";
     cached = initializeApp({ projectId, storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET }, APP_NAME);
     return cached;
   }

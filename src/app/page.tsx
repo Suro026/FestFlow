@@ -7,7 +7,7 @@ import { EmptyState, HeroField, Kick, Kpi, KpiStrip, Tag } from "@/components/ui
 import { formatCount } from "@/lib/utils";
 
 export const metadata: Metadata = {
-  title: "FestFlow — Every fest. One pass.",
+  title: "Plansphere — Every fest. One pass.",
 };
 
 // Public data; a minute of staleness is fine and keeps Firestore reads low.

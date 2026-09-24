@@ -149,7 +149,7 @@ export const FestFields = ({ form, lockSlug, festId }: { form: Form; lockSlug?: 
       <Field label="Fest name" htmlFor="f-name" error={err.name?.message}>
         <Input id="f-name" placeholder="Ignitia ’26" {...form.register("name")} />
       </Field>
-      <Field label="Address" htmlFor="f-slug" error={err.slug?.message} hint={lockSlug ? "Locked once published — it is the fest's URL." : "festflow.app/f/…"}>
+      <Field label="Address" htmlFor="f-slug" error={err.slug?.message} hint={lockSlug ? "Locked once published — it is the fest's URL." : "plansphere.app/f/…"}>
         <Input id="f-slug" disabled={lockSlug} className="font-mono text-[13px]" {...form.register("slug", { onChange: () => (touched.current = true) })} />
       </Field>
       <Field label="Kind of fest" htmlFor="f-type" error={err.festType?.message}>
@@ -240,7 +240,7 @@ export const FestFields = ({ form, lockSlug, festId }: { form: Form; lockSlug?: 
         error={err.socialImageUrl?.message}
         hint="1200×630 — what WhatsApp and X show when the link is shared"
       />
-      <Field label="Theme colour" htmlFor="f-theme" error={err.themeColor?.message} hint="Hex, e.g. #9184d9. Blank keeps the FestFlow accent.">
+      <Field label="Theme colour" htmlFor="f-theme" error={err.themeColor?.message} hint="Hex, e.g. #9184d9. Blank keeps the Plansphere accent.">
         <Input id="f-theme" placeholder="#9184d9" className="font-mono text-[13px]" {...form.register("themeColor")} />
       </Field>
       <Field label="Visibility" htmlFor="f-vis" error={err.visibility?.message} hint="Unlisted is reachable by link but never listed.">

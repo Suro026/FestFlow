@@ -11,7 +11,7 @@ import { StudentShell } from "@/components/shell/student-shell";
 export const metadata: Metadata = {
   // A nested template so route titles keep the brand suffix (a template only
   // applies to the segment directly below the layout that defines it).
-  title: { default: "My FestFlow", template: "%s · FestFlow" },
+  title: { default: "My Plansphere", template: "%s · Plansphere" },
   description: "Your passes, events, teams, certificates and notifications.",
   robots: { index: false, follow: false },
 };

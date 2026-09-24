@@ -13,10 +13,10 @@ import { afterAll, beforeAll, beforeEach, describe, it } from "vitest";
 let env: RulesTestEnvironment;
 const [host = "127.0.0.1", port = "8080"] = (process.env.FIRESTORE_EMULATOR_HOST ?? "127.0.0.1:8080").split(":");
 
-const volunteer = { uid: "vol1", email: "vol1@festflow.test", email_verified: true, role: "volunteer", festIds: ["fest1"] };
-const otherVolunteer = { uid: "vol2", email: "vol2@festflow.test", email_verified: true, role: "volunteer", festIds: ["fest2"] };
-const student = { uid: "stu1", email: "stu1@festflow.test", email_verified: true, role: "student", festIds: [] as string[] };
-const admin = { uid: "adm1", email: "adm1@festflow.test", email_verified: true, role: "admin", festIds: ["fest1"] };
+const volunteer = { uid: "vol1", email: "vol1@plansphere.test", email_verified: true, role: "volunteer", festIds: ["fest1"] };
+const otherVolunteer = { uid: "vol2", email: "vol2@plansphere.test", email_verified: true, role: "volunteer", festIds: ["fest2"] };
+const student = { uid: "stu1", email: "stu1@plansphere.test", email_verified: true, role: "student", festIds: [] as string[] };
+const admin = { uid: "adm1", email: "adm1@plansphere.test", email_verified: true, role: "admin", festIds: ["fest1"] };
 
 const as = (claims: { uid: string } & Record<string, unknown>) => {
   const { uid, ...token } = claims;
@@ -25,7 +25,7 @@ const as = (claims: { uid: string } & Record<string, unknown>) => {
 
 beforeAll(async () => {
   env = await initializeTestEnvironment({
-    projectId: process.env.GCLOUD_PROJECT ?? "festflow-test",
+    projectId: process.env.GCLOUD_PROJECT ?? "plansphere-test",
     firestore: { rules: readFileSync("firestore.rules", "utf8"), host, port: Number(port) },
   });
 });
@@ -41,9 +41,9 @@ beforeEach(async () => {
       id: "reg1", eventId: "ev1", festId: "fest1", userId: student.uid, type: "team", teamName: "NP", status: "confirmed", seats: 2, ticketCode: "FF-7K2M9QX4TB",
       members: [
         { name: "S", email: student.email, userId: student.uid, isLeader: true, inviteStatus: "accepted" },
-        { name: "Mate", email: "mate@festflow.test", isLeader: false, inviteStatus: "accepted" },
+        { name: "Mate", email: "mate@plansphere.test", isLeader: false, inviteStatus: "accepted" },
       ],
-      memberEmails: [student.email, "mate@festflow.test"], eventTitle: "CTF", userName: "S", userEmail: student.email, createdAt: now, updatedAt: now,
+      memberEmails: [student.email, "mate@plansphere.test"], eventTitle: "CTF", userName: "S", userEmail: student.email, createdAt: now, updatedAt: now,
     });
     await setDoc(doc(db, "certificates", "ev1_stu1"), {
       id: "ev1_stu1", userId: student.uid, eventId: "ev1", festId: "fest1", registrationId: "reg1", certificateNumber: "FF-2026-ABCDEFGH", type: "participation",
@@ -71,7 +71,7 @@ describe("what a volunteer may write", () => {
     // Adding the late arrival is fine.
     await assertSucceeds(
       updateDoc(doc(vol, "attendance", "reg1"), {
-        members: [...base.members, { key: "bbb22222", name: "Mate", email: "mate@festflow.test", at: new Date() }],
+        members: [...base.members, { key: "bbb22222", name: "Mate", email: "mate@plansphere.test", at: new Date() }],
         updatedAt: new Date(),
       }),
     );

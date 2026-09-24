@@ -30,10 +30,15 @@ export const certificateSchema = z
     /** Always `${eventId}_${userId}`. See `certificateIdFor`. */
     id: idSchema,
 
-    /** Human-readable, printed on the certificate and used to verify it. */
+    /**
+     * Human-readable, printed on the certificate and used to verify it.
+     *
+     * `PS-` is the current prefix (Plansphere); `FF-` (FestFlow) is accepted
+     * too, so every certificate already issued and printed keeps verifying.
+     */
     certificateNumber: z
       .string()
-      .regex(/^FF-\d{4}-[0-9A-HJ-NP-Z]{8}$/, "Not a valid certificate number"),
+      .regex(/^(?:PS|FF)-\d{4}-[0-9A-HJ-NP-Z]{8}$/, "Not a valid certificate number"),
 
     userId: idSchema,
     eventId: idSchema,
@@ -123,7 +128,7 @@ export const generateCertificateNumber = (
     suffix += NUMBER_ALPHABET[byte % NUMBER_ALPHABET.length];
   }
 
-  return `FF-${year}-${suffix}`;
+  return `PS-${year}-${suffix}`;
 };
 
 /**

@@ -1,6 +1,6 @@
 rules_version = '2';
 
-// FestFlow Firestore security rules.
+// Plansphere Firestore security rules.
 //
 // These are the real access-control boundary. The route guards in the app are
 // a convenience that stops a student from navigating into an admin screen;

@@ -129,8 +129,8 @@ const NotFound = ({ number, reason }: { number: string; reason?: "malformed" | "
     <h1 className="mb-2.5 text-[32px] font-medium leading-[1.05] tracking-[-0.03em] sm:text-[40px]">No record found</h1>
     <p className="mb-6 max-w-[52ch] text-[15px] text-neutral-300">
       {reason === "malformed"
-        ? "That doesn’t look like a FestFlow certificate number. They are printed as FF, the year, and eight characters."
-        : "This number doesn’t match any certificate we issued. It may have been mistyped, or the document may not be from FestFlow."}
+        ? "That doesn’t look like a Plansphere certificate number. They are printed as FF, the year, and eight characters."
+        : "This number doesn’t match any certificate we issued. It may have been mistyped, or the document may not be from Plansphere."}
     </p>
     <MetaList className="mb-8 max-w-[560px]">
       <MetaRow label="Number read" mono>

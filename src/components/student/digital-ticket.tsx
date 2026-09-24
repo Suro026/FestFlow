@@ -14,7 +14,7 @@ import { WALLET_SUPPORT } from "@/core/services/wallet";
 /**
  * The digital ticket — 2b.
  *
- * The QR encodes the public validation URL (`/t/FF-…`), so a random phone
+ * The QR encodes the public validation URL (`/t/PS-…`), so a random phone
  * camera opens a page that says whether the ticket is real, while the gate
  * scanner reads the code out of the same URL. The card is rendered from local
  * data whenever possible: "Works offline" is a promise the page keeps by
@@ -78,7 +78,7 @@ export const DigitalTicket = ({
       URL.revokeObjectURL(url);
       const a = document.createElement("a");
       a.href = canvas.toDataURL("image/png");
-      a.download = `festflow-${registration.ticketCode}.png`;
+      a.download = `plansphere-${registration.ticketCode}.png`;
       a.click();
     } catch {
       toast.error("Couldn't render the image. Screenshot the QR instead.");

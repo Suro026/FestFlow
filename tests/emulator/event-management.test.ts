@@ -256,24 +256,24 @@ describe("volunteer assignment", () => {
     const first = await callRoute(createStaff, {
       path: "/api/admin/staff",
       token: admin.idToken,
-      body: { name: "Vol One", email: "vol-one@festflow.test", role: "volunteer", festIds: ["fest1"] },
+      body: { name: "Vol One", email: "vol-one@plansphere.test", role: "volunteer", festIds: ["fest1"] },
     });
     const second = await callRoute(createStaff, {
       path: "/api/admin/staff",
       token: admin.idToken,
-      body: { name: "Vol Two", email: "vol-two@festflow.test", role: "volunteer", festIds: ["fest1"] },
+      body: { name: "Vol Two", email: "vol-two@plansphere.test", role: "volunteer", festIds: ["fest1"] },
     });
     expect(first.status).toBe(201);
     expect(second.status).toBe(201);
 
     const now = new Date();
     await adminDb().collection(COLLECTIONS.shifts).doc("shift1").set({
-      id: "shift1", festId: "fest1", userId: first.body.user.id, userName: "Vol One", userEmail: "vol-one@festflow.test",
+      id: "shift1", festId: "fest1", userId: first.body.user.id, userName: "Vol One", userEmail: "vol-one@plansphere.test",
       post: "Gate A", duty: "entry", date: "2026-09-26", startTime: "08:00", endTime: "13:00", eventIds: [], cancelled: false,
       createdBy: admin.uid, createdAt: now, updatedAt: now,
     });
     await adminDb().collection(COLLECTIONS.shifts).doc("shift2").set({
-      id: "shift2", festId: "fest1", userId: second.body.user.id, userName: "Vol Two", userEmail: "vol-two@festflow.test",
+      id: "shift2", festId: "fest1", userId: second.body.user.id, userName: "Vol Two", userEmail: "vol-two@plansphere.test",
       post: "Gate A", duty: "entry", date: "2026-09-26", startTime: "08:00", endTime: "13:00", eventIds: [], cancelled: false,
       createdBy: admin.uid, createdAt: now, updatedAt: now,
     });
@@ -303,7 +303,7 @@ describe("volunteer assignment", () => {
     const refused = await callRoute(createStaff, {
       path: "/api/admin/staff",
       token: admin.idToken,
-      body: { name: "Cross Fest", email: "cross@festflow.test", role: "volunteer", festIds: ["fest2"] },
+      body: { name: "Cross Fest", email: "cross@plansphere.test", role: "volunteer", festIds: ["fest2"] },
     });
     expect(refused.status).toBe(403);
   });
@@ -325,14 +325,14 @@ describe("admin security boundaries", () => {
     const asAdmin = await callRoute(createStaff, {
       path: "/api/admin/staff",
       token: admin.idToken,
-      body: { name: "Wannabe", email: "wannabe@festflow.test", role: "admin", festIds: ["fest1"] },
+      body: { name: "Wannabe", email: "wannabe@plansphere.test", role: "admin", festIds: ["fest1"] },
     });
     expect(asAdmin.status).toBe(403);
 
     const asSuper = await callRoute(createStaff, {
       path: "/api/admin/staff",
       token: admin.idToken,
-      body: { name: "Wannabe Two", email: "wannabe2@festflow.test", role: "super_admin", festIds: [] },
+      body: { name: "Wannabe Two", email: "wannabe2@plansphere.test", role: "super_admin", festIds: [] },
     });
     expect(asSuper.status).toBe(403);
   });
@@ -379,7 +379,7 @@ describe("admin security boundaries", () => {
     const created = await callRoute(createStaff, {
       path: "/api/admin/staff",
       token: admin.idToken,
-      body: { name: "Removable", email: "removable@festflow.test", role: "volunteer", festIds: ["fest1"] },
+      body: { name: "Removable", email: "removable@plansphere.test", role: "volunteer", festIds: ["fest1"] },
     });
     // An admin CAN remove their own volunteer — this is the boundary check
     // the other way: they cannot remove an admin or super admin account.

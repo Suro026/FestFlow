@@ -1,4 +1,4 @@
-# FestFlow
+# Plansphere
 
 Multi-fest campus event platform — registrations, QR tickets, gate and meal
 scanning, results and publicly verifiable certificates. Web today, Expo app
@@ -84,7 +84,7 @@ Production *and* Preview). Copy the names from `.env.example`.
 | `FIREBASE_SERVICE_ACCOUNT` | **Secret.** Base64 of the service-account JSON. Bypasses all rules; never `NEXT_PUBLIC_` |
 | `EMAIL_PROVIDER` | `resend` in production; `console` logs instead of sending (every send is still recorded in `emailLog`) |
 | `RESEND_API_KEY` | **Secret.** From resend.com → API Keys, after verifying the `plansphere.in` domain (DKIM + SPF + DMARC records) |
-| `EMAIL_FROM` | Defaults to `FestFlow <noreply@plansphere.in>` |
+| `EMAIL_FROM` | Defaults to `Plansphere <noreply@plansphere.in>` |
 | `CRON_SECRET` | **Secret.** Any long random string; Vercel Cron presents it to `/api/cron/event-reminders` (daily 09:00 IST) |
 | `NEXT_PUBLIC_SENTRY_DSN` | Enables Sentry (browser + server + edge). `SENTRY_AUTH_TOKEN`/`SENTRY_ORG`/`SENTRY_PROJECT` additionally upload source maps at build |
 | `NEXT_PUBLIC_RECAPTCHA_V3_SITE_KEY` | Enables Firebase App Check on the client; `APP_CHECK_ENFORCE=true` makes the API refuse calls without a valid token |
@@ -95,7 +95,7 @@ Production *and* Preview). Copy the names from `.env.example`.
 above, plus environment validation and which of these features are on.
 
 The build does not fail when the Firebase variables are missing — pages render
-empty and the build log prints one `[festflow] Firebase web config is missing`
+empty and the build log prints one `[plansphere] Firebase web config is missing`
 line — but the site will not work until they are set. After adding variables,
 trigger a redeploy; `NEXT_PUBLIC_*` values are inlined at build time.
 

@@ -2,10 +2,10 @@
 @import "tw-animate-css";
 
 /*
- * FestFlow — the "Nocturne" design system, as Tailwind v4 theme tokens plus
+ * Plansphere — the "Nocturne" design system, as Tailwind v4 theme tokens plus
  * the component classes the design canvas is built from.
  *
- * Source of truth: FestFlow UI.dc.html and its _ds/nocturne/styles.css. Every
+ * Source of truth: Plansphere UI.dc.html and its _ds/nocturne/styles.css. Every
  * colour, radius and shadow below is copied from there, not invented. Where the
  * design uses a class by name (.btn, .tag, .kick, .metarow, .kpi, .seg …) the
  * same class exists here with the same rules, so a screen in the canvas and a
