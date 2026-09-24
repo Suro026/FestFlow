@@ -225,6 +225,28 @@ describe("the registration export", () => {
     const noMatch = await callRoute(exportRegistrations, { path: "/api/admin/registrations/export?festId=fest1&format=csv&college=VIT", method: "GET", token: admin.idToken, raw: true });
     expect(new TextDecoder().decode(noMatch.bytes!)).not.toContain(student.name);
   });
+
+  it("shows a checked-in attendance status, not the raw registration status", async () => {
+    await adminDb().collection(COLLECTIONS.attendance).doc("reg1").set({
+      id: "reg1", registrationId: "reg1", eventId: "ev1", festId: "fest1", userId: student.uid,
+      userName: student.name, userEmail: student.email, ticketCode: "FF-AAAAAAAAAA", members: [],
+      memberCount: 1, method: "qr", scannedAt: new Date(), scannedBy: admin.uid,
+      queuedOffline: false, createdAt: new Date(), updatedAt: new Date(),
+    });
+
+    const res = await callRoute(exportRegistrations, { path: "/api/admin/registrations/export?festId=fest1&format=csv", method: "GET", token: admin.idToken, raw: true });
+    expect(res.status).toBe(200);
+    const parseCsvRow = (line: string) => line.replace(/^﻿/, "").split('","').map((cell) => cell.replace(/^"|"$/g, ""));
+    const [headerLine, dataLine] = new TextDecoder().decode(res.bytes!).trim().split("\r\n");
+    const header = parseCsvRow(headerLine!);
+    const dataRow = parseCsvRow(dataLine!);
+    const statusCol = header.indexOf("Status");
+    const attendanceCol = header.indexOf("Attendance");
+    expect(statusCol).toBeGreaterThanOrEqual(0);
+    expect(attendanceCol).toBeGreaterThanOrEqual(0);
+    expect(dataRow[statusCol]).toBe("checked_in");
+    expect(dataRow[attendanceCol]).not.toBe("");
+  });
 });
 
 /* ───────────── volunteer assignment ───────────── */

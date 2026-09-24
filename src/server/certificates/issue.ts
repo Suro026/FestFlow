@@ -8,7 +8,7 @@ import { COLLECTIONS, FieldValue, adminDb, adminStorage } from "../firebase-admi
 import { emailService } from "../email";
 import { notify } from "../notify";
 import { certificateIssuedEmail } from "../email/templates";
-import { compact, randomBytes, toJson } from "../serialize";
+import { compact, randomBytes, toDates } from "../serialize";
 import { renderCertificatePdf } from "./pdf";
 
 /**
@@ -78,7 +78,7 @@ export const issueCertificatesForEvent = async (
   // same shape the client does.
   const regSnap = await db.collection(COLLECTIONS.registrations).where("eventId", "==", eventId).get();
   const registrations: Registration[] = regSnap.docs
-    .map((d) => registrationSchema.safeParse(toJson({ ...d.data(), id: d.id })))
+    .map((d) => registrationSchema.safeParse(toDates({ ...d.data(), id: d.id })))
     .filter((r) => r.success)
     .map((r) => r.data!);
 
@@ -88,7 +88,7 @@ export const issueCertificatesForEvent = async (
   const resultSnap = await db.collection(COLLECTIONS.results).doc(eventId).get();
   const result: Result | null = resultSnap.exists
     ? (() => {
-        const parsed = resultSchema.safeParse(toJson({ ...resultSnap.data(), id: resultSnap.id }));
+        const parsed = resultSchema.safeParse(toDates({ ...resultSnap.data(), id: resultSnap.id }));
         return parsed.success ? parsed.data : null;
       })()
     : null;

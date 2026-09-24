@@ -2,7 +2,7 @@ import { duplicateEventFrom, eventSchema } from "@/core/models/event";
 import { ApiError, handler, ok, requireFestAccess, requirePermission } from "@/server/api";
 import { COLLECTIONS, FieldValue, adminDb } from "@/server/firebase-admin";
 import { audit } from "@/server/audit";
-import { compact, docToJson, toJson } from "@/server/serialize";
+import { compact, docToJson, toDates } from "@/server/serialize";
 
 /**
  * POST /api/admin/events/[id]/duplicate
@@ -25,7 +25,7 @@ export const POST = handler(async (request, context) => {
   const snap = await ref.get();
   if (!snap.exists) throw ApiError.notFound("That event no longer exists.");
 
-  const parsed = eventSchema.safeParse(toJson({ ...snap.data(), id: snap.id }));
+  const parsed = eventSchema.safeParse(toDates({ ...snap.data(), id: snap.id }));
   if (!parsed.success) throw ApiError.unprocessable("This event's record is in a shape the duplicator doesn't recognise.");
   const source = parsed.data;
 
