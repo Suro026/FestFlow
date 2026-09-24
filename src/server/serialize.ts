@@ -21,6 +21,27 @@ export const docToJson = <T = Record<string, unknown>>(snapshot: DocumentSnapsho
   snapshot.exists ? toJson<T>({ ...snapshot.data(), id: snapshot.id }) : null;
 
 /**
+ * Admin-SDK documents to native `Date`s, for validating against a domain
+ * schema server-side — as opposed to `toJson`, which stringifies dates for
+ * the wire. Several model schemas (`Attendance.scannedAt`,
+ * `Certificate.issuedAt`, and others) intentionally use a bare `z.date()`
+ * rather than `z.coerce.date()`, because the client repositories that
+ * normally populate them convert `Timestamp` to `Date` by hand before
+ * validating. Reusing `toJson` for that same validation server-side would
+ * hand those fields a string and fail the whole document.
+ */
+export const toDates = <T = Record<string, unknown>>(value: unknown): T => {
+  if (value instanceof Timestamp) return value.toDate() as unknown as T;
+  if (value instanceof Date) return value as unknown as T;
+  if (value === null || typeof value !== "object") return value as T;
+  if (Array.isArray(value)) return value.map(toDates) as unknown as T;
+
+  const out: Record<string, unknown> = {};
+  for (const [key, item] of Object.entries(value as Record<string, unknown>)) out[key] = toDates(item);
+  return out as T;
+};
+
+/**
  * Drops `undefined` so Firestore accepts the write.
  *
  * `FieldValue.serverTimestamp()`, `.delete()` and `.increment()` are opaque

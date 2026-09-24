@@ -171,6 +171,14 @@ export const COLLECTIONS = {
   shifts: "shifts",
   auditLog: "auditLog",
   emailLog: "emailLog",
+  /**
+   * One row per verification or download of a certificate — the analytics
+   * module's only new collection. Written fire-and-forget from the public
+   * verify/pdf routes, read only by the analytics routes below; nothing
+   * client-side ever touches it, so it carries no Firestore rules of its
+   * own and falls to the catch-all deny at the bottom of firestore.rules.
+   */
+  certificateEvents: "certificateEvents",
 } as const;
 
 /** Ensures the app is only ever initialised once per process. */

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { handler } from "@/server/api";
 import { RATE_LIMITS } from "@/server/rate-limit";
 import { COLLECTIONS, adminDb } from "@/server/firebase-admin";
+import { logCertificateEvent } from "@/server/public-lookup";
 import { renderCertificatePdf } from "@/server/certificates/pdf";
 import type { CertificateType } from "@/core/models/certificate";
 
@@ -24,6 +25,7 @@ export const GET = handler(async (request, context) => {
   if (snap.empty) return NextResponse.json({ error: "No such certificate." }, { status: 404 });
 
   const c = snap.docs[0]!.data();
+  void logCertificateEvent(snap.docs[0]!.id, c, "download");
   const fest = await db.collection(COLLECTIONS.fests).doc(String(c.festId)).get();
   const appUrl = (process.env.NEXT_PUBLIC_APP_URL ?? new URL(request.url).origin).replace(/\/$/, "");
 

@@ -1,4 +1,4 @@
-import { COLLECTIONS, adminDb } from "./firebase-admin";
+import { COLLECTIONS, FieldValue, adminDb } from "./firebase-admin";
 import type { RegistrationStatus } from "@/core/models/registration";
 
 /**
@@ -55,6 +55,11 @@ export const lookupCertificate = async (raw: string): Promise<{ certificate: Pub
     db.collection(COLLECTIONS.registrations).doc(String(c.registrationId)).get(),
   ]);
 
+  // Fire-and-forget: a broken analytics write must never break the page a
+  // recruiter is looking at, so it is never awaited into the response and
+  // its failure is swallowed rather than thrown.
+  void logCertificateEvent(snap.docs[0]!.id, c, "verify");
+
   return {
     certificate: {
       certificateNumber,
@@ -75,6 +80,28 @@ export const lookupCertificate = async (raw: string): Promise<{ certificate: Pub
       attendanceGate: attendance.exists && attendance.data()!.gate ? String(attendance.data()!.gate) : null,
     },
   };
+};
+
+/** Appends one row to the certificate analytics log. Never throws. */
+export const logCertificateEvent = async (
+  certificateId: string,
+  certificate: { certificateNumber?: unknown; festId?: unknown; eventId?: unknown },
+  type: "verify" | "download",
+): Promise<void> => {
+  try {
+    const ref = adminDb().collection(COLLECTIONS.certificateEvents).doc();
+    await ref.set({
+      id: ref.id,
+      certificateId,
+      certificateNumber: String(certificate.certificateNumber ?? ""),
+      festId: String(certificate.festId ?? ""),
+      eventId: String(certificate.eventId ?? ""),
+      type,
+      at: FieldValue.serverTimestamp(),
+    });
+  } catch (error) {
+    console.warn("[analytics] couldn't log certificate event", type, error);
+  }
 };
 
 export interface PublicTicket {
