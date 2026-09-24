@@ -87,7 +87,7 @@ export const firebaseApp = (): FirebaseApp => {
     if (!warned && typeof window === "undefined") {
       warned = true;
       console.warn(
-        `\n[festflow] Firebase web config is missing (${missing.join(", ")}). ` +
+        `\n[plansphere] Firebase web config is missing (${missing.join(", ")}). ` +
           `Pages will render without data until the variables are set.\n`,
       );
     }

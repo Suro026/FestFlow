@@ -74,7 +74,7 @@ export default function ProfilePage() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `festflow-${session.uid}.json`;
+    a.download = `plansphere-${session.uid}.json`;
     a.click();
     URL.revokeObjectURL(url);
   };

@@ -243,7 +243,7 @@ describe("the registration export table", () => {
 
 describe("the hand-rolled zip writer", () => {
   it("produces a structurally valid archive: correct signatures and CRC", () => {
-    const data = new TextEncoder().encode("hello, festflow");
+    const data = new TextEncoder().encode("hello, plansphere");
     const zip = zipStore([{ name: "hello.txt", data }]);
 
     // Local file header signature, right at the start.
@@ -259,8 +259,8 @@ describe("the hand-rolled zip writer", () => {
     expect(tail[2]).toBe(0x05);
     expect(tail[3]).toBe(0x06);
 
-    expect(crc32(data)).toBe(crc32(new TextEncoder().encode("hello, festflow")));
-    expect(crc32(data)).not.toBe(crc32(new TextEncoder().encode("hello, festflow!")));
+    expect(crc32(data)).toBe(crc32(new TextEncoder().encode("hello, plansphere")));
+    expect(crc32(data)).not.toBe(crc32(new TextEncoder().encode("hello, plansphere!")));
   });
 
   it("round-trips through a minimal manual unzip", () => {

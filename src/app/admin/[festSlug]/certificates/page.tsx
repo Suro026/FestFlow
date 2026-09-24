@@ -202,7 +202,7 @@ export default function CertificateCenterPage() {
 
           <MetaList className="mt-5">
             <MetaRow label="Template">{fest.name} · issued in {fest.organizationName}’s name</MetaRow>
-            <MetaRow label="ID format" mono>FF-YYYY-XXXXXXXX</MetaRow>
+            <MetaRow label="ID format" mono>PS-YYYY-XXXXXXXX</MetaRow>
             <MetaRow label="Delivery">Emailed to the registered address · retried on failure</MetaRow>
             <MetaRow label="Verification">Public page per certificate at /verify/[number]</MetaRow>
             <MetaRow label="Revocation">Available per certificate from the delivery log, logged</MetaRow>
@@ -236,7 +236,7 @@ export default function CertificateCenterPage() {
               <MetaRow label="Delivery">Email with PDF attached · also appears in each student’s account instantly</MetaRow>
             </MetaList>
             {preview.summary.unmatched.length ? (
-              <Note title={`${preview.summary.unmatched.length} attendee${preview.summary.unmatched.length === 1 ? "" : "s"} without a FestFlow account`}>
+              <Note title={`${preview.summary.unmatched.length} attendee${preview.summary.unmatched.length === 1 ? "" : "s"} without a Plansphere account`}>
                 Their certificate can’t be filed under an account yet. When they sign up with the same email, re-run this and it is issued to them.
                 <div className="mt-2 flex flex-col gap-0.5 text-[12px]">
                   {preview.summary.unmatched.slice(0, 6).map((u) => (

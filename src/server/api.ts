@@ -326,7 +326,7 @@ export const handler = (
         const verdict = await verifyAppCheck(request);
         extra = { ...extra, appCheck: verdict };
         if (appCheckMode() === "enforced" && verdict !== "valid" && verdict !== "skipped") {
-          response = NextResponse.json({ error: "This request did not come from the FestFlow app.", code: "app-check" }, { status: 401 });
+          response = NextResponse.json({ error: "This request did not come from the Plansphere app.", code: "app-check" }, { status: 401 });
           return finish(response);
         }
       }

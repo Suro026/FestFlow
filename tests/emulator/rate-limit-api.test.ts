@@ -51,22 +51,22 @@ beforeEach(async () => {
 
 describe("auth tier — per IP and per account with backoff", () => {
   it("password reset: 3rd request from one IP is 429 with Retry-After; another IP still passes for a different account", async () => {
-    const body = { email: "victim@festflow.test" };
+    const body = { email: "victim@plansphere.test" };
     const a = await callRoute(passwordReset, { path: "/api/auth/password-reset", body, headers: ip("198.51.100.1") });
-    const b = await callRoute(passwordReset, { path: "/api/auth/password-reset", body: { email: "other@festflow.test" }, headers: ip("198.51.100.1") });
-    const c = await callRoute(passwordReset, { path: "/api/auth/password-reset", body: { email: "third@festflow.test" }, headers: ip("198.51.100.1") });
+    const b = await callRoute(passwordReset, { path: "/api/auth/password-reset", body: { email: "other@plansphere.test" }, headers: ip("198.51.100.1") });
+    const c = await callRoute(passwordReset, { path: "/api/auth/password-reset", body: { email: "third@plansphere.test" }, headers: ip("198.51.100.1") });
     expect([a.status, b.status]).toEqual([200, 200]);
     expect(c.status).toBe(429);
     expect(c.body.code).toBe("rate-limited");
     expect(c.body.retryAfter).toBeGreaterThan(0);
     expect(c.body.error).toMatch(/Try again in \d+ seconds/);
 
-    const elsewhere = await callRoute(passwordReset, { path: "/api/auth/password-reset", body: { email: "fourth@festflow.test" }, headers: ip("198.51.100.2") });
+    const elsewhere = await callRoute(passwordReset, { path: "/api/auth/password-reset", body: { email: "fourth@plansphere.test" }, headers: ip("198.51.100.2") });
     expect(elsewhere.status).toBe(200);
   });
 
   it("password reset: the same account from many IPs is limited too", async () => {
-    const body = { email: "target@festflow.test" };
+    const body = { email: "target@plansphere.test" };
     expect((await callRoute(passwordReset, { path: "/api/auth/password-reset", body, headers: ip("203.0.113.10") })).status).toBe(200);
     expect((await callRoute(passwordReset, { path: "/api/auth/password-reset", body, headers: ip("203.0.113.11") })).status).toBe(200);
     const third = await callRoute(passwordReset, { path: "/api/auth/password-reset", body, headers: ip("203.0.113.12") });
@@ -74,7 +74,7 @@ describe("auth tier — per IP and per account with backoff", () => {
   });
 
   it("login throttle: failures escalate the backoff, success clears it", async () => {
-    const email = "brute@festflow.test";
+    const email = "brute@plansphere.test";
     const at = (phase: string, addr = "192.0.2.7") => callRoute(attempt, { path: "/api/auth/attempt", body: { kind: "login", email, phase }, headers: ip(addr) });
 
     expect((await at("before")).status).toBe(200);

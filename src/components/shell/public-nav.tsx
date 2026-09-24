@@ -30,7 +30,7 @@ export const PublicNav = ({ active }: { active?: "fests" | "colleges" | "verify"
 export const PublicFooter = () => (
   <footer className="mt-auto border-t border-divider">
     <div className="mx-auto flex w-full max-w-[1180px] flex-wrap items-center justify-between gap-x-8 gap-y-3 px-[18px] py-6 text-[12.5px] text-neutral-500 sm:px-6 lg:px-10">
-      <span>© {new Date().getFullYear()} FestFlow</span>
+      <span>© {new Date().getFullYear()} Plansphere</span>
       <div className="flex flex-wrap gap-x-6 gap-y-2">
         <Link href="/explore" className="text-inherit no-underline hover:text-accent">
           Fests

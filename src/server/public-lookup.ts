@@ -36,7 +36,7 @@ const iso = (v: unknown): string | null => {
 
 export const lookupCertificate = async (raw: string): Promise<{ certificate: PublicCertificate | null; reason?: "malformed" | "not-found" }> => {
   const certificateNumber = raw.trim().toUpperCase();
-  if (!/^FF-\d{4}-[0-9A-HJ-NP-Z]{8}$/.test(certificateNumber)) return { certificate: null, reason: "malformed" };
+  if (!/^(?:PS|FF)-\d{4}-[0-9A-HJ-NP-Z]{8}$/.test(certificateNumber)) return { certificate: null, reason: "malformed" };
 
   const db = adminDb();
   const snap = await db.collection(COLLECTIONS.certificates).where("certificateNumber", "==", certificateNumber).limit(1).get();
@@ -123,7 +123,7 @@ export interface PublicTicket {
 
 export const lookupTicket = async (raw: string): Promise<{ ticket: PublicTicket | null; reason?: "malformed" | "not-found" }> => {
   const ticketCode = raw.trim().toUpperCase();
-  if (!/^FF-[0-9A-HJ-NP-Z]{10}$/.test(ticketCode)) return { ticket: null, reason: "malformed" };
+  if (!/^(?:PS|FF)-[0-9A-HJ-NP-Z]{10}$/.test(ticketCode)) return { ticket: null, reason: "malformed" };
 
   const db = adminDb();
   const snap = await db.collection(COLLECTIONS.registrations).where("ticketCode", "==", ticketCode).limit(1).get();

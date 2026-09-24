@@ -112,7 +112,7 @@ export const GET = handler(
       await requirePermission(request, "platform:manage");
       const bundle = await loadPlatformAnalytics({ from, to });
       rows = platformReportRows(bundle);
-      title = "FestFlow — platform analytics";
+      title = "Plansphere — platform analytics";
       filenameBase = "platform-analytics";
     } else {
       if (!festId) throw ApiError.badRequest("festId is required for a fest-scoped export.");

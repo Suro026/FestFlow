@@ -85,7 +85,7 @@ const AuthProvider = ({
       // Firebase is not configured for this deployment. Treat the visitor as
       // signed out so the public pages still render, and say why in the
       // console rather than blanking the whole app.
-      console.error("[festflow] auth unavailable:", error);
+      console.error("[plansphere] auth unavailable:", error);
       setSession(null);
       setStatus("signed-out");
       setProfileSettled(true);

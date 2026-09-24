@@ -35,7 +35,7 @@ export default function ForCollegesPage() {
             certificates — and an audit trail behind every override.
           </p>
           <div className="flex flex-wrap gap-2.5">
-            <a href="mailto:hello@plansphere.in?subject=Hosting%20a%20fest%20on%20FestFlow" className="btn btn-primary btn-lg">
+            <a href="mailto:hello@plansphere.in?subject=Hosting%20a%20fest%20on%20Plansphere" className="btn btn-primary btn-lg">
               Request an organizer account
             </a>
             <Link href="/explore" className="btn btn-secondary btn-lg">
@@ -77,7 +77,7 @@ export default function ForCollegesPage() {
         <div>
           <Kick className="mb-3">Who does what</Kick>
           <MetaList>
-            <MetaRow label="Super admin">Creates fests and organizer accounts. FestFlow staff, or your institution’s owner account.</MetaRow>
+            <MetaRow label="Super admin">Creates fests and organizer accounts. Plansphere staff, or your institution’s owner account.</MetaRow>
             <MetaRow label="Admin">Runs a fest: events, registrations, results, certificates, staff roster and settings.</MetaRow>
             <MetaRow label="Organizer">The volunteer tier. Scans entry and meals at the posts they are rostered on — nothing more.</MetaRow>
             <MetaRow label="Student">Registers, holds the pass, collects certificates. Self-serve sign-up.</MetaRow>

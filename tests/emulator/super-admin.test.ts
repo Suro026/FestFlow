@@ -260,7 +260,7 @@ describe("creating an admin", () => {
   let seq = 0;
   const input = (over: Record<string, unknown> = {}) => {
     seq += 1;
-    return { name: "New Admin", email: `new-admin-${seq}@festflow.test`, role: "admin", festIds: ["fest1"], ...over };
+    return { name: "New Admin", email: `new-admin-${seq}@plansphere.test`, role: "admin", festIds: ["fest1"], ...over };
   };
 
   it("issues a readable id and a temporary password, once", async () => {

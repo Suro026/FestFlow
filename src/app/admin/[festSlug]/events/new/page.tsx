@@ -26,7 +26,7 @@ import { RepositoryError } from "@/core/models/common";
 import { formatCalendarDate, formatTeamSize } from "@/lib/utils";
 
 const STEPS = ["Basics", "Registration", "Review & publish"] as const;
-const DRAFT_KEY = "festflow.event-draft.v1";
+const DRAFT_KEY = "plansphere.event-draft.v1";
 
 /**
  * 3a — Create an event. Three steps, a live student preview, and a draft

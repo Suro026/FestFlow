@@ -81,7 +81,7 @@ describe("student", () => {
   it("cannot reach any staff route", async () => {
     expect((await callRoute(createEvent, { path: "/api/admin/events", token: student.idToken, body: newEvent() })).status).toBe(403);
     expect((await callRoute(listStaff, { path: "/api/admin/staff", method: "GET", token: student.idToken })).status).toBe(403);
-    expect((await callRoute(createStaff, { path: "/api/admin/staff", token: student.idToken, body: { name: "X", email: "x@festflow.test", role: "volunteer", festIds: ["fest1"] } })).status).toBe(403);
+    expect((await callRoute(createStaff, { path: "/api/admin/staff", token: student.idToken, body: { name: "X", email: "x@plansphere.test", role: "volunteer", festIds: ["fest1"] } })).status).toBe(403);
     expect((await callRoute(manualAttendance, { path: "/api/admin/attendance/manual", token: student.idToken, body: { ticketCode: "FF-AAAAAAAAAA", eventId: "ev1" } })).status).toBe(403);
     expect((await callRoute(announce, { path: "/api/admin/fests/fest1/announcements", token: student.idToken, params: { id: "fest1" }, body: { title: "T", body: "B" } })).status).toBe(403);
   });
@@ -96,7 +96,7 @@ describe("volunteer", () => {
   });
 
   it("cannot create staff or read the staff list", async () => {
-    expect((await callRoute(createStaff, { path: "/api/admin/staff", token: volunteer.idToken, body: { name: "X", email: "x@festflow.test", role: "volunteer", festIds: ["fest1"] } })).status).toBe(403);
+    expect((await callRoute(createStaff, { path: "/api/admin/staff", token: volunteer.idToken, body: { name: "X", email: "x@plansphere.test", role: "volunteer", festIds: ["fest1"] } })).status).toBe(403);
     expect((await callRoute(listStaff, { path: "/api/admin/staff", method: "GET", token: volunteer.idToken })).status).toBe(403);
   });
 });
@@ -116,25 +116,25 @@ describe("admin", () => {
   });
 
   it("may create a volunteer but never an admin or super admin", async () => {
-    const vol = await callRoute(createStaff, { path: "/api/admin/staff", token: admin.idToken, body: { name: "New Vol", email: `vol-${Date.now()}@festflow.test`, role: "volunteer", festIds: ["fest1"] } });
+    const vol = await callRoute(createStaff, { path: "/api/admin/staff", token: admin.idToken, body: { name: "New Vol", email: `vol-${Date.now()}@plansphere.test`, role: "volunteer", festIds: ["fest1"] } });
     expect(vol.status).toBe(201);
     expect(vol.body.user.role).toBe("volunteer");
 
-    const asAdmin = await callRoute(createStaff, { path: "/api/admin/staff", token: admin.idToken, body: { name: "Nope", email: `adm-${Date.now()}@festflow.test`, role: "admin", festIds: ["fest1"] } });
+    const asAdmin = await callRoute(createStaff, { path: "/api/admin/staff", token: admin.idToken, body: { name: "Nope", email: `adm-${Date.now()}@plansphere.test`, role: "admin", festIds: ["fest1"] } });
     expect(asAdmin.status).toBe(403);
-    const asSuper = await callRoute(createStaff, { path: "/api/admin/staff", token: admin.idToken, body: { name: "Nope", email: `sup-${Date.now()}@festflow.test`, role: "super_admin", festIds: [] } });
+    const asSuper = await callRoute(createStaff, { path: "/api/admin/staff", token: admin.idToken, body: { name: "Nope", email: `sup-${Date.now()}@plansphere.test`, role: "super_admin", festIds: [] } });
     expect(asSuper.status).toBe(403);
   });
 
   it("cannot hand out access to a fest they do not manage", async () => {
-    const res = await callRoute(createStaff, { path: "/api/admin/staff", token: admin.idToken, body: { name: "V", email: `v2-${Date.now()}@festflow.test`, role: "volunteer", festIds: ["fest2"] } });
+    const res = await callRoute(createStaff, { path: "/api/admin/staff", token: admin.idToken, body: { name: "V", email: `v2-${Date.now()}@plansphere.test`, role: "volunteer", festIds: ["fest2"] } });
     expect(res.status).toBe(403);
   });
 });
 
 describe("super admin", () => {
   it("creates an admin, scoped, with a temporary password and the right claims", async () => {
-    const email = `adm-${Date.now()}@festflow.test`;
+    const email = `adm-${Date.now()}@plansphere.test`;
     const res = await callRoute(createStaff, { path: "/api/admin/staff", token: superAdmin.idToken, body: { name: "Created Admin", email, role: "admin", festIds: ["fest1"] } });
     expect(res.status).toBe(201);
     expect(res.body.user).toMatchObject({ role: "admin", festIds: ["fest1"] });
@@ -175,7 +175,7 @@ describe("firestore.rules under the new roles", () => {
   const [host = "127.0.0.1", port = "8080"] = (process.env.FIRESTORE_EMULATOR_HOST ?? "127.0.0.1:8080").split(":");
 
   const token = (role: string, festIds: string[] = [], extra: Record<string, unknown> = {}) => ({
-    email: `${role}@festflow.test`,
+    email: `${role}@plansphere.test`,
     email_verified: true,
     role,
     festIds,
@@ -185,7 +185,7 @@ describe("firestore.rules under the new roles", () => {
 
   beforeAll(async () => {
     env = await initializeTestEnvironment({
-      projectId: process.env.GCLOUD_PROJECT ?? "festflow-test",
+      projectId: process.env.GCLOUD_PROJECT ?? "plansphere-test",
       firestore: { rules: readFileSync("firestore.rules", "utf8"), host, port: Number(port) },
     });
   });
@@ -196,10 +196,10 @@ describe("firestore.rules under the new roles", () => {
     await env.withSecurityRulesDisabled(async (ctx) => {
       const db = ctx.firestore();
       const now = new Date();
-      await setDoc(doc(db, "users", "stu1"), { id: "stu1", email: "student@festflow.test", name: "S", role: "student", festIds: [], disabled: false, profileCompleted: true, mustChangePassword: false, createdAt: now, updatedAt: now });
+      await setDoc(doc(db, "users", "stu1"), { id: "stu1", email: "student@plansphere.test", name: "S", role: "student", festIds: [], disabled: false, profileCompleted: true, mustChangePassword: false, createdAt: now, updatedAt: now });
       await setDoc(doc(db, "fests", "fest1"), { id: "fest1", slug: "f1", name: "F1", status: "published", organizationName: "T", startDate: "2026-09-25", endDate: "2026-09-27", stats: { events: 0, registrations: 0, checkIns: 0 }, createdAt: now, updatedAt: now });
       await setDoc(doc(db, "fests", "fest2"), { id: "fest2", slug: "f2", name: "F2", status: "published", organizationName: "T", startDate: "2026-09-25", endDate: "2026-09-27", stats: { events: 0, registrations: 0, checkIns: 0 }, createdAt: now, updatedAt: now });
-      await setDoc(doc(db, "registrations", "reg1"), { id: "reg1", eventId: "ev1", festId: "fest1", userId: "stu1", type: "solo", status: "confirmed", seats: 1, ticketCode: "FF-AAAAAAAAAA", members: [], memberEmails: ["student@festflow.test"], eventTitle: "E", userName: "S", userEmail: "student@festflow.test", createdAt: now, updatedAt: now });
+      await setDoc(doc(db, "registrations", "reg1"), { id: "reg1", eventId: "ev1", festId: "fest1", userId: "stu1", type: "solo", status: "confirmed", seats: 1, ticketCode: "FF-AAAAAAAAAA", members: [], memberEmails: ["student@plansphere.test"], eventTitle: "E", userName: "S", userEmail: "student@plansphere.test", createdAt: now, updatedAt: now });
       await setDoc(doc(db, "auditLog", "a1"), { action: "event_updated", actorId: "adm1", festId: "fest1", summary: "x", createdAt: now });
     });
   });
@@ -240,8 +240,8 @@ describe("firestore.rules under the new roles", () => {
   });
 
   it("a self-registered account cannot arrive scoped or privileged", async () => {
-    const newbie = as("new1", { email: "new@festflow.test", email_verified: true, role: "student", festIds: [] });
-    const base = { id: "new1", email: "new@festflow.test", name: "N", disabled: false, createdAt: new Date(), updatedAt: new Date() };
+    const newbie = as("new1", { email: "new@plansphere.test", email_verified: true, role: "student", festIds: [] });
+    const base = { id: "new1", email: "new@plansphere.test", name: "N", disabled: false, createdAt: new Date(), updatedAt: new Date() };
     await assertSucceeds(setDoc(doc(newbie, "users", "new1"), { ...base, role: "student", festIds: [], mustChangePassword: false }));
     await assertFails(setDoc(doc(newbie, "users", "new1"), { ...base, role: "admin", festIds: [], mustChangePassword: false }));
     await assertFails(setDoc(doc(newbie, "users", "new1"), { ...base, role: "student", festIds: ["fest1"], mustChangePassword: false }));
@@ -293,7 +293,7 @@ describe("firestore.rules under the new roles", () => {
         registrationId: "reg1",
         type: "participation",
         recipientName: "S",
-        recipientEmail: "student@festflow.test",
+        recipientEmail: "student@plansphere.test",
         eventTitle: "E",
         festName: "F1",
         revoked: false,

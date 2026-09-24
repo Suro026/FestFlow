@@ -5,7 +5,7 @@
  *   - `students/{uid}`   → users/{uid} with role "student", claim role=student
  *   - `organizers/{uid}` → users/{uid} with role "admin" (the old app's
  *                          "admin" ran a fest end to end), claim role=admin
- *   - superadmin@festflow.com (the old hardcoded bootstrap) → super_admin
+ *   - superadmin@plansphere.com (the old hardcoded bootstrap) → super_admin
  *   - no document at all → student with a profile to complete
  *
  * Existing users/{uid} documents are left alone unless --force is passed.
@@ -28,7 +28,7 @@ const apply = args.has("--apply");
 const force = args.has("--force");
 const trustEmails = args.has("--trust-emails");
 
-const BOOTSTRAP_SUPER_ADMIN = (process.env.SUPER_ADMIN_EMAIL || "superadmin@festflow.com").toLowerCase();
+const BOOTSTRAP_SUPER_ADMIN = (process.env.SUPER_ADMIN_EMAIL || "superadmin@plansphere.com").toLowerCase();
 
 const raw = process.env.FIREBASE_SERVICE_ACCOUNT?.trim();
 if (!raw) {
@@ -68,7 +68,7 @@ const nameFromEmail = (email = "") =>
   email
     .split("@")[0]
     .replace(/[._-]+/g, " ")
-    .replace(/\b\w/g, (c) => c.toUpperCase()) || "FestFlow user";
+    .replace(/\b\w/g, (c) => c.toUpperCase()) || "Plansphere user";
 
 const plan = [];
 

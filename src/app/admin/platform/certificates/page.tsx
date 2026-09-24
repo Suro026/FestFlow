@@ -128,7 +128,7 @@ export default function CertificateReleasePage() {
             aspect="1414/1000"
             value={templateUrl}
             onChange={setTemplateUrl}
-            hint="Optional — A4 landscape. Blank uses the FestFlow design."
+            hint="Optional — A4 landscape. Blank uses the Plansphere design."
           />
         ) : null}
       </div>

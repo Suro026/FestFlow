@@ -46,10 +46,10 @@ describe("createRegistrationSchema", () => {
 });
 
 describe("ticket codes", () => {
-  it("are FF- plus 10 characters from the Crockford alphabet (no I, L, O, U)", () => {
+  it("are PS- plus 10 characters from the Crockford alphabet (no I, L, O, U)", () => {
     for (let seed = 1; seed < 50; seed += 1) {
       const code = generateTicketCode(seededBytes(seed));
-      expect(code).toMatch(/^FF-[0-9A-HJ-NP-Z]{10}$/);
+      expect(code).toMatch(/^PS-[0-9A-HJ-NP-Z]{10}$/);
       expect(code).not.toMatch(/[ILOU]/);
       expect(ticketCodeSchema.safeParse(code).success).toBe(true);
     }
@@ -57,6 +57,9 @@ describe("ticket codes", () => {
   it("are deterministic for a given byte source and different across sources", () => {
     expect(generateTicketCode(seededBytes(7))).toBe(generateTicketCode(seededBytes(7)));
     expect(generateTicketCode(seededBytes(7))).not.toBe(generateTicketCode(seededBytes(8)));
+  });
+  it("still accepts a code issued before the Plansphere rename", () => {
+    expect(ticketCodeSchema.safeParse("FF-7K2M9QX4TB").success).toBe(true);
   });
   it("rejects lookalike characters and wrong lengths", () => {
     expect(ticketCodeSchema.safeParse("FF-7K2M9QX4TO").success).toBe(false);

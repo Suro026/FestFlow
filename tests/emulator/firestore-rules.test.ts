@@ -13,13 +13,13 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 let env: RulesTestEnvironment;
 const [host = "127.0.0.1", port = "8080"] = (process.env.FIRESTORE_EMULATOR_HOST ?? "127.0.0.1:8080").split(":");
 
-const student = { uid: "stu1", email: "stu1@festflow.test", email_verified: true, role: "student", festIds: [] as string[] };
-const mate = { uid: "stu2", email: "stu2@festflow.test", email_verified: true, role: "student", festIds: [] as string[] };
-const stranger = { uid: "stu3", email: "stu3@festflow.test", email_verified: true, role: "student", festIds: [] as string[] };
-const volunteer = { uid: "org1", email: "org1@festflow.test", email_verified: true, role: "volunteer", festIds: ["fest1"] };
-const otherVolunteer = { uid: "org2", email: "org2@festflow.test", email_verified: true, role: "volunteer", festIds: ["fest2"] };
-const admin = { uid: "adm1", email: "adm1@festflow.test", email_verified: true, role: "admin", festIds: ["fest1"] };
-const otherAdmin = { uid: "adm2", email: "adm2@festflow.test", email_verified: true, role: "admin", festIds: ["fest2"] };
+const student = { uid: "stu1", email: "stu1@plansphere.test", email_verified: true, role: "student", festIds: [] as string[] };
+const mate = { uid: "stu2", email: "stu2@plansphere.test", email_verified: true, role: "student", festIds: [] as string[] };
+const stranger = { uid: "stu3", email: "stu3@plansphere.test", email_verified: true, role: "student", festIds: [] as string[] };
+const volunteer = { uid: "org1", email: "org1@plansphere.test", email_verified: true, role: "volunteer", festIds: ["fest1"] };
+const otherVolunteer = { uid: "org2", email: "org2@plansphere.test", email_verified: true, role: "volunteer", festIds: ["fest2"] };
+const admin = { uid: "adm1", email: "adm1@plansphere.test", email_verified: true, role: "admin", festIds: ["fest1"] };
+const otherAdmin = { uid: "adm2", email: "adm2@plansphere.test", email_verified: true, role: "admin", festIds: ["fest2"] };
 
 const as = (claims: { uid: string } & Record<string, unknown>) => {
   const { uid, ...token } = claims;
@@ -29,7 +29,7 @@ const anon = () => env.unauthenticatedContext().firestore();
 
 beforeAll(async () => {
   env = await initializeTestEnvironment({
-    projectId: process.env.GCLOUD_PROJECT ?? "festflow-test",
+    projectId: process.env.GCLOUD_PROJECT ?? "plansphere-test",
     firestore: { rules: readFileSync("firestore.rules", "utf8"), host, port: Number(port) },
   });
 });

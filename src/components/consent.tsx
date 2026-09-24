@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 /**
  * Cookie / analytics consent.
  *
- * FestFlow sets no advertising cookies; the only optional processing is
+ * Plansphere sets no advertising cookies; the only optional processing is
  * Vercel Analytics + Speed Insights, which are cookieless but still a
  * third party, so they load only after "Accept". Essential storage (the
  * sign-in session, the offline pass) is not subject to the choice and the
@@ -17,7 +17,7 @@ import { Button } from "@/components/ui/button";
  * from the footer.
  */
 
-const KEY = "festflow.consent.v1";
+const KEY = "plansphere.consent.v1";
 type Choice = "accepted" | "rejected";
 
 const read = (): Choice | null => {

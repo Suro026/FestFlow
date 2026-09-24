@@ -3,7 +3,7 @@
  * FIRESTORE_EMULATOR_HOST / FIREBASE_AUTH_EMULATOR_HOST; everything else the
  * app reads is given a stable dummy so lazy initialisers succeed.
  */
-const PROJECT = "festflow-test";
+const PROJECT = "plansphere-test";
 
 process.env.FIRESTORE_EMULATOR_HOST ??= "127.0.0.1:8080";
 process.env.FIREBASE_AUTH_EMULATOR_HOST ??= "127.0.0.1:9099";

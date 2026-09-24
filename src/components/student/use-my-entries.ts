@@ -23,7 +23,7 @@ export interface Entry {
   invited?: boolean;
 }
 
-const CACHE_KEY = "festflow.entries.v1";
+const CACHE_KEY = "plansphere.entries.v1";
 
 /** Dates survive JSON as strings; put them back. */
 const revive = (raw: string): Entry[] => {

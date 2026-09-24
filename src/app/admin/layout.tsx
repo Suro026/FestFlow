@@ -10,7 +10,7 @@ import { GuardSkeleton, RequireRole } from "@/components/shell/require-role";
 export const metadata: Metadata = {
   // A nested template so route titles keep the brand suffix (a template only
   // applies to the segment directly below the layout that defines it).
-  title: { default: "Admin", template: "%s · FestFlow" },
+  title: { default: "Admin", template: "%s · Plansphere" },
   description: "Run your fest: events, registrations, gate, results, certificates and staff.",
   robots: { index: false, follow: false },
 };

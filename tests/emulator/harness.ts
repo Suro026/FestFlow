@@ -15,7 +15,7 @@ import type { UserRole } from "@/core/models/user";
  * - `callRoute()` invokes a Next route handler exactly as Next would.
  */
 
-export const PROJECT = process.env.GCLOUD_PROJECT ?? "festflow-test";
+export const PROJECT = process.env.GCLOUD_PROJECT ?? "plansphere-test";
 const FIRESTORE_HOST = process.env.FIRESTORE_EMULATOR_HOST ?? "127.0.0.1:8080";
 const AUTH_HOST = process.env.FIREBASE_AUTH_EMULATOR_HOST ?? "127.0.0.1:9099";
 
@@ -43,7 +43,7 @@ let counter = 0;
 export const mintUser = async (input: { role?: UserRole; festIds?: string[]; name?: string; email?: string; emailVerified?: boolean; profile?: boolean; mustChangePassword?: boolean; profileCompleted?: boolean } = {}): Promise<TestUser> => {
   counter += 1;
   const role = input.role ?? "student";
-  const email = (input.email ?? `${role}-${counter}@festflow.test`).toLowerCase();
+  const email = (input.email ?? `${role}-${counter}@plansphere.test`).toLowerCase();
   const name = input.name ?? `${role[0]!.toUpperCase()}${role.slice(1)} ${counter}`;
   const password = "Test-password-1!";
 

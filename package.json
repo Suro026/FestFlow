@@ -1,5 +1,5 @@
 {
-  "name": "festflow",
+  "name": "plansphere",
   "version": "2.0.0",
   "private": true,
   "scripts": {
@@ -17,7 +17,7 @@
     "verify:infra": "node --env-file=.env.local scripts/verify-infra.mjs",
     "test": "vitest run --project unit --file-parallelism",
     "test:watch": "vitest --project unit --file-parallelism",
-    "test:emulator": "npx firebase-tools@15 emulators:exec --only firestore,auth,storage --project festflow-test \"vitest run --project emulator\"",
+    "test:emulator": "npx firebase-tools@15 emulators:exec --only firestore,auth,storage --project plansphere-test \"vitest run --project emulator\"",
     "test:all": "npm test && npm run test:emulator",
     "scan:secrets": "node scripts/scan-secrets.mjs",
     "scan:secrets:history": "node scripts/scan-secrets.mjs --history",

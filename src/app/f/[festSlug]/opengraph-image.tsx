@@ -2,7 +2,7 @@ import { ImageResponse } from "next/og";
 import { repositories } from "@/data/repositories";
 import { formatDateRange } from "@/lib/utils";
 
-export const alt = "Fest on FestFlow";
+export const alt = "Fest on Plansphere";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
@@ -12,7 +12,7 @@ export default async function FestOpenGraphImage({ params }: { params: Promise<{
   const fest = await repositories()
     .fests.getBySlug(festSlug)
     .catch(() => null);
-  const name = fest?.name ?? "FestFlow";
+  const name = fest?.name ?? "Plansphere";
   const sub = fest ? `${fest.organizationName} · ${fest.city} · ${formatDateRange(fest.startDate, fest.endDate)}` : "Every fest. One pass.";
   const stats = fest ? [`${fest.stats.events} events`, `${fest.stats.registrations.toLocaleString("en-IN")} registered`] : [];
 
@@ -35,7 +35,7 @@ export default async function FestOpenGraphImage({ params }: { params: Promise<{
           <div style={{ width: 40, height: 40, borderRadius: 10, background: "#9184d9", display: "flex", alignItems: "center", justifyContent: "center", color: "#161826", fontSize: 24, fontWeight: 700 }}>
             F
           </div>
-          FestFlow · plansphere.in
+          Plansphere · plansphere.in
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
           <div style={{ fontSize: name.length > 18 ? 76 : 100, fontWeight: 600, lineHeight: 1, letterSpacing: -3 }}>{name}</div>

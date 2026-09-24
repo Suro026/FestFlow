@@ -6,7 +6,7 @@ import { Kick } from "@/components/ui/primitives";
 export const metadata: Metadata = {
   alternates: { canonical: "/verify" },
   title: "Verify a certificate",
-  description: "Check a FestFlow certificate against the issuing college’s record. No account needed.",
+  description: "Check a Plansphere certificate against the issuing college’s record. No account needed.",
 };
 
 /** 3d — the entry point for anyone holding a certificate number but no QR. */
@@ -18,7 +18,7 @@ export default function VerifyIndexPage() {
         <Kick className="mb-2">Public verification · no account needed</Kick>
         <h1 className="mb-2.5 text-[32px] font-medium leading-[1.05] tracking-[-0.03em] sm:text-[40px]">Verify a certificate</h1>
         <p className="mb-7 max-w-[52ch] text-[15px] text-neutral-300">
-          Every FestFlow certificate carries a number and a QR code. Scan the code, or type the number below, to see the record it was issued from.
+          Every Plansphere certificate carries a number and a QR code. Scan the code, or type the number below, to see the record it was issued from.
         </p>
         <VerifySearch />
         <div className="mt-10 max-w-[52ch] text-[12.5px] leading-relaxed text-neutral-500">

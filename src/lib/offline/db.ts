@@ -15,8 +15,60 @@ import type { RegistrationStatus } from "@/core/models/registration";
  * own key space so a volunteer moving between posts never mixes rosters.
  */
 
-const DB_NAME = "festflow-scanner";
+const DB_NAME = "plansphere-scanner";
+/** The database's name before the FestFlow → Plansphere rename. */
+const LEGACY_DB_NAME = "festflow-scanner";
 const DB_VERSION = 2;
+
+/**
+ * Carries over any writes still queued under the pre-rename database name.
+ *
+ * A volunteer's queued scan is a check-in that already happened at the
+ * gate — the person is already inside — so losing it silently would mean
+ * the server never learns they attended, not just a UI inconvenience. Runs
+ * once per page load, off the critical path of every other `open()` call.
+ */
+let legacyMigration: Promise<void> | null = null;
+
+const migrateLegacyQueue = (): Promise<void> => {
+  if (legacyMigration) return legacyMigration;
+  legacyMigration = (async () => {
+    if (typeof indexedDB === "undefined" || typeof indexedDB.databases !== "function") return;
+    try {
+      const existing = await indexedDB.databases();
+      if (!existing.some((d) => d.name === LEGACY_DB_NAME)) return;
+
+      const legacyQueue = await new Promise<QueuedScan[]>((resolve, reject) => {
+        const req = indexedDB.open(LEGACY_DB_NAME);
+        req.onsuccess = () => {
+          const db = req.result;
+          if (!db.objectStoreNames.contains("queue")) {
+            db.close();
+            resolve([]);
+            return;
+          }
+          const getAll = db.transaction("queue", "readonly").objectStore("queue").getAll();
+          getAll.onsuccess = () => {
+            db.close();
+            resolve(getAll.result as QueuedScan[]);
+          };
+          getAll.onerror = () => {
+            db.close();
+            reject(getAll.error);
+          };
+        };
+        req.onerror = () => reject(req.error);
+      });
+
+      for (const item of legacyQueue) await enqueue(item);
+      indexedDB.deleteDatabase(LEGACY_DB_NAME);
+    } catch {
+      // Best effort — a failed migration must never block the scanner from
+      // opening its own database.
+    }
+  })();
+  return legacyMigration;
+};
 
 /** One person on an entry, as the device knows them. */
 export interface RosterMember {
@@ -115,6 +167,7 @@ const open = (): Promise<IDBDatabase> =>
       reject(new Error("IndexedDB is not available in this context"));
       return;
     }
+    void migrateLegacyQueue();
     const request = indexedDB.open(DB_NAME, DB_VERSION);
     request.onupgradeneeded = () => {
       const db = request.result;
