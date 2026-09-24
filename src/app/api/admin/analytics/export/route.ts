@@ -68,6 +68,21 @@ const festReportRows = (name: string, bundle: FestAnalyticsBundle): (string | nu
     ["Downloaded", bundle.certificates.downloaded],
     ["Email delivered", bundle.certificates.emailDelivered],
     ["Verification requests", bundle.certificates.verificationCount],
+    ["", ""],
+    ["Live matches", ""],
+    ["Total matches", bundle.live.matches.total],
+    ["Live now", bundle.live.matches.live],
+    ["Completed", bundle.live.matches.completed],
+    ["Average duration (minutes)", bundle.live.matches.avgDurationMinutes === null ? "—" : Math.round(bundle.live.matches.avgDurationMinutes)],
+    ["", ""],
+    ["Arena utilization", "Matches"],
+    ...bundle.live.arenaUtilization.map((a) => [a.arenaName, a.matchCount]),
+    ["", ""],
+    ["Most active volunteers (live scoring)", "Actions"],
+    ...bundle.live.mostActiveVolunteers.slice(0, 10).map((v) => [v.name, v.actionCount]),
+    ["", ""],
+    ["Team win rate", "W-L"],
+    ...bundle.live.teamWinRate.slice(0, 10).map((t) => [t.name, `${t.wins}-${t.losses}`]),
   ];
   return rows;
 };

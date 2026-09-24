@@ -17,15 +17,15 @@ import { isProfileComplete, normalizeUserDoc, userSchema } from "@/core/models/u
 /** Every capability the spec grants each role, written out rather than derived. */
 const EXPECTED: Record<UserRole, Permission[]> = {
   student: ["registration:create", "registration:cancelOwn", "team:manageOwn", "certificate:viewOwn"],
-  volunteer: ["registration:create", "registration:cancelOwn", "team:manageOwn", "certificate:viewOwn", "attendance:scan", "meal:scan", "shift:viewOwn"],
+  volunteer: ["registration:create", "registration:cancelOwn", "team:manageOwn", "certificate:viewOwn", "attendance:scan", "meal:scan", "shift:viewOwn", "match:score"],
   admin: [
     "registration:create", "registration:cancelOwn", "team:manageOwn", "certificate:viewOwn",
-    "attendance:scan", "meal:scan", "shift:viewOwn",
+    "attendance:scan", "meal:scan", "shift:viewOwn", "match:score",
     "fest:update", "event:create", "event:update", "event:delete",
     "registration:read", "registration:manage", "attendance:manual",
     "results:publish", "certificate:issue", "certificate:revoke",
     "announcement:send", "staff:createVolunteer", "staff:manage", "audit:read",
-    "upload:festArtwork", "upload:eventPoster",
+    "upload:festArtwork", "upload:eventPoster", "match:manage",
   ],
   super_admin: [...PERMISSIONS],
 };

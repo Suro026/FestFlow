@@ -19,7 +19,7 @@ import {
  * shift telling the app *where* and *what* rather than *whether*.
  */
 
-export const SHIFT_DUTIES = ["entry", "meal", "crowd"] as const;
+export const SHIFT_DUTIES = ["entry", "meal", "crowd", "scoring"] as const;
 export const shiftDutySchema = z.enum(SHIFT_DUTIES);
 export type ShiftDuty = z.infer<typeof shiftDutySchema>;
 
@@ -27,7 +27,15 @@ export const SHIFT_DUTY_LABELS: Record<ShiftDuty, string> = {
   entry: "Entry scanning",
   meal: "Meal scanning",
   crowd: "Crowd & help desk",
+  scoring: "Live scoring",
 };
+
+/**
+ * For a `scoring` shift, `post` holds the arena's document id rather than a
+ * free-text label — the live scorer's permission check (`requireArenaAccess`
+ * in `server/live.ts`) matches it against the match's `arenaId` directly,
+ * the same way every other duty already uses `post` to say *where*.
+ */
 
 export const shiftSchema = z
   .object({

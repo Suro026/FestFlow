@@ -20,6 +20,9 @@ export const NOTIFICATION_TYPES = [
   "certificate_issued",
   "results_published",
   "announcement",
+  "match_starting",
+  "tournament_final_started",
+  "champion_declared",
 ] as const;
 
 export const notificationTypeSchema = z.enum(NOTIFICATION_TYPES);
@@ -75,4 +78,7 @@ export const NOTIFICATION_LABELS: Record<NotificationType, string> = {
   certificate_issued: "Certificate",
   results_published: "Results",
   announcement: "Announcement",
+  match_starting: "Match starting",
+  tournament_final_started: "Final started",
+  champion_declared: "Champion declared",
 };

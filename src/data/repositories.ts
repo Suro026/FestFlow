@@ -9,6 +9,8 @@ import { FirestoreCertificateRepository } from "./firebase/repositories/certific
 import { FirestoreNotificationRepository } from "./firebase/repositories/notification-repository";
 import { FirestoreShiftRepository } from "./firebase/repositories/shift-repository";
 import { FirestoreAuditRepository } from "./firebase/repositories/audit-repository";
+import { FirestoreArenaRepository } from "./firebase/repositories/arena-repository";
+import { FirestoreMatchRepository } from "./firebase/repositories/match-repository";
 
 /**
  * The composition root.
@@ -31,6 +33,8 @@ export const createRepositories = (): Repositories => ({
   notifications: new FirestoreNotificationRepository(),
   shifts: new FirestoreShiftRepository(),
   audit: new FirestoreAuditRepository(),
+  arenas: new FirestoreArenaRepository(),
+  matches: new FirestoreMatchRepository(),
 });
 
 export const repositories = (): Repositories => {

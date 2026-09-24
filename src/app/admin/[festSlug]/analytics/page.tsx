@@ -303,6 +303,64 @@ export default function FestAnalyticsPage() {
           <LineArea points={a.certificateDownloadsOverTime} />
         </Panel>
       </div>
+
+      {a.live.matches.total > 0 ? (
+        <>
+          <Kick className="mb-3 mt-8">Live Event Engine</Kick>
+          <div className="grid gap-8 lg:grid-cols-2">
+            <Panel className="p-5">
+              <KpiStrip>
+                <Kpi value={formatCount(a.live.matches.total)} label="Total matches" />
+                <Kpi value={formatCount(a.live.matches.live)} label="Live now" />
+                <Kpi value={formatCount(a.live.matches.completed)} label="Completed" />
+                <Kpi value={a.live.matches.avgDurationMinutes === null ? "—" : `${Math.round(a.live.matches.avgDurationMinutes)}m`} label="Avg. duration" />
+              </KpiStrip>
+            </Panel>
+            <Panel className="p-5">
+              <Kick className="mb-3">Arena utilization</Kick>
+              {a.live.arenaUtilization.length === 0 ? (
+                <div className="text-[12.5px] text-neutral-500">No arenas assigned yet.</div>
+              ) : (
+                <MetaList>
+                  {a.live.arenaUtilization.map((row) => (
+                    <MetaRow key={row.arenaId} label={row.arenaName} mono>
+                      {formatCount(row.matchCount)}
+                    </MetaRow>
+                  ))}
+                </MetaList>
+              )}
+            </Panel>
+            <Panel className="p-5">
+              <Kick className="mb-3">Most active volunteers</Kick>
+              {a.live.mostActiveVolunteers.length === 0 ? (
+                <div className="text-[12.5px] text-neutral-500">No scoring recorded yet.</div>
+              ) : (
+                <MetaList>
+                  {a.live.mostActiveVolunteers.slice(0, 10).map((v) => (
+                    <MetaRow key={v.userId} label={v.name} mono>
+                      {formatCount(v.actionCount)}
+                    </MetaRow>
+                  ))}
+                </MetaList>
+              )}
+            </Panel>
+            <Panel className="p-5">
+              <Kick className="mb-3">Team win rate</Kick>
+              {a.live.teamWinRate.length === 0 ? (
+                <div className="text-[12.5px] text-neutral-500">No completed matches yet.</div>
+              ) : (
+                <MetaList>
+                  {a.live.teamWinRate.slice(0, 10).map((t) => (
+                    <MetaRow key={t.registrationId} label={t.name} mono>
+                      {t.wins}-{t.losses}
+                    </MetaRow>
+                  ))}
+                </MetaList>
+              )}
+            </Panel>
+          </div>
+        </>
+      ) : null}
     </AdminPage>
   );
 }

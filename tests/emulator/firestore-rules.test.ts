@@ -54,6 +54,14 @@ beforeEach(async () => {
     await setDoc(doc(db, "certificates", "ev1_stu1"), { id: "ev1_stu1", userId: student.uid, eventId: "ev1", festId: "fest1", registrationId: "reg1", certificateNumber: "FF-2026-ABCDEFGH", type: "participation", recipientName: "Stu One", recipientEmail: student.email, eventTitle: "CTF", festName: "Bits2Bytes", revoked: false, delivery: { status: "sent", attempts: 1 }, issuedAt: now, issuedBy: admin.uid, createdAt: now, updatedAt: now });
     await setDoc(doc(db, "emailLog", "e1"), { to: student.email, template: "registration_confirmed", status: "sent", festId: "fest1", createdAt: now });
     await setDoc(doc(db, "auditLog", "a1"), { action: "event_updated", actorId: admin.uid, festId: "fest1", summary: "x", createdAt: now });
+    await setDoc(doc(db, "arenas", "arena1"), { id: "arena1", festId: "fest1", name: "Arena A", active: true, createdBy: admin.uid, createdAt: now, updatedAt: now });
+    await setDoc(doc(db, "matches", "match1"), {
+      id: "match1", festId: "fest1", eventId: "ev1", round: 1, roundLabel: "Final", matchIndex: 0, arenaId: "arena1",
+      homeTeam: { name: "Alpha", isBye: false }, awayTeam: { name: "Beta", isBye: false }, status: "live", paused: false,
+      sportType: "football", matchConfig: { durationType: "time", maxPlayers: 11 }, score: { home: 0, away: 0, detail: {}, displayHome: "0", displayAway: "0", isComplete: false },
+      createdBy: admin.uid, createdAt: now, updatedAt: now,
+    });
+    await setDoc(doc(db, "matchLog", "log1"), { id: "log1", matchId: "match1", festId: "fest1", eventId: "ev1", type: "goal", side: "home", label: "Goal", undone: false, at: now, createdBy: volunteer.uid });
   });
 });
 
@@ -164,5 +172,24 @@ describe("certificates, email log, audit log", () => {
   it("an unknown collection is denied by default", async () => {
     await assertFails(getDoc(doc(as(admin), "secrets", "s1")));
     expect(true).toBe(true);
+  });
+});
+
+describe("Live Event Engine — arenas, matches, matchLog", () => {
+  it("arenas and matches are readable by anyone, signed in or not", async () => {
+    await assertSucceeds(getDoc(doc(anon(), "arenas", "arena1")));
+    await assertSucceeds(getDoc(doc(anon(), "matches", "match1")));
+    await assertSucceeds(getDoc(doc(anon(), "matchLog", "log1")));
+    await assertSucceeds(getDocs(query(collection(anon(), "matches"), where("status", "==", "live"))));
+  });
+
+  it("no client — student, volunteer or admin — can write an arena, a match or its timeline directly", async () => {
+    await assertFails(setDoc(doc(as(admin), "arenas", "arena2"), { festId: "fest1", name: "Rogue", active: true }));
+    await assertFails(updateDoc(doc(as(admin), "matches", "match1"), { status: "completed" }));
+    await assertFails(updateDoc(doc(as(volunteer), "matches", "match1"), { "score.home": 5 }));
+    await assertFails(setDoc(doc(as(volunteer), "matchLog", "log2"), { matchId: "match1", type: "goal", side: "home" }));
+    // Every one of these must go through /api/volunteer/matches/[id]/action or
+    // /api/admin/arenas — the arena-scoping and the audit trail live there,
+    // not in a rule that cannot read a volunteer's Shift.
   });
 });

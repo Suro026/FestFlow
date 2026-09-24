@@ -10,8 +10,10 @@ import {
   Checks,
   ClockCountdown,
   Envelope,
+  FlagCheckered,
   Megaphone,
   PencilSimpleLine,
+  Play,
   Prohibit,
   Ticket,
   Trophy,
@@ -70,6 +72,9 @@ const ICONS: Record<NotificationType, Icon> = {
   certificate_issued: Certificate,
   results_published: Trophy,
   announcement: Megaphone,
+  match_starting: Play,
+  tournament_final_started: FlagCheckered,
+  champion_declared: Trophy,
 };
 
 export const NotificationRow = ({ item, onOpen, compact }: { item: Notification; onOpen: (item: Notification) => void; compact?: boolean }) => {

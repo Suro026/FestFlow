@@ -16,7 +16,7 @@ export const audit = async (
     summary: string;
     festId?: string;
     eventId?: string;
-    subjectType?: "registration" | "event" | "fest" | "user" | "result" | "certificate" | "shift";
+    subjectType?: "registration" | "event" | "fest" | "user" | "result" | "certificate" | "shift" | "match" | "arena";
     subjectId?: string;
     details?: Record<string, unknown>;
   },

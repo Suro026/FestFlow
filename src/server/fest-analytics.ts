@@ -4,6 +4,8 @@ import { eventSchema, type Event } from "@/core/models/event";
 import { certificateSchema, type Certificate } from "@/core/models/certificate";
 import { certificateEventSchema, type CertificateEvent } from "@/core/models/certificate-event";
 import { shiftSchema, type Shift } from "@/core/models/shift";
+import { matchSchema, type Match } from "@/core/models/match";
+import { matchLogEntrySchema, type MatchLogEntry } from "@/core/models/match-log";
 import {
   attendanceStats,
   capacityUtilization,
@@ -24,6 +26,16 @@ import {
   type LinePoint,
   type VolunteerContribution,
 } from "@/core/services/fest-analytics";
+import {
+  arenaUtilization,
+  matchStats,
+  mostActiveVolunteers,
+  teamWinRate,
+  type ArenaUtilization,
+  type MatchStats,
+  type TeamWinRate,
+  type VolunteerActivity,
+} from "@/core/services/live-analytics";
 import { COLLECTIONS, adminDb } from "./firebase-admin";
 import { toDates } from "./serialize";
 
@@ -84,6 +96,13 @@ export interface FestAnalyticsBundle {
   certificates: ReturnType<typeof certificateStats>;
   certificateDownloadsOverTime: LinePoint[];
   certificateVerificationsOverTime: LinePoint[];
+  /** The Live Event Engine's contribution — empty arrays/zeros for a fest with no live matches. */
+  live: {
+    matches: MatchStats;
+    arenaUtilization: ArenaUtilization[];
+    mostActiveVolunteers: VolunteerActivity[];
+    teamWinRate: TeamWinRate[];
+  };
 }
 
 /**
@@ -132,6 +151,20 @@ export const loadFestAnalytics = async (
     return q.get();
   })();
   const certificateEvents = parseAll<CertificateEvent>(certificateEventSchema, certEventsSnap.docs);
+
+  const matchesSnap = await (() => {
+    let q = db.collection(COLLECTIONS.matches).where("festId", "==", festId) as FirebaseFirestore.Query;
+    if (options.eventId) q = q.where("eventId", "==", options.eventId);
+    return q.get();
+  })();
+  const liveMatches = parseAll<Match>(matchSchema, matchesSnap.docs);
+
+  const matchLogSnap = await (() => {
+    let q = db.collection(COLLECTIONS.matchLog).where("festId", "==", festId) as FirebaseFirestore.Query;
+    if (options.eventId) q = q.where("eventId", "==", options.eventId);
+    return q.get();
+  })();
+  const matchLog = parseAll<MatchLogEntry>(matchLogEntrySchema, matchLogSnap.docs);
 
   const seated = seatHoldingRegistrations(registrations);
   const confirmed = registrations.filter((r) => r.status === "confirmed");
@@ -182,6 +215,12 @@ export const loadFestAnalytics = async (
     certificates: certificateStats(certificates, certificateEvents),
     certificateDownloadsOverTime: certificateEventsOverTime(certificateEvents, "download"),
     certificateVerificationsOverTime: certificateEventsOverTime(certificateEvents, "verify"),
+    live: {
+      matches: matchStats(liveMatches),
+      arenaUtilization: arenaUtilization(liveMatches),
+      mostActiveVolunteers: mostActiveVolunteers(matchLog),
+      teamWinRate: teamWinRate(liveMatches),
+    },
   };
 };
 

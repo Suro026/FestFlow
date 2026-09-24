@@ -4,7 +4,7 @@ import * as React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import { ListChecks, QrCode, UsersThree, User as UserIcon } from "@phosphor-icons/react";
+import { ListChecks, QrCode, Trophy, UsersThree, User as UserIcon } from "@phosphor-icons/react";
 import type { Fest } from "@/core/models/fest";
 import { useAuth, useRepositories } from "@/components/providers";
 import { EmptyState, Skeleton, Tag } from "@/components/ui/primitives";
@@ -81,6 +81,7 @@ export const VolunteerShell = ({ children, hideTapBar }: { children: React.React
   const links = [
     { href: basePath, label: "My shifts", tap: "Shifts", icon: ListChecks, match: (p: string) => p === basePath || p.startsWith(`${basePath}/shifts`) },
     { href: `${basePath}/scan`, label: "Scanner", tap: "Scan", icon: QrCode, match: (p: string) => p.startsWith(`${basePath}/scan`) },
+    { href: `${basePath}/live`, label: "Live", tap: "Live", icon: Trophy, match: (p: string) => p.startsWith(`${basePath}/live`) },
     { href: `${basePath}/team`, label: "Team", tap: "Team", icon: UsersThree, match: (p: string) => p.startsWith(`${basePath}/team`) },
   ];
 

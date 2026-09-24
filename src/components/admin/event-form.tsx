@@ -134,6 +134,10 @@ export const toCreateEvent = (v: EventFormOutput, festId: string): CreateEvent =
   gates: lines(v.gatesText),
   mealSlots: v.mealSlots,
   status: v.status,
+  // Live mode is configured separately, from the event's own live-settings
+  // page, once there is a rulebook and a bracket to turn on — this form
+  // only ever creates it off.
+  liveEnabled: false,
 });
 
 export const toUpdateEvent = (v: EventFormOutput): UpdateEvent => {
@@ -483,6 +487,7 @@ export const StudentPreview = ({ form, festSlug, festId }: { form: Form; festSlu
     gates: lines(v.gatesText),
     mealSlots: (v.mealSlots ?? []) as Event["mealSlots"],
     status: "published",
+    liveEnabled: false,
     createdBy: "preview",
     createdAt: now,
     updatedAt: now,

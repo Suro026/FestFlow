@@ -50,6 +50,12 @@ export interface FestAnalytics {
   certificates: { eligible: number; released: number; downloaded: number; emailDelivered: number; verificationCount: number };
   certificateDownloadsOverTime: LinePoint[];
   certificateVerificationsOverTime: LinePoint[];
+  live: {
+    matches: { total: number; live: number; upcoming: number; completed: number; cancelled: number; avgDurationMinutes: number | null };
+    arenaUtilization: Array<{ arenaId: string; arenaName: string; matchCount: number; liveCount: number; completedCount: number }>;
+    mostActiveVolunteers: Array<{ userId: string; name: string; actionCount: number }>;
+    teamWinRate: Array<{ registrationId: string; name: string; wins: number; losses: number; played: number; winRate: number }>;
+  };
 }
 
 export const useFestAnalytics = (festId: string, options: { eventId?: string; from?: Date; to?: Date } = {}) => {
