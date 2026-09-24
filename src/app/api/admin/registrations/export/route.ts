@@ -13,7 +13,7 @@ import { buildXlsx } from "@/lib/xlsx";
 import { ApiError, handler, requireFestAccess, requirePermission } from "@/server/api";
 import { RATE_LIMITS } from "@/server/rate-limit";
 import { COLLECTIONS, adminDb } from "@/server/firebase-admin";
-import { toJson } from "@/server/serialize";
+import { toDates } from "@/server/serialize";
 import { buildTablePdf } from "@/server/export-pdf";
 
 /**
@@ -55,13 +55,13 @@ export const GET = handler(async (request) => {
   if (eventId) regQuery = regQuery.where("eventId", "==", eventId);
   const regSnap = await regQuery.get();
   const registrations: Registration[] = regSnap.docs
-    .map((doc) => registrationSchema.safeParse(toJson({ ...doc.data(), id: doc.id })))
+    .map((doc) => registrationSchema.safeParse(toDates({ ...doc.data(), id: doc.id })))
     .filter((r) => r.success)
     .map((r) => r.data!);
 
   const eventsSnap = await db.collection(COLLECTIONS.events).where("festId", "==", festId).get();
   const events: Event[] = eventsSnap.docs
-    .map((doc) => eventSchema.safeParse(toJson({ ...doc.data(), id: doc.id })))
+    .map((doc) => eventSchema.safeParse(toDates({ ...doc.data(), id: doc.id })))
     .filter((e) => e.success)
     .map((e) => e.data!);
   const eventById = new Map(events.map((e) => [e.id, e]));
@@ -71,7 +71,7 @@ export const GET = handler(async (request) => {
     : await db.collection(COLLECTIONS.attendance).where("festId", "==", festId).get();
   const attendance = new Map<string, Attendance>(
     attendanceSnap.docs
-      .map((doc) => attendanceSchema.safeParse(toJson({ ...doc.data(), id: doc.id })))
+      .map((doc) => attendanceSchema.safeParse(toDates({ ...doc.data(), id: doc.id })))
       .filter((a) => a.success)
       .map((a) => [a.data!.registrationId, a.data!]),
   );
