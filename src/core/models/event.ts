@@ -7,6 +7,7 @@ import {
   longTextSchema,
   shortTextSchema, httpsUrlSchema } from "./common";
 import { registrationFieldsSchema } from "./registration-fields";
+import { matchConfigSchema, sportTypeSchema, tournamentTypeSchema } from "./match";
 
 export const EVENT_TYPES = ["solo", "team"] as const;
 export const eventTypeSchema = z.enum(EVENT_TYPES);
@@ -177,6 +178,18 @@ export const eventSchema = z
     registrationFields: z.lazy(() => registrationFieldsSchema).optional(),
 
     /**
+     * Live Event Engine — off by default. An event with `liveEnabled` gets a
+     * public `/live/[slug]` page, a bracket, and a volunteer scorer; one
+     * without is unaffected by any of it. `sportType` is free text (an admin
+     * can type anything the picker doesn't offer) matched by the scoring
+     * engine registry in `core/services/scoring`.
+     */
+    liveEnabled: z.boolean().default(false),
+    tournamentType: tournamentTypeSchema.optional(),
+    sportType: sportTypeSchema.optional(),
+    matchConfig: matchConfigSchema.optional(),
+
+    /**
      * Set once results are published. The certificate pipeline reads this to
      * know an event is finished and eligibility can be computed.
      */
@@ -245,6 +258,10 @@ const eventWritableFields = {
   mealSlots: z.array(mealSlotSchema).max(30).default([]),
   status: eventStatusSchema.default("draft"),
   registrationFields: z.lazy(() => registrationFieldsSchema).optional(),
+  liveEnabled: z.boolean().default(false),
+  tournamentType: tournamentTypeSchema.optional(),
+  sportType: sportTypeSchema.optional(),
+  matchConfig: matchConfigSchema.optional(),
 };
 
 /**
@@ -315,6 +332,14 @@ export const duplicateEventFrom = (event: Event, newSlug: string): CreateEvent =
   mealSlots: event.mealSlots,
   status: "draft",
   registrationFields: event.registrationFields,
+  // The rulebook carries over — the copy is very likely the same sport —
+  // but not `liveEnabled`: a fresh event has no bracket or matches yet, and
+  // turning live mode on is a deliberate step the coordinator takes once
+  // registrations exist to generate one from.
+  liveEnabled: false,
+  tournamentType: event.tournamentType,
+  sportType: event.sportType,
+  matchConfig: event.matchConfig,
 });
 
 /* ───────────── scheduling conflicts ───────────── */

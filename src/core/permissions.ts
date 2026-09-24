@@ -60,6 +60,8 @@ export const PERMISSIONS = [
   "attendance:scan",
   "meal:scan",
   "shift:viewOwn",
+  /** Score a match at the arena a volunteer's shift assigns them to. */
+  "match:score",
 
   // Admin, within the fests assigned to them
   "fest:update",
@@ -78,6 +80,8 @@ export const PERMISSIONS = [
   "audit:read",
   "upload:festArtwork",
   "upload:eventPoster",
+  /** Arenas, tournament configuration, brackets, and any match — unscoped by arena. */
+  "match:manage",
 
   // Super admin only
   "fest:create",
@@ -100,7 +104,7 @@ const STUDENT: Permission[] = ["registration:create", "registration:cancelOwn", 
  * an event they do so as themselves, and the owner checks on their own
  * documents are what let them through — not their staff role.
  */
-const VOLUNTEER: Permission[] = [...STUDENT, "attendance:scan", "meal:scan", "shift:viewOwn"];
+const VOLUNTEER: Permission[] = [...STUDENT, "attendance:scan", "meal:scan", "shift:viewOwn", "match:score"];
 
 const ADMIN: Permission[] = [
   ...VOLUNTEER,
@@ -118,6 +122,7 @@ const ADMIN: Permission[] = [
   "staff:createVolunteer",
   "staff:manage",
   "audit:read",
+  "match:manage",
   "upload:festArtwork",
   "upload:eventPoster",
 ];

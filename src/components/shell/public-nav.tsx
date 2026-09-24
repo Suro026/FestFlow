@@ -7,12 +7,15 @@ import { ConsentSettingsLink } from "@/components/consent";
  * The header for pages seen before sign-in: landing, explorer, public verify.
  * Same `.nav` as the student side; the difference is only which links show.
  */
-export const PublicNav = ({ active }: { active?: "fests" | "colleges" | "verify" }) => (
+export const PublicNav = ({ active }: { active?: "fests" | "colleges" | "verify" | "live" }) => (
   <header>
     <nav className="nav mx-auto w-full max-w-[1180px] gap-[26px] px-[18px] py-4 sm:px-6 lg:px-10" aria-label="Primary">
       <Brand href="/" />
       <Link href="/explore" aria-current={active === "fests" ? "page" : undefined}>
         Fests
+      </Link>
+      <Link href="/live" aria-current={active === "live" ? "page" : undefined}>
+        Live
       </Link>
       <Link href="/for-colleges" aria-current={active === "colleges" ? "page" : undefined} className="hidden sm:inline">
         For colleges

@@ -1,8 +1,18 @@
 # Plansphere
 
 Multi-fest campus event platform — registrations, QR tickets, gate and meal
-scanning, results and publicly verifiable certificates. Web today, Expo app
+scanning, results and publicly verifiable certificates, and live tournaments
+with sport-specific scoring and public scoreboards. Web today, Expo app
 next, sharing the same Firestore collections and the same `src/core`.
+
+An event can turn on **live mode** (`Event.liveEnabled`) to become a
+tournament: a bracket generated from confirmed entries (`core/services/
+bracket.ts`), matches scored by a per-sport engine
+(`core/services/scoring/*`) that a volunteer runs from `/volunteer/live`
+scoped to the arena their shift assigns them to, and a public scoreboard at
+`/live` with no account needed. See `src/core/models/match.ts` for the
+shapes and `src/app/api/volunteer/matches/[id]/action/route.ts` for the one
+route every live-scoring action goes through.
 
 **Stack:** Next.js 15 (App Router) · React 19 · TypeScript · Tailwind CSS v4 ·
 Firebase Auth + Firestore + Storage · Zod · react-query.

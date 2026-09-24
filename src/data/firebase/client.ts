@@ -167,6 +167,9 @@ export const COLLECTIONS = {
   shifts: "shifts",
   auditLog: "auditLog",
   emailLog: "emailLog",
+  arenas: "arenas",
+  matches: "matches",
+  matchLog: "matchLog",
 } as const;
 
 export type CollectionName = (typeof COLLECTIONS)[keyof typeof COLLECTIONS];

@@ -67,6 +67,7 @@ export const EventProvider = ({ eventSlug, children }: { eventSlug: string; chil
     { seg: "registrations", label: "Registrations" },
     { seg: "analytics", label: "Analytics" },
     { seg: "results", label: "Results" },
+    { seg: "live", label: "Live" },
   ];
 
   return (

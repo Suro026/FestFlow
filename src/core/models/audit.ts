@@ -46,6 +46,18 @@ export const AUDIT_ACTIONS = [
   "shift_created",
   "shift_updated",
   "shift_deleted",
+  "arena_created",
+  "arena_updated",
+  "arena_deleted",
+  "tournament_configured",
+  "bracket_generated",
+  "match_created",
+  "match_updated",
+  "match_started",
+  "match_score_updated",
+  "match_score_undone",
+  "match_finished",
+  "match_cancelled",
 ] as const;
 
 export const auditActionSchema = z.enum(AUDIT_ACTIONS);
@@ -67,7 +79,7 @@ export const auditEntrySchema = z.object({
   actorRole: z.enum(["student", "volunteer", "admin", "super_admin"]),
 
   /** Reference the entry is about, for filtering a row's history. */
-  subjectType: z.enum(["registration", "event", "fest", "user", "result", "certificate", "shift"]).optional(),
+  subjectType: z.enum(["registration", "event", "fest", "user", "result", "certificate", "shift", "match", "arena"]).optional(),
   subjectId: idSchema.optional(),
 
   createdAt: z.coerce.date(),
@@ -111,4 +123,16 @@ export const AUDIT_ACTION_LABELS: Record<AuditAction, string> = {
   shift_created: "Shift created",
   shift_updated: "Shift updated",
   shift_deleted: "Shift deleted",
+  arena_created: "Arena created",
+  arena_updated: "Arena updated",
+  arena_deleted: "Arena deleted",
+  tournament_configured: "Tournament configured",
+  bracket_generated: "Bracket generated",
+  match_created: "Match created",
+  match_updated: "Match updated",
+  match_started: "Match started",
+  match_score_updated: "Match score updated",
+  match_score_undone: "Match score correction undone",
+  match_finished: "Match finished",
+  match_cancelled: "Match cancelled",
 };

@@ -179,6 +179,9 @@ export const COLLECTIONS = {
    * own and falls to the catch-all deny at the bottom of firestore.rules.
    */
   certificateEvents: "certificateEvents",
+  arenas: "arenas",
+  matches: "matches",
+  matchLog: "matchLog",
 } as const;
 
 /** Ensures the app is only ever initialised once per process. */

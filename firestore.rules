@@ -400,6 +400,34 @@ service cloud.firestore {
       allow create, update, delete: if serverOnly();
     }
 
+    // -------------------------------------------------------- Live Event Engine
+
+    match /arenas/{arenaId} {
+      // Public: the live dashboard groups matches by arena for a visitor
+      // with no account. Written only by /api/admin/arenas, same as an
+      // event — an arena is a fest fixture, not something a client edits.
+      allow get, list: if true;
+      allow create, update, delete: if serverOnly();
+    }
+
+    match /matches/{matchId} {
+      // Public, for the same reason a published event is: a QR code or a
+      // shared link lands a stranger on a scoreboard with no sign-in.
+      // Every write — including a volunteer's own score taps — goes
+      // through /api/volunteer/matches/[id]/action, which is what enforces
+      // "your arena only" against the caller's Shift and appends the audit
+      // trail; neither of those a security rule can evaluate on its own.
+      allow get, list: if true;
+      allow create, update, delete: if serverOnly();
+    }
+
+    match /matchLog/{entryId} {
+      // The scoreboard's timeline — same public-read, server-only-write
+      // shape as the match it belongs to.
+      allow get, list: if true;
+      allow create, update, delete: if serverOnly();
+    }
+
     match /{document=**} {
       allow read, write: if false;
     }

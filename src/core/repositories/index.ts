@@ -12,6 +12,8 @@ export type { NotificationRepository } from "./notification-repository";
 export type { ShiftRepository } from "./shift-repository";
 export type { AuditRepository } from "./audit-repository";
 export type { GenerateSummary } from "./certificate-repository";
+export type { ArenaRepository } from "./arena-repository";
+export type { MatchRepository, MatchQuery } from "./match-repository";
 
 import type { UserRepository } from "./user-repository";
 import type { FestRepository } from "./fest-repository";
@@ -23,6 +25,8 @@ import type { CertificateRepository } from "./certificate-repository";
 import type { NotificationRepository } from "./notification-repository";
 import type { ShiftRepository } from "./shift-repository";
 import type { AuditRepository } from "./audit-repository";
+import type { ArenaRepository } from "./arena-repository";
+import type { MatchRepository } from "./match-repository";
 
 /**
  * The full set of repositories, resolved once and handed to the UI through a
@@ -43,4 +47,6 @@ export interface Repositories {
   notifications: NotificationRepository;
   shifts: ShiftRepository;
   audit: AuditRepository;
+  arenas: ArenaRepository;
+  matches: MatchRepository;
 }
