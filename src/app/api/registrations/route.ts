@@ -8,7 +8,7 @@ import {
 import { autofillFor, profileMemoryFrom, profileUpdatesFrom } from "@/core/services/autofill";
 import { visibleFields } from "@/core/models/registration-fields";
 import { isRegistrationOpen } from "@/core/models/event";
-import { cleanAnswers, registrationFieldsSchema, validateAnswers } from "@/core/models/registration-fields";
+import { cleanAnswers, mergeRegistrationFields, registrationFieldsSchema, validateAnswers } from "@/core/models/registration-fields";
 import { ApiError, authenticate, handler, ok, readBody } from "@/server/api";
 import { RATE_LIMITS } from "@/server/rate-limit";
 import { COLLECTIONS, FieldValue, Timestamp, adminDb } from "@/server/firebase-admin";
@@ -86,8 +86,12 @@ export const POST = handler(async (request) => {
       );
     }
 
-    const parsedFields = registrationFieldsSchema.safeParse(fest.registrationFields);
-    const fields = parsedFields.success ? parsedFields.data : undefined;
+    const parsedFestFields = registrationFieldsSchema.safeParse(fest.registrationFields);
+    const parsedEventFields = registrationFieldsSchema.safeParse(event.registrationFields);
+    const fields = mergeRegistrationFields(
+      parsedFestFields.success ? parsedFestFields.data : undefined,
+      parsedEventFields.success ? parsedEventFields.data : undefined,
+    );
 
     // Auto-fill runs here too, not only in the form. A student whose profile
     // already holds their college should not be refused because a client

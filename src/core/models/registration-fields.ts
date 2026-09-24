@@ -52,7 +52,12 @@ export type BuiltInField = (typeof BUILT_IN_FIELDS)[number];
 /** Fields the account already answers. They are never asked twice. */
 export const IDENTITY_FIELDS = ["fullName", "email"] as const satisfies readonly BuiltInField[];
 
-export const FIELD_TYPES = ["text", "email", "tel", "number", "select", "url", "textarea"] as const;
+/**
+ * "paragraph" is `textarea` under a friendlier name in the builder; "select"
+ * is the single-choice control, "multiselect" its multi-value sibling
+ * (answers are stored pipe-separated — see `validateAnswers`/`cleanAnswers`).
+ */
+export const FIELD_TYPES = ["text", "email", "tel", "number", "select", "multiselect", "checkbox", "date", "file", "url", "textarea"] as const;
 export const fieldTypeSchema = z.enum(FIELD_TYPES);
 export type FieldType = z.infer<typeof fieldTypeSchema>;
 
@@ -169,6 +174,36 @@ export interface ResolvedField extends FieldDefinition {
  * The defaults are written onto a fest when it is created, and onto the
  * existing ones by `npm run migrate:fests`.
  */
+/**
+ * An event's own questions layered on the fest's.
+ *
+ * An event does not replace what the fest asks for — it adds to it. A
+ * built-in field the event sets explicitly (required, optional or hidden)
+ * overrides the fest's answer for that one field; anything the event leaves
+ * unset falls through to the fest. Custom questions from both are kept,
+ * keyed by their own `key`, with the event's version winning if the two
+ * happen to share one (an event tuning a question the fest also asks).
+ *
+ * `undefined` for the event half — the common case, since most events ask
+ * exactly what their fest asks — is a no-op: the result is just the fest's
+ * configuration.
+ */
+export const mergeRegistrationFields = (
+  festFields: RegistrationFields | undefined,
+  eventFields: RegistrationFields | undefined,
+): RegistrationFields | undefined => {
+  if (!eventFields) return festFields;
+  if (!festFields) return eventFields;
+
+  const custom = new Map(festFields.custom.map((field) => [field.key, field]));
+  for (const field of eventFields.custom) custom.set(field.key, field);
+
+  return {
+    builtIn: { ...festFields.builtIn, ...eventFields.builtIn },
+    custom: [...custom.values()],
+  };
+};
+
 export const visibleFields = (config: RegistrationFields | undefined): ResolvedField[] => {
   if (!config) return [];
   const fields = config;
@@ -208,6 +243,7 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 // Deliberately loose: 7–15 digits with the usual separators. Stricter than
 // this and a perfectly good number from the wrong country is refused.
 const PHONE_RE = /^\+?[0-9][0-9\s()-]{5,18}[0-9]$/;
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 /**
  * Checks the answers against the fest's configuration.
@@ -231,11 +267,26 @@ export const validateAnswers = (
       continue;
     }
 
-    if (field.type === "url" && !URL_RE.test(value)) errors[field.key] = `${field.label} must be a link starting with https://`;
-    else if (field.type === "tel" && !PHONE_RE.test(value)) errors[field.key] = `${field.label} must be a phone number`;
-    else if (field.type === "email" && !EMAIL_RE.test(value)) errors[field.key] = `${field.label} must be an email address`;
-    else if (field.type === "number" && Number.isNaN(Number(value))) errors[field.key] = `${field.label} must be a number`;
-    else if (field.options && !field.options.includes(value)) errors[field.key] = `Choose one of the listed options for ${field.label}`;
+    if (field.type === "url" || field.type === "file") {
+      if (!URL_RE.test(value)) errors[field.key] = `${field.label} must be a link starting with https://`;
+    } else if (field.type === "tel") {
+      if (!PHONE_RE.test(value)) errors[field.key] = `${field.label} must be a phone number`;
+    } else if (field.type === "email") {
+      if (!EMAIL_RE.test(value)) errors[field.key] = `${field.label} must be an email address`;
+    } else if (field.type === "number") {
+      if (Number.isNaN(Number(value))) errors[field.key] = `${field.label} must be a number`;
+    } else if (field.type === "date") {
+      if (!DATE_RE.test(value) || Number.isNaN(Date.parse(value))) errors[field.key] = `${field.label} must be a date`;
+    } else if (field.type === "checkbox") {
+      if (value !== "true") errors[field.key] = `${field.label} must be ticked`;
+    } else if (field.type === "multiselect" && field.options) {
+      const chosen = value.split("|").filter(Boolean);
+      if (chosen.length === 0 || chosen.some((v) => !field.options!.includes(v))) {
+        errors[field.key] = `Choose from the listed options for ${field.label}`;
+      }
+    } else if (field.options && !field.options.includes(value)) {
+      errors[field.key] = `Choose one of the listed options for ${field.label}`;
+    }
   }
 
   return errors;

@@ -95,8 +95,17 @@ type RouteHandler = (request: Request, context: { params: Promise<Record<string,
 
 export const callRoute = async (
   handler: RouteHandler,
-  input: { method?: string; path?: string; params?: Record<string, string>; body?: unknown; token?: string; headers?: Record<string, string> } = {},
-): Promise<{ status: number; body: Record<string, any> }> => {
+  input: {
+    method?: string;
+    path?: string;
+    params?: Record<string, string>;
+    body?: unknown;
+    token?: string;
+    headers?: Record<string, string>;
+    /** For a route that answers a file (an export) rather than JSON. */
+    raw?: boolean;
+  } = {},
+): Promise<{ status: number; body: Record<string, any>; contentType?: string; bytes?: Uint8Array }> => {
   const request = new Request(`http://localhost:3000${input.path ?? "/api/test"}`, {
     method: input.method ?? (input.body !== undefined ? "POST" : "GET"),
     headers: {
@@ -107,6 +116,12 @@ export const callRoute = async (
     body: input.body !== undefined ? JSON.stringify(input.body) : undefined,
   });
   const response = await handler(request, { params: Promise.resolve(input.params ?? {}) });
+
+  if (input.raw) {
+    const bytes = new Uint8Array(await response.arrayBuffer());
+    return { status: response.status, body: {}, contentType: response.headers.get("content-type") ?? undefined, bytes };
+  }
+
   let body: Record<string, any> = {};
   try {
     body = await response.json();

@@ -9,7 +9,7 @@ import { AdminPage, useFest } from "@/components/shell/admin-shell";
 import { useAuth, useRepositories } from "@/components/providers";
 import { useFestAudit, useFestEvents, useFestGateFeed, useFestShifts } from "@/components/admin/hooks";
 import { useCreateStaff, useResendInvite, useStaff, useUpdateStaff, type InviteResult, type StaffRow } from "@/components/admin/staff-api";
-import { Seg, Field, Input, RadioOption, CheckOption } from "@/components/ui/field";
+import { Seg, Field, Input, RadioOption, CheckOption, Textarea } from "@/components/ui/field";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogActions, DialogContent } from "@/components/ui/overlays";
 import { EmptyState, Kick, Kpi, KpiStrip, MetaList, MetaRow, Note, PageHeading, Skeleton, Tag, Timeline, TimelineItem } from "@/components/ui/primitives";
@@ -29,6 +29,7 @@ const createSchema = z.object({
   startTime: clockTimeSchema,
   endTime: clockTimeSchema,
   eventIds: z.array(z.string()),
+  notes: z.string().trim().max(2000).optional(),
 });
 type CreateValues = z.input<typeof createSchema>;
 
@@ -293,7 +294,7 @@ const CreateVolunteerCard = ({ onInvited }: { onInvited: (i: { email: string; re
 
   const form = useForm<CreateValues>({
     resolver: zodResolver(createSchema),
-    defaultValues: { name: "", email: "", phone: "", duty: "entry", post: "", date: fest.startDate >= today ? fest.startDate : today, startTime: "08:00", endTime: "13:00", eventIds: [] },
+    defaultValues: { name: "", email: "", phone: "", duty: "entry", post: "", date: fest.startDate >= today ? fest.startDate : today, startTime: "08:00", endTime: "13:00", eventIds: [], notes: "" },
   });
   const err = form.formState.errors;
 
@@ -310,12 +311,12 @@ const CreateVolunteerCard = ({ onInvited }: { onInvited: (i: { email: string; re
         inviteResult = created.invite;
       }
       await repos.shifts.create(
-        { festId: fest.id, userId, post: v.post, duty: v.duty as ShiftDuty, date: v.date, startTime: v.startTime, endTime: v.endTime, eventIds: v.eventIds },
+        { festId: fest.id, userId, post: v.post, duty: v.duty as ShiftDuty, date: v.date, startTime: v.startTime, endTime: v.endTime, eventIds: v.eventIds, notes: v.notes || undefined },
         session!.uid,
       );
       toast.success(`${v.name} rostered at ${v.post}`);
       if (inviteResult) onInvited({ email: v.email, result: inviteResult });
-      form.reset({ ...form.getValues(), name: "", email: "", phone: "", ...(again ? {} : { post: "", eventIds: [] }) });
+      form.reset({ ...form.getValues(), name: "", email: "", phone: "", notes: "", ...(again ? {} : { post: "", eventIds: [] }) });
     } catch (error) {
       toast.error(error instanceof ApiClientError || error instanceof RepositoryError ? error.message : "Couldn't create the volunteer");
     }
@@ -370,6 +371,9 @@ const CreateVolunteerCard = ({ onInvited }: { onInvited: (i: { email: string; re
         </div>
         <div className="field-hint">Leave all unticked for the whole fest.</div>
       </div>
+      <Field label="Notes" htmlFor="v-notes" error={err.notes?.message} hint="Optional — visible to other admins.">
+        <Textarea id="v-notes" rows={2} placeholder="Knows the north entrance layout; prefers morning shifts." {...form.register("notes")} />
+      </Field>
       <div className="text-[12px] text-neutral-500">
         Role: volunteer, scoped to this fest. It cannot mark manual entry or edit registrations — those need at least admin. Your own session is untouched.
       </div>

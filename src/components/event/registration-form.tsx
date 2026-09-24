@@ -10,7 +10,7 @@ import type { Event } from "@/core/models/event";
 import type { Fest } from "@/core/models/fest";
 import { emailSchema, shortTextSchema, RepositoryError } from "@/core/models/common";
 import { validateRegistration } from "@/core/models/registration";
-import { cleanAnswers, validateAnswers, visibleFields, type RegistrationAnswers, type ResolvedField } from "@/core/models/registration-fields";
+import { cleanAnswers, mergeRegistrationFields, validateAnswers, visibleFields, type RegistrationAnswers, type ResolvedField } from "@/core/models/registration-fields";
 import { autofill, profileMemoryFrom } from "@/core/services/autofill";
 import { useAuth, useRepositories } from "@/components/providers";
 import { Field, Input, NativeSelect, Textarea } from "@/components/ui/field";
@@ -63,7 +63,14 @@ export const RegistrationForm = ({ event, fest, onDone }: RegistrationFormProps)
     email: profile?.email ?? session?.email ?? "",
   };
 
-  const questions = React.useMemo(() => visibleFields(fest.registrationFields), [fest.registrationFields]);
+  // What the event asks, layered on what the fest asks — see
+  // `mergeRegistrationFields`. Most events set nothing of their own and this
+  // is just the fest's configuration.
+  const mergedFields = React.useMemo(
+    () => mergeRegistrationFields(fest.registrationFields, event.registrationFields),
+    [fest.registrationFields, event.registrationFields],
+  );
+  const questions = React.useMemo(() => visibleFields(mergedFields), [mergedFields]);
 
   /**
    * The auto-fill engine, run once on open.
@@ -117,7 +124,7 @@ export const RegistrationForm = ({ event, fest, onDone }: RegistrationFormProps)
   const onSubmit = form.handleSubmit(async (values) => {
     setFormError(null);
 
-    const problems = validateAnswers(fest.registrationFields, answers);
+    const problems = validateAnswers(mergedFields, answers);
     if (Object.keys(problems).length > 0) {
       setAnswerErrors(problems);
       setFormError("Some of the fest's questions still need an answer.");
@@ -126,7 +133,7 @@ export const RegistrationForm = ({ event, fest, onDone }: RegistrationFormProps)
 
     const input = {
       eventId: event.id,
-      answers: cleanAnswers(fest.registrationFields, answers),
+      answers: cleanAnswers(mergedFields, answers),
       teamName: isTeam ? values.teamName?.trim() : undefined,
       members: values.members.map((m, i) => ({
         name: m.name.trim(),
@@ -300,17 +307,30 @@ const AnswerField = ({
 }) => {
   const id = `q-${field.key}`;
   const label = field.requirement === "optional" ? `${field.label} (optional)` : field.label;
-  const hint = fromProfile ? [field.help, "From your profile — edit if it has changed."].filter(Boolean).join(" ") : field.help;
+  const hint = fromProfile
+    ? [field.help, "From your profile — edit if it has changed."].filter(Boolean).join(" ")
+    : (field.help ?? (field.type === "file" ? "Paste a link — Drive, a portfolio, wherever it already lives." : undefined));
+
+  // Multi-select answers are one pipe-separated string on the wire (see
+  // `cleanAnswers`); the checklist below is the only place that format is
+  // ever assembled or taken apart.
+  const selected = new Set(value ? value.split("|").filter(Boolean) : []);
+  const toggleMulti = (option: string) => {
+    const next = new Set(selected);
+    if (next.has(option)) next.delete(option);
+    else next.add(option);
+    onChange([...next].join("|"));
+  };
 
   return (
     <Field
-      label={label}
+      label={field.type === "checkbox" ? undefined : label}
       htmlFor={id}
       error={error}
       {...(hint ? { hint } : {})}
-      className={field.type === "textarea" ? "sm:col-span-2" : undefined}
+      className={field.type === "textarea" || field.type === "multiselect" ? "sm:col-span-2" : undefined}
     >
-      {field.options ? (
+      {field.type === "select" && field.options ? (
         <NativeSelect id={id} value={value} invalid={Boolean(error)} onChange={(e) => onChange(e.target.value)}>
           <option value="">Choose…</option>
           {field.options.map((option) => (
@@ -319,12 +339,56 @@ const AnswerField = ({
             </option>
           ))}
         </NativeSelect>
+      ) : field.type === "multiselect" && field.options ? (
+        <div className="flex flex-col gap-1.5">
+          <span className="text-[13px]">{label}</span>
+          <div className="flex flex-wrap gap-1.5">
+            {field.options.map((option) => (
+              <button
+                key={option}
+                type="button"
+                aria-pressed={selected.has(option)}
+                onClick={() => toggleMulti(option)}
+                className={selected.has(option) ? "tag tag-accent cursor-pointer" : "tag tag-outline cursor-pointer"}
+              >
+                {option}
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : field.type === "checkbox" ? (
+        <label className="flex items-center gap-2 text-[13px]">
+          <input
+            id={id}
+            type="checkbox"
+            checked={value === "true"}
+            onChange={(e) => onChange(e.target.checked ? "true" : "")}
+            className="h-[16px] w-[16px] accent-accent"
+          />
+          {label}
+        </label>
       ) : field.type === "textarea" ? (
         <Textarea id={id} rows={3} value={value} invalid={Boolean(error)} onChange={(e) => onChange(e.target.value)} />
+      ) : field.type === "file" ? (
+        <Input
+          id={id}
+          type="url"
+          value={value}
+          invalid={Boolean(error)}
+          placeholder={field.placeholder ?? "https://drive.google.com/…"}
+          onChange={(e) => onChange(e.target.value)}
+        />
       ) : (
         <Input
           id={id}
-          type={field.type === "number" ? "number" : field.type === "url" ? "url" : field.type === "email" ? "email" : field.type === "tel" ? "tel" : "text"}
+          type={
+            field.type === "number" ? "number"
+            : field.type === "url" ? "url"
+            : field.type === "email" ? "email"
+            : field.type === "tel" ? "tel"
+            : field.type === "date" ? "date"
+            : "text"
+          }
           value={value}
           invalid={Boolean(error)}
           {...(field.placeholder ? { placeholder: field.placeholder } : {})}

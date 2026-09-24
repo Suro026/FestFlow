@@ -147,6 +147,8 @@ export const registrationSchema = z
     answers: answersSchema.default({}),
 
     cancelledAt: z.date().optional(),
+    /** Set once, the moment a waitlisted entry is promoted to confirmed — the only signal analytics has for waitlist conversion. */
+    promotedAt: z.coerce.date().optional(),
   })
   .merge(auditFieldsSchema);
 

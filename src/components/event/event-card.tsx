@@ -1,19 +1,8 @@
 import Link from "next/link";
 import type { Event } from "@/core/models/event";
-import { isRegistrationOpen, seatsRemaining } from "@/core/models/event";
+import { categoryLabel, isRegistrationOpen, seatsRemaining } from "@/core/models/event";
 import { Artwork, Tag } from "@/components/ui/primitives";
 import { formatCalendarDate, formatTeamSize } from "@/lib/utils";
-
-export const CATEGORY_LABELS: Record<Event["category"], string> = {
-  technical: "Technical",
-  cultural: "Cultural",
-  sports: "Sports",
-  workshop: "Workshop",
-  seminar: "Seminar",
-  hackathon: "Hackathon",
-  gaming: "Gaming",
-  other: "Event",
-};
 
 /** "17 seats left" / "Closes tonight" / "Waitlist" / "Full" — the card's one-line state. */
 export const seatLine = (event: Event, now = new Date()): { text: string; urgent: boolean } => {
@@ -63,7 +52,7 @@ export const EventCard = ({ event, festSlug, variant = "grid" }: EventCardProps)
         <Artwork src={event.posterUrl} label="event poster" className="h-[132px]" alt="" />
       </Link>
       <div className="flex flex-col gap-[7px] px-[15px] pb-4 pt-3.5">
-        <div className="card-kicker">{CATEGORY_LABELS[event.category]}</div>
+        <div className="card-kicker">{categoryLabel(event.category)}</div>
         <Link href={href} className="card-title text-inherit no-underline hover:text-accent">
           {event.title}
         </Link>

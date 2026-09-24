@@ -62,6 +62,14 @@ export const PATCH = handler(async (request, context) => {
   const { ...changes } = input as Record<string, unknown>;
   delete changes.registeredCount;
 
+  // Archiving and restoring stamp the timestamp the way the fest-level
+  // equivalent does — present while archived, cleared the moment it isn't.
+  if (input.visibility === "archived" && current.visibility !== "archived") {
+    (changes as Record<string, unknown>).archivedAt = FieldValue.serverTimestamp();
+  } else if (input.visibility !== undefined && input.visibility !== "archived" && current.visibility === "archived") {
+    (changes as Record<string, unknown>).archivedAt = FieldValue.delete();
+  }
+
   await ref.update(compact({ ...changes, updatedAt: FieldValue.serverTimestamp() }));
 
   // Audit what matters, with before → after.
@@ -77,6 +85,9 @@ export const PATCH = handler(async (request, context) => {
   }
   if (input.registrationDeadline !== undefined && input.registrationDeadline !== current.registrationDeadline) {
     notes.push(`Deadline → ${input.registrationDeadline}`);
+  }
+  if (input.visibility !== undefined && input.visibility !== current.visibility) {
+    notes.push(`Visibility ${current.visibility ?? "public"} → ${input.visibility}`);
   }
 
   await audit(caller, {

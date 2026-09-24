@@ -86,6 +86,30 @@ export default function EventAnalyticsPage() {
     return [...counts.entries()].sort((a, b) => b[0] - a[0]);
   }, [confirmed]);
 
+  // Department distribution — only meaningful once the fest or event asks
+  // for one; most entries will land in "Not stated" until then.
+  const departments = React.useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const r of confirmed) {
+      const d = r.answers?.department?.trim() || "Not stated";
+      counts.set(d, (counts.get(d) ?? 0) + 1);
+    }
+    const sorted = [...counts.entries()].sort((a, b) => b[1] - a[1]);
+    const top = sorted.slice(0, 4);
+    const rest = sorted.slice(4).reduce((s, [, n]) => s + n, 0);
+    return { top, rest, others: sorted.length - top.length, total: confirmed.length };
+  }, [confirmed]);
+
+  // Waitlist conversion: of everyone who has ever been on the waitlist for
+  // this event (promoted, plus still waiting), how many made it in. Cancelled
+  // waitlist entries are not counted either way — they never resolved.
+  const waitlistConversion = React.useMemo(() => {
+    const promoted = regs.filter((r) => r.promotedAt).length;
+    const stillWaiting = regs.filter((r) => r.status === "waitlisted").length;
+    const total = promoted + stillWaiting;
+    return { promoted, stillWaiting, total, rate: total > 0 ? promoted / total : null };
+  }, [regs]);
+
   const activity = React.useMemo(() => {
     const fromAudit = (audit.data ?? [])
       .filter((a) => a.eventId === event.id)
@@ -185,6 +209,24 @@ export default function EventAnalyticsPage() {
               </MetaList>
             )}
           </div>
+
+          <div>
+            <Kick className="mb-3">Department distribution</Kick>
+            {departments.total === 0 ? (
+              <div className="text-[12.5px] text-neutral-500">No confirmed entries yet.</div>
+            ) : (
+              <MetaList>
+                {departments.top.map(([name, n]) => (
+                  <MetaRow key={name} label={name}>
+                    {n} {event.eventType === "team" ? "teams" : "entries"} · {formatPercent(n, departments.total, 0)}
+                  </MetaRow>
+                ))}
+                {departments.rest > 0 ? (
+                  <MetaRow label={`${departments.others} other department${departments.others === 1 ? "" : "s"}`}>{formatPercent(departments.rest, departments.total, 0)}</MetaRow>
+                ) : null}
+              </MetaList>
+            )}
+          </div>
         </div>
 
         <div className="flex flex-col gap-[22px]">
@@ -200,6 +242,14 @@ export default function EventAnalyticsPage() {
               </Timeline>
             )}
           </div>
+          <div>
+            <Kick className="mb-2.5">Team vs individual</Kick>
+            <MetaList>
+              <MetaRow label={event.eventType === "team" ? "This is a team event" : "This is a solo event"}>
+                {event.eventType === "team" ? `${confirmed.length} teams · ${registeredSeats} participants` : `${confirmed.length} participants`}
+              </MetaRow>
+            </MetaList>
+          </div>
           {event.eventType === "team" ? (
             <div>
               <Kick className="mb-2.5">Team sizes</Kick>
@@ -212,6 +262,19 @@ export default function EventAnalyticsPage() {
               </MetaList>
             </div>
           ) : null}
+          <div>
+            <Kick className="mb-2.5">Waitlist conversion</Kick>
+            <MetaList>
+              <MetaRow label={waitlistConversion.total === 0 ? "Nobody has been waitlisted" : "Promoted to a confirmed seat"}>
+                {waitlistConversion.total === 0
+                  ? "—"
+                  : `${waitlistConversion.promoted} of ${waitlistConversion.total} (${formatPercent(waitlistConversion.promoted, waitlistConversion.total, 0)})`}
+              </MetaRow>
+              {waitlistConversion.stillWaiting > 0 ? (
+                <MetaRow label="Still waiting">{waitlistConversion.stillWaiting}</MetaRow>
+              ) : null}
+            </MetaList>
+          </div>
           <Note title={confirmed.length ? `${formatPercent(checkedIn, confirmed.length, 0)} of registered entries are through the gate` : "Waiting on the first check-in"}>
             Turnout is the number the college asks for afterwards. It is computed from verified scans only — a manual override
             counts, a screenshot does not.

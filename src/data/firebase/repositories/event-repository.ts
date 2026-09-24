@@ -135,6 +135,13 @@ export class FirestoreEventRepository implements EventRepository {
     return guard("Deleting event", () => api<void>(`/api/admin/events/${id}`, { method: "DELETE" }));
   }
 
+  duplicate(id: string): Promise<Event> {
+    return guard("Duplicating event", async () => {
+      const response = await api<{ event: unknown }>(`/api/admin/events/${id}/duplicate`, { method: "POST" });
+      return parseFromApi(response.event);
+    });
+  }
+
   setStatus(id: string, status: EventStatus): Promise<void> {
     return this.update(id, { status });
   }

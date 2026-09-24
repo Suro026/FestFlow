@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { AdminPage, useFest } from "@/components/shell/admin-shell";
 import { useAdminEvent } from "@/components/admin/event-context";
+import { useFestEvents } from "@/components/admin/hooks";
 import { useAuth, useRepositories } from "@/components/providers";
 import {
   BasicsFields,
@@ -16,16 +17,19 @@ import {
   toUpdateEvent,
   useEventForm,
 } from "@/components/admin/event-form";
+import { RegistrationFieldsEditor } from "@/components/admin/registration-fields-editor";
 import { Button } from "@/components/ui/button";
 import { AlertDialog, AlertDialogContent, AlertDialogTrigger } from "@/components/ui/overlays";
-import { Kick, MetaList, MetaRow, PageHeading, Tag } from "@/components/ui/primitives";
+import { Kick, MetaList, MetaRow, Note, PageHeading, Tag } from "@/components/ui/primitives";
 import { RepositoryError } from "@/core/models/common";
 import { hasAtLeast } from "@/core/models/user";
+import { detectScheduleConflicts, type ScheduleConflict } from "@/core/models/event";
 import { formatCalendarDate } from "@/lib/utils";
 
 const SECTIONS = [
   { id: "details", label: "Details" },
   { id: "registration", label: "Registration" },
+  { id: "fields", label: "Registration form" },
   { id: "scanning", label: "Scanning & meals" },
   { id: "certificates", label: "Certificates" },
   { id: "coordinators", label: "Coordinators" },
@@ -46,7 +50,9 @@ export default function EventSettingsPage() {
   const form = useEventForm(fromEvent(event));
   const [saving, setSaving] = React.useState(false);
   const [busy, setBusy] = React.useState<string | null>(null);
-  const [confirm, setConfirm] = React.useState<"unpublish" | "cancel" | "delete" | null>(null);
+  const [confirm, setConfirm] = React.useState<"unpublish" | "cancel" | "delete" | "archive" | null>(null);
+  const [conflicts, setConflicts] = React.useState<ScheduleConflict[] | null>(null);
+  const allEvents = useFestEvents(fest.id);
 
   // Live edits from elsewhere (another admin) refresh the form when not dirty.
   React.useEffect(() => {
@@ -54,12 +60,7 @@ export default function EventSettingsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [event.updatedAt.getTime()]);
 
-  const save = async () => {
-    const valid = await form.trigger();
-    if (!valid) {
-      toast.error("Some fields need fixing");
-      return;
-    }
+  const saveNow = async () => {
     setSaving(true);
     try {
       await repos.events.update(event.id, toUpdateEvent(eventFormSchema.parse(form.getValues())));
@@ -70,6 +71,39 @@ export default function EventSettingsPage() {
     } finally {
       setSaving(false);
     }
+  };
+
+  /**
+   * Scheduling conflicts are a warning, never a block — see
+   * `detectScheduleConflicts`. Saving with none found (the overwhelming
+   * common case) skips the dialog entirely.
+   */
+  const save = async () => {
+    const valid = await form.trigger();
+    if (!valid) {
+      toast.error("Some fields need fixing");
+      return;
+    }
+
+    const values = eventFormSchema.parse(form.getValues());
+    const found = detectScheduleConflicts(
+      {
+        id: event.id,
+        date: values.date,
+        startTime: values.startTime,
+        endTime: values.endTime || undefined,
+        venue: values.venue,
+        coordinators: values.coordinators.map((c) => ({ name: c.name, phone: c.phone || undefined, email: c.email || undefined })),
+      },
+      allEvents.data ?? [],
+    );
+
+    if (found.length > 0) {
+      setConflicts(found);
+      return;
+    }
+
+    await saveNow();
   };
 
   const setStatus = async (status: "published" | "draft" | "cancelled" | "ongoing" | "completed", label: string) => {
@@ -84,6 +118,34 @@ export default function EventSettingsPage() {
       setBusy(null);
     }
   };
+
+  const setVisibility = async (visibility: "public" | "unlisted" | "archived", label: string) => {
+    setBusy(visibility);
+    try {
+      await repos.events.update(event.id, { visibility });
+      toast.success(label);
+      setConfirm(null);
+    } catch (error) {
+      toast.error(error instanceof RepositoryError ? error.message : "Couldn't update");
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const duplicate = async () => {
+    setBusy("duplicate");
+    try {
+      const copy = await repos.events.duplicate(event.id);
+      toast.success(`Duplicated as "${copy.title}"`);
+      router.push(`${basePath}/events/${copy.slug}/settings`);
+    } catch (error) {
+      toast.error(error instanceof RepositoryError ? error.message : "Couldn't duplicate");
+      setBusy(null);
+    }
+  };
+
+  const saveEventFields = (fields: Parameters<typeof repos.events.update>[1]["registrationFields"]) =>
+    repos.events.update(event.id, { registrationFields: fields }).then(() => undefined);
 
   const remove = async () => {
     setBusy("delete");
@@ -155,6 +217,36 @@ export default function EventSettingsPage() {
                 <MetaRow label="Closes">{event.registrationDeadline ? `${formatCalendarDate(event.registrationDeadline)}, 23:59` : "With the event"}</MetaRow>
               </MetaList>
               <RegistrationFields form={form} locked={{ teamSize: hasEntries, minCapacity: hasEntries ? event.registeredCount : undefined }} />
+            </div>
+          ) : null}
+
+          {section === "fields" ? (
+            <div className="flex flex-col gap-4">
+              <RegistrationFieldsEditor
+                initial={event.registrationFields}
+                onSave={saveEventFields}
+                saveLabel="Save override"
+                note={
+                  <Note title="Adds to the fest's own questions" className="mb-5">
+                    {fest.name} already asks its own baseline for every event. Anything you set here for {event.title} overrides that field for this
+                    event only; anything you leave alone falls through to the fest's setting. Reset to defaults below to inherit everything again.
+                  </Note>
+                }
+              />
+              {event.registrationFields ? (
+                <Button
+                  variant="ghost"
+                  className="self-start"
+                  onClick={() => {
+                    repos.events
+                      .update(event.id, { registrationFields: undefined })
+                      .then(() => toast.success("Now inheriting the fest's questions"))
+                      .catch(() => toast.error("Couldn't reset"));
+                  }}
+                >
+                  Reset — inherit only the fest's questions
+                </Button>
+              ) : null}
             </div>
           ) : null}
 
@@ -257,6 +349,27 @@ export default function EventSettingsPage() {
                     />
                   </AlertDialog>
                 ) : null}
+                <Button variant="secondary" onClick={duplicate} loading={busy === "duplicate"}>
+                  Duplicate
+                </Button>
+                {event.visibility === "archived" ? (
+                  <Button variant="secondary" onClick={() => setVisibility("public", "Event restored")} loading={busy === "public"}>
+                    Restore from archive
+                  </Button>
+                ) : (
+                  <AlertDialog open={confirm === "archive"} onOpenChange={(o) => setConfirm(o ? "archive" : null)}>
+                    <AlertDialogTrigger asChild>
+                      <Button variant="secondary">Archive</Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent
+                      title="Archive this event?"
+                      description="It leaves the fest page's listing but everything already issued — tickets, attendance, certificates — keeps working. Restore it at any time."
+                      confirmLabel="Archive it"
+                      loading={busy === "archived"}
+                      onConfirm={() => setVisibility("archived", "Event archived")}
+                    />
+                  </AlertDialog>
+                )}
               </div>
               <div className="mt-4">
                 <Kick className="mb-1">Fest</Kick>
@@ -279,6 +392,27 @@ export default function EventSettingsPage() {
           </div>
         ) : null}
       </div>
+
+      <AlertDialog open={conflicts !== null} onOpenChange={(o) => !o && setConflicts(null)}>
+        <AlertDialogContent
+          title="This clashes with another event"
+          description="It can still be saved — this is a heads-up, not a block."
+          confirmLabel="Save anyway"
+          loading={saving}
+          onConfirm={async () => {
+            await saveNow();
+            setConflicts(null);
+          }}
+        >
+          <ul className="mt-3 flex flex-col gap-2">
+            {(conflicts ?? []).map((c, i) => (
+              <li key={i} className="rounded-md bg-bg/40 px-3 py-2 text-[13px]">
+                {c.detail}
+              </li>
+            ))}
+          </ul>
+        </AlertDialogContent>
+      </AlertDialog>
     </AdminPage>
   );
 }

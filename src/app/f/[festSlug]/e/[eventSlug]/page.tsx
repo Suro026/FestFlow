@@ -5,9 +5,9 @@ import { repositories } from "@/data/repositories";
 import { absoluteUrl } from "@/lib/site";
 import type { Fest } from "@/core/models/fest";
 import type { Event } from "@/core/models/event";
+import { categoryLabel } from "@/core/models/event";
 import { StudentShell, Page } from "@/components/shell/student-shell";
 import { RegisterPanel } from "@/components/event/register-panel";
-import { CATEGORY_LABELS } from "@/components/event/event-card";
 import { Artwork, Kick, MetaList, MetaRow, Tag } from "@/components/ui/primitives";
 import { formatCalendarDate, formatTeamSize } from "@/lib/utils";
 
@@ -87,7 +87,7 @@ export default async function EventPage({ params }: { params: Promise<Params> })
               <div className="absolute inset-0" style={{ background: "linear-gradient(to top, var(--color-bg) 6%, transparent 70%)" }} />
               <div className="absolute inset-x-3.5 bottom-3">
                 <div className="mb-2 flex gap-1.5">
-                  <Tag tone="accent">{CATEGORY_LABELS[event.category]}</Tag>
+                  <Tag tone="accent">{categoryLabel(event.category)}</Tag>
                   <Tag tone="neutral">{formatTeamSize(event.eventType, event.teamSize)}</Tag>
                 </div>
                 <div className="text-[27px] font-medium leading-[1.05] tracking-[-0.025em]">{event.title}</div>
@@ -97,7 +97,7 @@ export default async function EventPage({ params }: { params: Promise<Params> })
             {/* Desktop: heading */}
             <div className="hidden lg:block">
               <div className="mb-3.5 flex flex-wrap items-center gap-2">
-                <Tag tone="accent">{CATEGORY_LABELS[event.category]}</Tag>
+                <Tag tone="accent">{categoryLabel(event.category)}</Tag>
                 <Tag tone="neutral">{formatTeamSize(event.eventType, event.teamSize)}</Tag>
                 <Link href={`/f/${fest.slug}`} className="text-[12px] text-neutral-500 no-underline hover:text-accent">
                   {fest.name} · {fest.organizationName}

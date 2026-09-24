@@ -33,6 +33,7 @@ export type UploadKind =
   | "festThumbnail"
   | "festSocial"
   | "eventPoster"
+  | "eventRulebook"
   | "certificateTemplate"
   | "profilePhoto";
 
@@ -46,6 +47,8 @@ export interface UploadPolicy {
   maxDimension: number;
   /** Which capability the route must check before calling in. */
   permission: "upload:festArtwork" | "upload:eventPoster" | "certificate:publish" | "self";
+  /** PDF kinds skip image processing entirely — sharp cannot decode one. */
+  document?: boolean;
 }
 
 export const UPLOAD_POLICY: Record<UploadKind, UploadPolicy> = {
@@ -55,6 +58,7 @@ export const UPLOAD_POLICY: Record<UploadKind, UploadPolicy> = {
   festThumbnail: { owner: "fest", folder: "thumbnails", maxBytes: 3 * 1024 * 1024, maxDimension: 1200, permission: "upload:festArtwork" },
   festSocial: { owner: "fest", folder: "social", maxBytes: 3 * 1024 * 1024, maxDimension: 1200, permission: "upload:festArtwork" },
   eventPoster: { owner: "fest", folder: "posters", maxBytes: 5 * 1024 * 1024, maxDimension: 2400, permission: "upload:eventPoster" },
+  eventRulebook: { owner: "fest", folder: "rulebooks", maxBytes: 10 * 1024 * 1024, maxDimension: 0, permission: "upload:eventPoster", document: true },
   /**
    * The artwork a certificate is printed on. Releasing certificates is a
    * super admin action, and so is replacing the paper they are printed on.
@@ -261,4 +265,28 @@ export const acceptImageUpload = async (input: UploadInput): Promise<StoredUploa
 
   const path = objectPathFor(input.kind, input.ownerId, image.contentType);
   return storeUpload(path, image.bytes, image.contentType, { uploadedBy: input.uploadedBy, kind: input.kind, width: image.width, height: image.height });
+};
+
+/**
+ * Accepts a PDF, and only a PDF, verified by its bytes rather than its name
+ * or declared type. There is nothing to re-encode — sharp cannot open a PDF,
+ * and there is no equivalent of "strip the metadata and flatten it" for one
+ * without a much heavier dependency than a rulebook justifies — so a PDF is
+ * stored exactly as uploaded, behind the same randomized name and the same
+ * deny-all Storage rules as every other kind.
+ */
+export const acceptPdfUpload = async (input: UploadInput): Promise<StoredUpload> => {
+  const policy = UPLOAD_POLICY[input.kind];
+  if (input.bytes.length === 0) throw ApiError.badRequest("The file is empty.");
+  if (input.bytes.length > policy.maxBytes) {
+    throw new ApiError(413, "too-large", `That file is ${(input.bytes.length / 1048576).toFixed(1)} MB; the limit is ${policy.maxBytes / 1048576} MB.`);
+  }
+
+  const detected = sniffType(input.bytes);
+  if (detected !== "application/pdf") {
+    throw new ApiError(415, "unsupported-type", input.declaredType ? `"${input.declaredType}" is not a PDF.` : "That file is not a PDF.");
+  }
+
+  const path = objectPathFor(input.kind, input.ownerId, "application/pdf");
+  return storeUpload(path, input.bytes, "application/pdf", { uploadedBy: input.uploadedBy, kind: input.kind });
 };

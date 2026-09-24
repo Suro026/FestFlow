@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { AlertDialog, AlertDialogContent } from "@/components/ui/overlays";
 import { EmptyState, Kick, MetaList, MetaRow, PageHeading, Skeleton, Tag } from "@/components/ui/primitives";
 import { AWARD_LABELS, awardForPosition, type Result, type ResultEntry } from "@/core/models/result";
+import { parseResultsCsv } from "@/core/services/results-import";
 import { RepositoryError } from "@/core/models/common";
 import { hasAtLeast } from "@/core/models/user";
 import { formatClock, formatRelative } from "@/lib/utils";
@@ -53,6 +54,23 @@ export default function ResultsPage() {
   const [dirty, setDirty] = React.useState(false);
   const [busy, setBusy] = React.useState<"save" | "publish" | "unpublish" | null>(null);
   const [confirmPublish, setConfirmPublish] = React.useState(false);
+  const [importErrors, setImportErrors] = React.useState<string[]>([]);
+  const fileInput = React.useRef<HTMLInputElement>(null);
+
+  const importCsv = async (file: File | undefined) => {
+    if (!file) return;
+    const text = await file.text();
+    const { rows: imported, errors } = parseResultsCsv(text, eligible);
+    setImportErrors(errors);
+    if (imported.length > 0) {
+      setRows(imported.map((r) => ({ position: r.position, registrationId: r.registrationId, note: r.note })));
+      setDirty(true);
+      toast.success(`Imported ${imported.length} placing${imported.length === 1 ? "" : "s"}${errors.length ? ` · ${errors.length} row${errors.length === 1 ? "" : "s"} skipped` : ""}`);
+    } else {
+      toast.error("Nothing in that file matched a checked-in entry.");
+    }
+    if (fileInput.current) fileInput.current.value = "";
+  };
 
   // Load the saved sheet into the editor once, and again if it changes elsewhere while we are clean.
   React.useEffect(() => {
@@ -157,6 +175,23 @@ export default function ResultsPage() {
         />
       ) : (
         <>
+          <div className="mb-4 flex flex-wrap items-center gap-2">
+            <input ref={fileInput} type="file" accept=".csv,text/csv" className="sr-only" id="results-csv" onChange={(e) => void importCsv(e.target.files?.[0])} />
+            <Button variant="secondary" size="sm" onClick={() => fileInput.current?.click()}>
+              Import CSV
+            </Button>
+            <span className="text-[12px] text-neutral-500">position, entry (id, ticket code, team or leader name), note — one per line</span>
+          </div>
+          {importErrors.length > 0 ? (
+            <div className="mb-4 rounded-md p-3 text-[12.5px] shadow-[inset_0_0_0_1px_var(--color-danger)]">
+              <div className="mb-1.5 text-text">{importErrors.length} row{importErrors.length === 1 ? "" : "s"} skipped</div>
+              <ul className="flex flex-col gap-0.5 text-neutral-400">
+                {importErrors.slice(0, 10).map((e, i) => (
+                  <li key={i}>{e}</li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
           <div className="mb-5 flex flex-col gap-2.5">
             {rows.map((row, i) => {
               const reg = eligible.find((e) => e.id === row.registrationId);

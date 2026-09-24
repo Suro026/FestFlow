@@ -2,25 +2,23 @@
 
 import * as React from "react";
 import Link from "next/link";
-import type { Event, EventCategory } from "@/core/models/event";
+import type { Event } from "@/core/models/event";
+import { categoryLabel } from "@/core/models/event";
 import { Seg } from "@/components/ui/field";
 import { EmptyState } from "@/components/ui/primitives";
 import { useAuth } from "@/components/providers";
-import { CATEGORY_LABELS, EventCard } from "./event-card";
+import { EventCard } from "./event-card";
 
-type Filter = "all" | EventCategory;
+type Filter = "all" | string;
 
 /**
  * The fest page's event grid with the category segmented control (1a web),
  * and the "Closing soon" rail on a phone. Server-loaded events, client filter.
  */
 export const EventLineup = ({ events, festSlug }: { events: Event[]; festSlug: string }) => {
-  const categories = React.useMemo(() => {
-    const present = new Set(events.map((e) => e.category));
-    return (["technical", "cultural", "hackathon", "gaming", "workshop", "sports", "seminar", "other"] as const).filter((c) =>
-      present.has(c),
-    );
-  }, [events]);
+  // Whatever categories the fest actually used, in the order they first
+  // appear — a custom category is a segment exactly like a built-in one.
+  const categories = React.useMemo(() => [...new Set(events.map((e) => e.category))], [events]);
 
   const [filter, setFilter] = React.useState<Filter>("all");
 
@@ -64,13 +62,13 @@ export const EventLineup = ({ events, festSlug }: { events: Event[]; festSlug: s
       {/* Everyone: the full lineup */}
       <div id="lineup" className="mt-8 scroll-mt-6 sm:mt-0">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-          <h4>{filter === "all" ? "Lineup" : CATEGORY_LABELS[filter]}</h4>
+          <h4>{filter === "all" ? "Lineup" : categoryLabel(filter)}</h4>
           {categories.length > 1 ? (
             <div className="max-w-full overflow-x-auto scrollbar-none">
               <Seg
                 value={filter}
                 onChange={setFilter}
-                options={[{ value: "all" as Filter, label: "All" }, ...categories.map((c) => ({ value: c as Filter, label: CATEGORY_LABELS[c] }))]}
+                options={[{ value: "all" as Filter, label: "All" }, ...categories.map((c) => ({ value: c, label: categoryLabel(c) }))]}
                 aria-label="Category"
               />
             </div>
