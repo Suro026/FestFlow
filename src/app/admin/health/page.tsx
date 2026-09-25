@@ -34,7 +34,7 @@ const LABELS: Record<string, string> = {
   adminInit: "Admin SDK init",
   firestoreRead: "Firestore read",
   firestoreIndexes: "Composite indexes",
-  storage: "Storage bucket",
+  storage: "Storage buckets",
   authAdmin: "Auth admin",
   monitoring: "Monitoring & protection",
 };
@@ -146,7 +146,7 @@ export default function HealthPage() {
               <Kick className="mb-2">What to do about a failure</Kick>
               <MetaList>
                 <MetaRow label="Composite indexes">Run <code className="code">npm run verify:infra</code> and click the console links it prints, or grant the service account Cloud Datastore Index Admin.</MetaRow>
-                <MetaRow label="Storage bucket">Firebase console → Storage → Get started, then <code className="code">npm run firebase:deploy -- --rules</code>.</MetaRow>
+                <MetaRow label="Storage buckets">Supabase dashboard → Storage → New bucket (event-assets, avatars, certificates, uploads), or check <code className="code">SUPABASE_URL</code>/<code className="code">SUPABASE_SERVICE_ROLE_KEY</code> are set.</MetaRow>
                 <MetaRow label="Email / Cron / Sentry / App Check">Set the variables named in the warnings on Vercel and redeploy; details in README → Deploy.</MetaRow>
                 <MetaRow label="Anything else">The request id in a 500 response matches the <code className="code">[api]</code> log line and the Sentry event.</MetaRow>
               </MetaList>

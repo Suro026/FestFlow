@@ -2,7 +2,7 @@ import { z } from "zod";
 import { ApiError, authenticate, handler, ok, requireFestAccess, type Caller } from "@/server/api";
 import { COLLECTIONS, adminDb } from "@/server/firebase-admin";
 import { RATE_LIMITS } from "@/server/rate-limit";
-import { MAX_UPLOAD_BYTES, UPLOAD_POLICY, acceptImageUpload, acceptPdfUpload, type UploadKind } from "@/server/uploads";
+import { MAX_UPLOAD_BYTES, UPLOAD_POLICY, acceptImageUpload, acceptPdfUpload, type UploadKind } from "@/server/storage/upload";
 import { can } from "@/core/permissions";
 import { audit } from "@/server/audit";
 
@@ -32,10 +32,11 @@ const authorize = async (caller: Caller, kind: UploadKind, id: string | undefine
  * POST /api/uploads?kind=…&id=… — multipart/form-data with one `file` field.
  *
  * Accepts PNG, JPEG, WebP (and GIF, flattened to PNG). Everything else is
- * refused by content, not by name. The processed file goes to Firebase
- * Storage under a random name and the public URL comes back for the form to
- * save. Storage rules deny all client writes, so this is the only way a
- * file enters the bucket.
+ * refused by content, not by name. The processed file goes to Supabase
+ * Storage under a random name in the kind's bucket, and the URL comes back
+ * for the form to save. Every write goes through here with the Supabase
+ * service-role key — a browser never talks to Supabase directly — so this
+ * route is the only way a file enters a bucket.
  */
 export const POST = handler(async (request) => {
   const caller = await authenticate(request);
@@ -82,5 +83,5 @@ export const POST = handler(async (request) => {
     });
   }
 
-  return ok({ url: stored.url, path: stored.path, contentType: stored.contentType, width: stored.width, height: stored.height, bytes: stored.bytes }, 201);
+  return ok({ url: stored.url, bucket: stored.bucket, path: stored.path, contentType: stored.contentType, width: stored.width, height: stored.height, bytes: stored.bytes }, 201);
 }, { rateLimit: RATE_LIMITS.authenticated.uploads });

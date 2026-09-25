@@ -15,7 +15,7 @@ shapes and `src/app/api/volunteer/matches/[id]/action/route.ts` for the one
 route every live-scoring action goes through.
 
 **Stack:** Next.js 15 (App Router) · React 19 · TypeScript · Tailwind CSS v4 ·
-Firebase Auth + Firestore + Storage · Zod · react-query.
+Firebase Auth + Firestore · Supabase Storage · Zod · react-query.
 
 ## Layout
 
@@ -49,12 +49,12 @@ Useful scripts:
 | `npm run verify:admin` | Checks `FIREBASE_SERVICE_ACCOUNT` parses and can reach Auth + Firestore |
 | `npm run grant-super-admin -- you@college.edu` | Seeds the first super admin (staff accounts are invite-only) |
 | `npm run seed:demo` | Writes demo fests/events so the pages have something to show |
-| `npm run firebase:deploy` | Deploys `firestore.rules`, `storage.rules` and indexes via the service account — no `firebase login` needed |
+| `npm run firebase:deploy` | Deploys `firestore.rules` and indexes via the service account — no `firebase login` needed |
 | `npm audit` | Dependency advisories; `package.json` `overrides` pin `uuid`/`postcss` to patched lines inside `firebase-admin`/`next` (see `docs/SECURITY-ENV.md`) |
 | `npm run scan:secrets` | Fails on any secret-shaped string in tracked files (also a CI step); `-- --history` scans every commit. See `docs/SECURITY-ENV.md` |
-| `npm run verify:infra` | Confirms the composite indexes are live, the Storage bucket exists, and the Storage rules admit/refuse the right uploads; prints one-click console links for anything missing |
+| `npm run verify:infra` | Confirms the composite indexes are live and the Supabase Storage buckets exist and are reachable with the service role key; prints one-click console links for anything missing |
 | `npm test` | Unit and component tests (Vitest + Testing Library, jsdom) |
-| `npm run test:emulator` | Rules, repository and API-transaction tests against the Firebase emulators (needs Java 21) |
+| `npm run test:emulator` | Rules, repository and API-transaction tests against the Firebase Auth + Firestore emulators (needs Java 21); Supabase Storage is faked in-memory (see `tests/emulator/uploads-api.test.ts`) |
 | `npm run build` | Production build; also what Vercel runs |
 
 CI (`.github/workflows/ci.yml`) runs typecheck → lint → unit tests → emulator
@@ -86,12 +86,14 @@ Production *and* Preview). Copy the names from `.env.example`.
 | `NEXT_PUBLIC_FIREBASE_API_KEY` | Public web config — Firebase console → Project settings → Your apps |
 | `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN` | |
 | `NEXT_PUBLIC_FIREBASE_PROJECT_ID` | |
-| `NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET` | |
 | `NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID` | |
 | `NEXT_PUBLIC_FIREBASE_APP_ID` | |
 | `NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID` | optional |
 | `NEXT_PUBLIC_APP_URL` | `https://plansphere.in` — used in emailed links |
 | `FIREBASE_SERVICE_ACCOUNT` | **Secret.** Base64 of the service-account JSON. Bypasses all rules; never `NEXT_PUBLIC_` |
+| `SUPABASE_URL` | Project URL — Supabase dashboard → Project settings → API. File storage only; Auth and the database stay on Firebase |
+| `SUPABASE_SERVICE_ROLE_KEY` | **Secret.** Bypasses every storage policy; never `NEXT_PUBLIC_`. Uploads degrade to "paste a URL instead" without it |
+| `SUPABASE_ANON_KEY` | Not currently used server-side; kept for parity with the dashboard's other key |
 | `EMAIL_PROVIDER` | `resend` in production; `console` logs instead of sending (every send is still recorded in `emailLog`) |
 | `RESEND_API_KEY` | **Secret.** From resend.com → API Keys, after verifying the `plansphere.in` domain (DKIM + SPF + DMARC records) |
 | `EMAIL_FROM` | Defaults to `Plansphere <noreply@plansphere.in>` |
@@ -113,14 +115,22 @@ trigger a redeploy; `NEXT_PUBLIC_*` values are inlined at build time.
 
 1. Authentication → Settings → Authorized domains: add `plansphere.in`.
 2. Authentication → Templates → Customize action URL: `https://plansphere.in/auth/action`.
-3. Storage → Get started (creates the bucket), then `npm run firebase:deploy -- --rules`.
-4. For the composite indexes used by the paginated admin tables, either grant
+3. For the composite indexes used by the paginated admin tables, either grant
    the service account the *Cloud Datastore Index Admin* role in Google Cloud
    IAM and run `npm run firebase:deploy -- --indexes`, or run
    `npm run verify:infra` and click the six console links it prints. Public
    and student pages need no composite indexes.
-5. `npm run verify:infra` until it reports 0 failed; `GET /api/health` on the
+4. `npm run verify:infra` until it reports 0 failed; `GET /api/health` on the
    deployed site reports the same checks from inside Vercel.
+
+**Supabase dashboard, once**
+
+1. Storage → New bucket: create `event-assets` (public), `avatars` (public),
+   `certificates` (private) and `uploads` (private) — exact names, the app
+   does not create them for you.
+2. Project settings → API: copy the project URL and the `service_role` key
+   into `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY`. Never put the service
+   role key in a `NEXT_PUBLIC_` variable — see `src/server/storage/client.ts`.
 
 ## Security model, in one paragraph
 

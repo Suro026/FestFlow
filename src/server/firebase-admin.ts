@@ -1,7 +1,6 @@
 import { cert, getApps, initializeApp, type App } from "firebase-admin/app";
 import { getAuth, type Auth } from "firebase-admin/auth";
 import { getFirestore, type Firestore } from "firebase-admin/firestore";
-import { getStorage, type Storage } from "firebase-admin/storage";
 
 /**
  * The Firebase Admin SDK. Server only.
@@ -110,7 +109,7 @@ const adminApp = (): App => {
   // the emulator test suite and `firebase emulators:start` development run.
   if (process.env.FIRESTORE_EMULATOR_HOST) {
     const projectId = process.env.GCLOUD_PROJECT ?? process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID ?? "plansphere-emulator";
-    cached = initializeApp({ projectId, storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET }, APP_NAME);
+    cached = initializeApp({ projectId }, APP_NAME);
     return cached;
   }
 
@@ -130,7 +129,6 @@ const adminApp = (): App => {
         privateKey: account.private_key,
       }),
       projectId: account.project_id,
-      storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
     },
     APP_NAME,
   );
@@ -141,8 +139,6 @@ const adminApp = (): App => {
 export const adminAuth = (): Auth => getAuth(adminApp());
 
 export const adminDb = (): Firestore => getFirestore(adminApp());
-
-export const adminStorage = (): Storage => getStorage(adminApp());
 
 /** True when the service account is present and parseable. */
 export const isAdminConfigured = (): boolean => {

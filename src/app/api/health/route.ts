@@ -84,9 +84,10 @@ export async function GET(request: Request) {
     serviceAccountLength: raw.trim().length,
     serviceAccountShape: !raw.trim() ? "missing" : raw.trim().startsWith("{") ? "json" : "base64",
     NEXT_PUBLIC_FIREBASE_PROJECT_ID: Boolean(process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID),
-    NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET ?? null,
     NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL ?? null,
     EMAIL_PROVIDER: process.env.EMAIL_PROVIDER ?? "console (default)",
+    SUPABASE_URL: Boolean(process.env.SUPABASE_URL),
+    SUPABASE_SERVICE_ROLE_KEY: Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY),
   }));
 
   // 2b. The env schema: what is missing, what is degraded, which features are on.
@@ -118,7 +119,6 @@ export async function GET(request: Request) {
     const app = await import("firebase-admin/app");
     const firestore = await import("firebase-admin/firestore");
     await import("firebase-admin/auth");
-    await import("firebase-admin/storage");
     return { sdkVersion: (app as { SDK_VERSION?: string }).SDK_VERSION ?? null, hasFieldValue: typeof firestore.FieldValue === "function" };
   });
 
@@ -132,7 +132,7 @@ export async function GET(request: Request) {
   checks.adminInit = await step(async () => {
     if (!admin) throw new Error("server module did not load");
     const app = admin.getAdminApp();
-    return { appName: app.name, projectId: app.options.projectId ?? null, storageBucket: app.options.storageBucket ?? null };
+    return { appName: app.name, projectId: app.options.projectId ?? null };
   });
 
   // 6. A real Firestore read with the admin credential.
@@ -167,13 +167,20 @@ export async function GET(request: Request) {
     return { probed: probes.length };
   });
 
-  // 8. Storage bucket reachable?
+  // 8. Supabase Storage buckets reachable? Skipped (not an error) when the
+  //    project has no Supabase env configured — uploads then degrade to
+  //    "paste a URL instead" rather than the site being unhealthy.
   checks.storage = await step(async () => {
-    if (!admin) throw new Error("server module did not load");
-    const bucket = admin.adminStorage().bucket();
-    const [exists] = await bucket.exists();
-    if (!exists) throw new Error(`Bucket ${bucket.name} does not exist — initialize Storage in the Firebase console`);
-    return { bucket: bucket.name };
+    const { isStorageConfigured, supabaseAdmin, BUCKETS } = await import("@/server/storage/client");
+    if (!isStorageConfigured()) return { configured: false };
+    const client = supabaseAdmin();
+    const missing: string[] = [];
+    for (const bucket of Object.values(BUCKETS)) {
+      const { data, error } = await client.storage.getBucket(bucket);
+      if (error || !data) missing.push(bucket);
+    }
+    if (missing.length) throw new Error(`Missing Supabase buckets: ${missing.join(", ")} — create them in the Supabase dashboard`);
+    return { configured: true, buckets: Object.values(BUCKETS) };
   });
 
   // 9. Auth admin reachable (a metadata call that needs no user).

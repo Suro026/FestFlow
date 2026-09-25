@@ -20,7 +20,6 @@ const publicSchema = z.object({
   NEXT_PUBLIC_FIREBASE_API_KEY: nonEmpty,
   NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: nonEmpty,
   NEXT_PUBLIC_FIREBASE_PROJECT_ID: nonEmpty,
-  NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: nonEmpty,
   NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: nonEmpty,
   NEXT_PUBLIC_FIREBASE_APP_ID: nonEmpty,
   NEXT_PUBLIC_APP_URL: url,
@@ -41,6 +40,12 @@ const optionalSchema = z.object({
   APP_CHECK_ENFORCE: z.enum(["true", "false"]).optional(),
   UPSTASH_REDIS_REST_URL: z.string().url().optional(),
   UPSTASH_REDIS_REST_TOKEN: z.string().optional(),
+  // File storage — Supabase. Optional in the schema the same way Resend is:
+  // uploads degrade to "paste a URL instead" without it (see
+  // server/storage/client.ts), rather than the whole site refusing to run.
+  SUPABASE_URL: z.string().url().optional(),
+  SUPABASE_SERVICE_ROLE_KEY: z.string().optional(),
+  SUPABASE_ANON_KEY: z.string().optional(),
 });
 
 export interface EnvIssue {
