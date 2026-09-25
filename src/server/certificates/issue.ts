@@ -1,15 +1,16 @@
-import { randomUUID } from "node:crypto";
 import { computeCertificateEligibility } from "@/core/services/certificate-eligibility";
 import { certificateIdFor, generateCertificateNumber, type CertificateDraft, type CertificateType } from "@/core/models/certificate";
 import { registrationSchema, type Registration } from "@/core/models/registration";
 import { resultSchema, type Result } from "@/core/models/result";
 import type { GenerateSummary } from "@/core/repositories/certificate-repository";
-import { COLLECTIONS, FieldValue, adminDb, adminStorage } from "../firebase-admin";
+import { COLLECTIONS, FieldValue, adminDb } from "../firebase-admin";
 import { emailService } from "../email";
 import { notify } from "../notify";
 import { certificateIssuedEmail } from "../email/templates";
 import { compact, randomBytes, toDates } from "../serialize";
 import { renderCertificatePdf } from "./pdf";
+import { BUCKETS } from "../storage/client";
+import { storeUpload } from "../storage/upload";
 
 /**
  * The post-event certificate run for one event.
@@ -20,8 +21,11 @@ import { renderCertificatePdf } from "./pdf";
  *     who gets what. Nothing here second-guesses it.
  *  3. Issue: one document per person per event, keyed deterministically, so
  *     a re-run after an amended result sheet updates rather than duplicates.
- *  4. Render the PDF, upload it to Storage (or fall back to the on-demand
- *     PDF route when the bucket is unavailable), email it, notify in-app.
+ *  4. Render the PDF, cache it best-effort in the private `certificates`
+ *     Supabase bucket, email it, notify in-app. The link everyone actually
+ *     gets is always the on-demand PDF route (below) — never a stored URL —
+ *     because that bucket is private and a signed URL into it expires,
+ *     while a certificate has to keep working for years.
  *
  * `dryRun` performs step 1–2 only and returns the counts for the
  * confirmation screen.
@@ -134,12 +138,6 @@ export const issueCertificatesForEvent = async (
   const mailer = emailService();
   const template = await loadTemplate(options.templateUrl);
   const year = new Date().getFullYear();
-  let bucket: ReturnType<ReturnType<typeof adminStorage>["bucket"]> | null = null;
-  try {
-    bucket = adminStorage().bucket();
-  } catch {
-    bucket = null;
-  }
 
   const noteFor = (draft: CertificateDraft): string | undefined => {
     if (!result || draft.type === "participation") return undefined;
@@ -193,20 +191,17 @@ export const issueCertificatesForEvent = async (
       console.error("[certificates] render failed", id, error);
     }
 
-    // Storage, when the bucket exists; otherwise the on-demand route serves
-    // the same PDF and nothing about the issue is blocked.
-    let fileUrl = publicPdfUrl(appUrl, certificateNumber);
-    if (pdf && bucket) {
+    // Always the on-demand route — stable forever, and it renders the exact
+    // same PDF. The Supabase write below is a cache, never the link anyone
+    // is given: `certificates` is a private bucket, so a link into it would
+    // be a signed URL with an expiry, which a certificate cannot have.
+    const fileUrl = publicPdfUrl(appUrl, certificateNumber);
+    if (pdf) {
       try {
-        const token = randomUUID();
-        const path = `certificates/${draft.userId}/${certificateNumber}.pdf`;
-        await bucket.file(path).save(Buffer.from(pdf), {
-          contentType: "application/pdf",
-          metadata: { metadata: { firebaseStorageDownloadTokens: token }, cacheControl: "public, max-age=31536000" },
-        });
-        fileUrl = `https://firebasestorage.googleapis.com/v0/b/${bucket.name}/o/${encodeURIComponent(path)}?alt=media&token=${token}`;
+        const path = `users/${draft.userId}/${certificateNumber}.pdf`;
+        await storeUpload(BUCKETS.certificates, path, Buffer.from(pdf), "application/pdf", { uploadedBy: options.actorId, kind: "certificatePdf" });
       } catch (error) {
-        console.warn("[certificates] storage upload skipped:", (error as Error).message);
+        console.warn("[certificates] storage cache skipped:", (error as Error).message);
       }
     }
 

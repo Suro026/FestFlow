@@ -23,7 +23,7 @@ throws if imported into a client component.
 | Variable | Why it is safe |
 |---|---|
 | `NEXT_PUBLIC_FIREBASE_API_KEY` | Firebase web API keys identify the project; access is governed by Firestore/Storage rules and App Check, not by the key. **Restrict it to HTTP referrers `plansphere.in`/`*.plansphere.in` in Google Cloud → APIs & Services → Credentials.** |
-| `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN`, `_PROJECT_ID`, `_STORAGE_BUCKET`, `_MESSAGING_SENDER_ID`, `_APP_ID`, `_MEASUREMENT_ID` | Public project identifiers |
+| `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN`, `_PROJECT_ID`, `_MESSAGING_SENDER_ID`, `_APP_ID`, `_MEASUREMENT_ID` | Public project identifiers |
 | `NEXT_PUBLIC_APP_URL` | The canonical origin |
 | `NEXT_PUBLIC_SENTRY_DSN` | Sentry DSNs are write-only ingest addresses, public by design |
 | `NEXT_PUBLIC_RECAPTCHA_V3_SITE_KEY` | reCAPTCHA *site* key (the secret key is never used — App Check verifies server-side with Firebase) |
@@ -35,6 +35,7 @@ throws if imported into a client component.
 | Variable | Secret? | Used by | Validated at startup |
 |---|---|---|---|
 | `FIREBASE_SERVICE_ACCOUNT` | **yes** — bypasses all rules | `src/server/firebase-admin.ts`, scripts | required in production |
+| `SUPABASE_SERVICE_ROLE_KEY` | **yes** — bypasses all storage policies | `src/server/storage/client.ts` | optional; uploads degrade gracefully without it |
 | `RESEND_API_KEY` | **yes** | `src/server/email` | warning if provider=resend without it |
 | `EMAIL_PROVIDER`, `EMAIL_FROM` | no | `src/server/email` | enum / default |
 | `CRON_SECRET` | **yes** | `/api/cron/event-reminders` | warning in production if missing |
@@ -57,9 +58,9 @@ service-account material anywhere in the working tree. All credentials are
 read from the environment.
 
 **Client bundles (`.next/static`):** contain the `NEXT_PUBLIC_*` values only.
-No service-account material, private key, Resend key, cron secret, Upstash
-token or Sentry token. (The string `RESEND_API_KEY` appears once, as the
-*name* in help copy on the admin console.)
+No service-account material, private key, Supabase service role key, Resend
+key, cron secret, Upstash token or Sentry token. (The string `RESEND_API_KEY`
+appears once, as the *name* in help copy on the admin console.)
 
 **Git history (76 commits, all refs):** no service-account key was ever
 committed. Two historical items, both in code that no longer exists on
@@ -89,8 +90,10 @@ audit added the scanner, the CI step, the ignore rules for key files
   settings → Service accounts → Generate new private key → update
   `FIREBASE_SERVICE_ACCOUNT` on Vercel (base64 of the JSON) → delete the old
   key in Google Cloud IAM.
-- Rotate `CRON_SECRET`, `RESEND_API_KEY` and Upstash tokens the same way:
-  set the new value on Vercel, redeploy, revoke the old one at the provider.
+- Rotate `CRON_SECRET`, `RESEND_API_KEY`, `SUPABASE_SERVICE_ROLE_KEY` and
+  Upstash tokens the same way: set the new value on Vercel, redeploy, revoke
+  the old one at the provider (Supabase: Project settings → API → reset the
+  `service_role` key).
 - Vercel env scopes: keep Production values out of Preview unless a preview
   genuinely needs to send email or write to production Firestore (it should
   not).
@@ -141,25 +144,32 @@ Regression suite: `tests/unit/error-handling.test.ts` throws hostile errors
 non-Error values) through the real `handler()` in production and development
 mode and asserts none of a list of sensitive markers reaches the response.
 
-## File uploads (22 Sep 2026)
+## File uploads (updated 25 Sep 2026 — Supabase Storage)
 
 One server path accepts every file: `POST /api/uploads?kind=…&id=…`
-(`src/server/uploads.ts`). Storage rules deny **all** client writes; reads
-are limited to fest artwork and profile photos (public), certificates
-(recipient + staff) and result sheets (staff).
+(`src/server/storage/upload.ts`). There is no client-side Storage SDK and no
+Storage rules layer any more — nothing in the browser ever holds a Supabase
+key, so a direct client write is not merely denied, it is not possible. Every
+write goes through this route with the Supabase **service role** key, which
+is server-only (`src/server/storage/client.ts` throws if it is ever imported
+into client code) and is never exposed via a `NEXT_PUBLIC_` variable.
 
 | Control | How |
 |---|---|
 | Type | magic-number sniffing (PNG/JPEG/WebP/GIF); the filename and declared Content-Type are ignored. SVG, HTML, executables, archives, scripts → 415 with a reason |
-| Size | per-kind caps (2–5 MB) checked on the declared length, the received bytes and the processed output → 413 |
+| Size | per-kind caps (2–10 MB) checked on the declared length, the received bytes and the processed output → 413 |
 | Content | decoded and re-encoded with sharp: EXIF/XMP/IPTC/ICC dropped, orientation applied, longest side bounded, GIF flattened; polyglots come out as plain images |
 | Names | `{fests|users}/{ownerId}/{folder}/{uuid}.{ext}` — owner id validated against `[A-Za-z0-9_-]{1,128}`, extension from the detected type, UUID name; nothing from the client |
-| Authorization | fest banner/logo: admin managing the fest; event poster: organizer of the fest; profile photo: always the caller (the id parameter is ignored) |
-| Location | Firebase Storage only, via the Admin SDK, with `uploadedBy`, `kind` and `sha256` metadata and an audit-log entry for fest artwork |
+| Authorization | fest banner/logo: admin managing the fest; event poster: organizer of the fest; profile photo: always the caller (the id parameter is ignored) — Firebase-based RBAC, unchanged by the storage migration |
+| Location | Supabase Storage, per-kind bucket (`event-assets` public, `certificates`/`uploads` private, `avatars` public — see `UPLOAD_POLICY`), with `uploadedBy`, `kind` and `sha256` custom object metadata and an audit-log entry for fest artwork. Firestore stores only `{bucket, path, url}`, never binary data |
 | Rate | `authenticated.uploads`: 20 per 10 minutes per account |
 | Links typed by hand | `posterUrl`, `bannerUrl`, `logoUrl`, `photoUrl` accept `https://` only |
 
-Certificates are written by the server only (`certificates/{uid}/{number}.pdf`).
+Certificates are cached best-effort in the private `certificates` bucket
+(`users/{uid}/{number}.pdf`), but the link every recipient actually gets is
+always the on-demand `/api/verify/{number}/pdf` route — never a stored URL —
+because a signed URL into a private bucket expires and a certificate has to
+keep working for years.
 
 Tests: `tests/unit/uploads.test.ts` (sniffing, spoofed extension, executables,
 SVG/HTML, oversize, EXIF stripping with orientation, bounding, GIF flattening,

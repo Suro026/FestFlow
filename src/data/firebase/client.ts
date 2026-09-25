@@ -1,7 +1,6 @@
 import { getApp, getApps, initializeApp, type FirebaseApp } from "firebase/app";
 import { connectAuthEmulator, getAuth, type Auth } from "firebase/auth";
 import { connectFirestoreEmulator, getFirestore, type Firestore } from "firebase/firestore";
-import { connectStorageEmulator, getStorage, type FirebaseStorage } from "firebase/storage";
 import { RepositoryError } from "@/core/models/common";
 
 /**
@@ -24,7 +23,6 @@ const REQUIRED = [
   "NEXT_PUBLIC_FIREBASE_API_KEY",
   "NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN",
   "NEXT_PUBLIC_FIREBASE_PROJECT_ID",
-  "NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET",
   "NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID",
   "NEXT_PUBLIC_FIREBASE_APP_ID",
 ] as const;
@@ -38,7 +36,6 @@ const readConfig = () => ({
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
   authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
   projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
   messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
   measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID,
@@ -51,7 +48,6 @@ export const missingFirebaseConfig = (): string[] => {
     NEXT_PUBLIC_FIREBASE_API_KEY: config.apiKey,
     NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: config.authDomain,
     NEXT_PUBLIC_FIREBASE_PROJECT_ID: config.projectId,
-    NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: config.storageBucket,
     NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: config.messagingSenderId,
     NEXT_PUBLIC_FIREBASE_APP_ID: config.appId,
   };
@@ -102,7 +98,6 @@ export const firebaseApp = (): FirebaseApp => {
         apiKey: config.apiKey,
         authDomain: config.authDomain,
         projectId: config.projectId,
-        storageBucket: config.storageBucket,
         messagingSenderId: config.messagingSenderId,
         appId: config.appId,
         ...(config.measurementId ? { measurementId: config.measurementId } : {}),
@@ -121,7 +116,7 @@ const emulatorHost = (env: string | undefined, fallback: string) => {
   const [host = "127.0.0.1", port = fallback] = (env ?? `127.0.0.1:${fallback}`).split(":");
   return { host, port: Number(port) };
 };
-const connected = { auth: false, firestore: false, storage: false };
+const connected = { auth: false, firestore: false };
 
 export const firebaseAuth = (): Auth => {
   const auth = getAuth(firebaseApp());
@@ -141,16 +136,6 @@ export const firestore = (): Firestore => {
     connected.firestore = true;
   }
   return db;
-};
-
-export const firebaseStorage = (): FirebaseStorage => {
-  const storage = getStorage(firebaseApp());
-  if (emulatorEnabled() && !connected.storage) {
-    const { host, port } = emulatorHost(process.env.NEXT_PUBLIC_FIREBASE_STORAGE_EMULATOR_HOST, "9199");
-    connectStorageEmulator(storage, host, port);
-    connected.storage = true;
-  }
-  return storage;
 };
 
 /** Collection names, in one place so a typo is a compile error, not a silent empty query. */

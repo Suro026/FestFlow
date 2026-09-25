@@ -1,14 +1,64 @@
 import sharp from "sharp";
-import { beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { adminDb, adminStorage, COLLECTIONS } from "@/server/firebase-admin";
-import { POST as upload } from "@/app/api/uploads/route";
+import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { adminDb, COLLECTIONS } from "@/server/firebase-admin";
 import { mintUser, resetAuth, resetFirestore, seedFest, type TestUser } from "./harness";
 
 /**
- * POST /api/uploads through the real handler against the Storage emulator:
- * who may upload where, what is refused by content, and that what lands in
- * the bucket has a random name, the detected type and no metadata.
+ * POST /api/uploads through the real handler, against the real Firebase Auth
+ * and Firestore emulators — RBAC, ownership checks and the audit log are all
+ * genuine. Supabase Storage itself is faked in-memory: there is no local
+ * Supabase stack available here. The fake implements exactly the surface
+ * src/server/storage calls (`upload`, `getPublicUrl`, `createSignedUrl`,
+ * `remove`), so every assertion below about what actually gets written —
+ * bytes, content type, custom metadata — still exercises the real pipeline
+ * in src/server/storage/{image,upload}.ts, just against a fake backend.
  */
+
+const { fakeObjects, resetFakeStorage } = vi.hoisted(() => {
+  const objects = new Map<string, { bytes: Buffer; contentType: string; metadata: Record<string, string> }>();
+  return { fakeObjects: objects, resetFakeStorage: () => objects.clear() };
+});
+
+vi.mock("@/server/storage/client", () => {
+  const BUCKETS = { eventAssets: "event-assets", certificates: "certificates", avatars: "avatars", uploads: "uploads" } as const;
+  const PUBLIC_BUCKETS = new Set<string>([BUCKETS.eventAssets, BUCKETS.avatars]);
+  const isPublicBucket = (bucket: string) => PUBLIC_BUCKETS.has(bucket);
+
+  const from = (bucket: string) => ({
+    upload: async (path: string, bytes: Buffer, options: { contentType: string; metadata?: Record<string, string> }) => {
+      fakeObjects.set(`${bucket}/${path}`, { bytes: Buffer.from(bytes), contentType: options.contentType, metadata: options.metadata ?? {} });
+      return { data: { path, id: path, fullPath: `${bucket}/${path}` }, error: null };
+    },
+    getPublicUrl: (path: string) => ({ data: { publicUrl: `https://fake.supabase.local/storage/v1/object/public/${bucket}/${path}` } }),
+    createSignedUrl: async (path: string, expiresIn: number) => ({
+      data: { signedUrl: `https://fake.supabase.local/storage/v1/object/sign/${bucket}/${path}?token=fake&expiresIn=${expiresIn}` },
+      error: null,
+    }),
+    remove: async (paths: string[]) => {
+      for (const p of paths) fakeObjects.delete(`${bucket}/${p}`);
+      return { data: null, error: null };
+    },
+  });
+
+  const client = {
+    storage: {
+      from,
+      getBucket: async (id: string) => ({ data: { id, name: id, public: isPublicBucket(id) }, error: null }),
+    },
+  };
+
+  return {
+    BUCKETS,
+    isPublicBucket,
+    supabaseAdmin: () => client,
+    isStorageConfigured: () => true,
+    resetStorageClientForTests: () => undefined,
+  };
+});
+
+// Imported after the mock so the route (and everything it pulls in under
+// src/server/storage/) resolves against the fake client above.
+const { POST: upload } = await import("@/app/api/uploads/route");
 
 let student: TestUser;
 let admin: TestUser;
@@ -44,6 +94,7 @@ beforeAll(async () => {
 });
 
 beforeEach(async () => {
+  resetFakeStorage();
   await resetFirestore();
   for (const u of [student, admin, otherVolunteer, volunteer]) {
     const festIds = u === otherVolunteer ? ["fest2"] : ["fest1"];
@@ -147,23 +198,20 @@ describe("what is stored", () => {
       .toBuffer();
     const res = await send(admin, "kind=festBanner&id=fest1", { bytes: exif, name: "../../../etc/passwd.jpg", type: "application/octet-stream" });
     expect(res.status).toBe(201);
+    expect(res.body.bucket).toBe("event-assets");
     expect(res.body.contentType).toBe("image/jpeg");
     expect(String(res.body.path)).toMatch(/^fests\/fest1\/banners\/[0-9a-f-]{36}\.jpg$/);
     expect(String(res.body.path)).not.toContain("passwd");
-    expect(String(res.body.url)).toMatch(/\/o\/fests%2Ffest1%2Fbanners%2F[0-9a-f-]{36}\.jpg\?alt=media&token=/);
+    expect(String(res.body.url)).toBe(`https://fake.supabase.local/storage/v1/object/public/event-assets/${res.body.path}`);
 
-    const file = adminStorage().bucket().file(String(res.body.path));
-    const [exists] = await file.exists();
-    expect(exists).toBe(true);
-    const [meta] = await file.getMetadata();
-    expect(meta.contentType).toBe("image/jpeg");
-    expect(meta.metadata?.uploadedBy).toBe(admin.uid);
-    expect(meta.metadata?.kind).toBe("festBanner");
-    expect(String(meta.cacheControl)).toContain("immutable");
-    const [bytes] = await file.download();
-    const stored = await sharp(bytes).metadata();
-    expect(stored.exif).toBeUndefined();
-    expect(bytes.toString("latin1")).not.toContain("remove me");
+    const stored = fakeObjects.get(`event-assets/${res.body.path}`);
+    expect(stored).toBeDefined();
+    expect(stored!.contentType).toBe("image/jpeg");
+    expect(stored!.metadata.uploadedBy).toBe(admin.uid);
+    expect(stored!.metadata.kind).toBe("festBanner");
+    const decoded = await sharp(stored!.bytes).metadata();
+    expect(decoded.exif).toBeUndefined();
+    expect(stored!.bytes.toString("latin1")).not.toContain("remove me");
 
     const auditRows = await adminDb().collection(COLLECTIONS.auditLog).where("action", "==", "file_uploaded").get();
     expect(auditRows.size).toBe(1);

@@ -1,6 +1,7 @@
 /**
- * Deploys firestore.rules, storage.rules and firestore.indexes.json using the
- * service account in FIREBASE_SERVICE_ACCOUNT — no `firebase login` needed.
+ * Deploys firestore.rules and firestore.indexes.json using the service
+ * account in FIREBASE_SERVICE_ACCOUNT — no `firebase login` needed. File
+ * storage is Supabase now, provisioned separately in the Supabase dashboard.
  *
  *   npm run firebase:deploy              # rules + indexes
  *   npm run firebase:deploy -- --rules   # rules only
@@ -28,7 +29,6 @@ const credentials = JSON.parse(trimmed.startsWith("{") ? trimmed : Buffer.from(t
 credentials.private_key = credentials.private_key.replace(/\\n/g, "\n");
 
 const project = credentials.project_id;
-const bucket = process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET;
 
 const auth = new GoogleAuth({
   credentials,
@@ -60,7 +60,7 @@ const fail = (message) => {
 
 /* ───────────── rules ───────────── */
 
-const deployRuleset = async (label, fileName, releaseName, { optional = false } = {}) => {
+const deployRuleset = async (label, fileName, releaseName) => {
   const content = readFileSync(fileName, "utf8");
 
   const created = await call("POST", `https://firebaserules.googleapis.com/v1/projects/${project}/rulesets`, {
@@ -93,14 +93,7 @@ const deployRuleset = async (label, fileName, releaseName, { optional = false } 
   }
 
   if (!released.ok) {
-    const message = `${label}: release failed (${released.status}) ${released.json?.error?.message ?? ""}`;
-    if (optional) {
-      console.log(`  ${label.padEnd(10)} skipped   ${message}`);
-      console.log("             (Storage rules need the bucket to exist first: Firebase console -> Storage -> Get started.");
-      console.log("              Re-run this script afterwards, or paste storage.rules into the console.)");
-      return;
-    }
-    fail(message);
+    fail(`${label}: release failed (${released.status}) ${released.json?.error?.message ?? ""}`);
   }
 
   console.log(`  ${label.padEnd(10)} deployed  ${rulesetName.split("/").pop()}`);
@@ -171,8 +164,6 @@ console.log(`\n  Project: ${project}\n`);
 
 if (doRules) {
   await deployRuleset("firestore", "firestore.rules", "cloud.firestore");
-  if (bucket) await deployRuleset("storage", "storage.rules", `firebase.storage/${bucket}`, { optional: true });
-  else console.log("  storage    skipped (NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET not set)");
 }
 
 if (doIndexes) await deployIndexes();
