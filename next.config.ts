@@ -16,7 +16,10 @@ const csp = [
   "frame-ancestors 'none'",
   "form-action 'self'",
   "object-src 'none'",
-  "img-src 'self' data: blob: https://firebasestorage.googleapis.com https://lh3.googleusercontent.com https://www.gstatic.com",
+  // firebasestorage.googleapis.com stays allowed for images uploaded before
+  // the Supabase Storage migration — their URLs are already persisted in
+  // Firestore documents and are not backfilled.
+  "img-src 'self' data: blob: https://firebasestorage.googleapis.com https://*.supabase.co https://lh3.googleusercontent.com https://www.gstatic.com",
   "font-src 'self' data:",
   "style-src 'self' 'unsafe-inline'",
   "script-src 'self' 'unsafe-inline' https://www.google.com https://www.gstatic.com https://va.vercel-scripts.com https://vercel.live",
@@ -46,7 +49,9 @@ const nextConfig: NextConfig = {
   images: {
     formats: ["image/avif", "image/webp"],
     remotePatterns: [
+      // Pre-migration uploads: URLs already stored in Firestore, not backfilled.
       { protocol: "https", hostname: "firebasestorage.googleapis.com" },
+      { protocol: "https", hostname: "*.supabase.co" },
       { protocol: "https", hostname: "lh3.googleusercontent.com" },
     ],
   },
