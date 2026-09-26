@@ -14,9 +14,13 @@ export default function FestRegistrationsPage() {
   const feed = useFestGateFeed(fest.id, 10000);
 
   const attendance = React.useMemo(() => new Map((feed.data ?? []).map((a) => [a.registrationId, a])), [feed.data]);
-  const confirmed = (registrations.data ?? []).filter((r) => r.status === "confirmed");
-  const seats = confirmed.reduce((s, r) => s + r.seats, 0);
-  const teams = confirmed.filter((r) => r.type === "team").length;
+  // This page is driven by a live registrations listener, which can push an
+  // update every few seconds during a registration rush — worth not re-
+  // filtering/re-reducing the whole list on renders it didn't cause too.
+  const { seats, teams } = React.useMemo(() => {
+    const confirmed = (registrations.data ?? []).filter((r) => r.status === "confirmed");
+    return { seats: confirmed.reduce((s, r) => s + r.seats, 0), teams: confirmed.filter((r) => r.type === "team").length };
+  }, [registrations.data]);
 
   return (
     <AdminPage className="pb-9 pt-[26px]">

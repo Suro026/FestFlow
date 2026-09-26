@@ -26,7 +26,10 @@ export default function EventAnalyticsPage() {
   const [window_, setWindow] = React.useState<Window>("today");
 
   const regs = React.useMemo(() => (registrations.data ?? []).filter((r) => r.status !== "cancelled"), [registrations.data]);
-  const confirmed = regs.filter((r) => r.status === "confirmed");
+  // Memoized because colleges/teamSizes/departments below key their own
+  // useMemo on this array's identity — an unmemoized .filter() here would
+  // hand them a new reference every render and defeat all three.
+  const confirmed = React.useMemo(() => regs.filter((r) => r.status === "confirmed"), [regs]);
   const att = React.useMemo(() => attendance.data ?? [], [attendance.data]);
   const checkedIn = att.length;
   const registeredSeats = confirmed.reduce((s, r) => s + r.seats, 0);
