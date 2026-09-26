@@ -159,8 +159,19 @@ export const Artwork = ({ label, src, alt = "", lighten = true, className, style
   if (src) {
     return (
       <div className={cn("overflow-hidden bg-surface", className)} style={style} {...props}>
-        {/* eslint-disable-next-line @next/next/no-img-element -- remote user uploads of unknown dimensions */}
-        <img src={src} alt={alt} className={cn("h-full w-full object-cover", lighten && "lighten")} loading="lazy" />
+        {/*
+          Not next/image: this renders any https:// URL a fest/event admin
+          pasted in, not only Supabase/Firebase uploads (see httpsUrlSchema
+          and ImageUploadField's allowUrl fallback). next/image requires
+          every remote hostname to be allow-listed in next.config.ts; the
+          only way to satisfy that for an arbitrary admin-pasted URL is a
+          wildcard hostname pattern, which turns the image optimizer into an
+          open proxy for whatever URL is pasted — a worse trade than the
+          bytes this would save. `loading="lazy"` gets the deferred-loading
+          behaviour without that risk.
+        */}
+        {/* eslint-disable-next-line @next/next/no-img-element -- see above: arbitrary remote hostnames next/image cannot allow-list safely */}
+        <img src={src} alt={alt} className={cn("h-full w-full object-cover", lighten && "lighten")} loading="lazy" decoding="async" />
       </div>
     );
   }

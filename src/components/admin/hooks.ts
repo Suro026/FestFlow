@@ -75,12 +75,24 @@ export const useFestGateFeed = (festId: string, limit = 50) => {
   );
 };
 
+/**
+ * A one-time fetch, not `useLive`: unlike the gate feed, seat counts and
+ * roster this file's other hooks push live (the whole point of `useLive`,
+ * per the note above), an audit trail is read retrospectively — nobody
+ * needs the entry for an override to appear on their screen the instant it
+ * happens. Reusing `listForFest` here instead of holding a Firestore
+ * listener open on every page that shows recent activity is a real
+ * reduction in standing connections for a screen nothing depends on being
+ * live.
+ */
 export const useFestAudit = (festId: string, limit = 30) => {
   const repos = useRepositories();
-  return useLive<AuditEntry[]>(
-    (onChange, onError) => repos.audit.subscribeForFest(festId, onChange, onError, limit),
-    [festId, limit, repos],
-  );
+  const query = useQuery<AuditEntry[]>({
+    queryKey: ["fest-audit", festId, limit],
+    queryFn: () => repos.audit.listForFest(festId, limit),
+    staleTime: 30_000,
+  });
+  return { data: query.data ?? null, error: query.error, updatedAt: query.dataUpdatedAt ? new Date(query.dataUpdatedAt) : null, loading: query.isPending };
 };
 
 export const useFestShifts = (festId: string) => {
