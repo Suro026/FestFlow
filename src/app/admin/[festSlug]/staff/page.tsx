@@ -45,9 +45,11 @@ export default function StaffPage() {
   const [invite, setInvite] = React.useState<{ email: string; result: InviteResult } | null>(null);
 
   const isSuper = session ? hasAtLeast(session.role, "super_admin") : false;
-  // Admins create volunteers for the fests they manage; super admins create
-  // anything. The matrix decides, not a role comparison written here.
-  const canCreate = session ? creatableRoles(session.role) : [];
+  const isOwner = session ? session.uid === fest.ownerId : false;
+  // Admins create volunteers for the fests they manage; an admin who
+  // registered this fest may also create other admins for it; super admins
+  // create anything. The matrix decides, not a role comparison written here.
+  const canCreate = session ? creatableRoles(session.role, isOwner) : [];
   const festName = React.useCallback((ids: string[]) => (ids.length === 0 ? "All fests" : ids.map((id) => fests.find((f) => f.id === id)?.name ?? "…").join(", ")), [fests]);
 
   const rows = React.useMemo(() => {
@@ -212,7 +214,11 @@ const CreateStaffCard = ({ defaultFestId, allowed, onInvited }: { defaultFestId:
       <div>
         <div className="text-[18px] font-medium">Create staff account</div>
         <div className="mt-[3px] text-[12px] text-neutral-500">
-          {allowed.includes("admin") ? "Only a super admin can grant a role above student." : "You can invite volunteers for the fests you manage."}
+          {allowed.includes("super_admin")
+            ? "Only a super admin can grant a role above student."
+            : allowed.includes("admin")
+              ? "You registered this event, so you can also add other admins to run it with you."
+              : "You can invite volunteers for the fests you manage."}
         </div>
       </div>
       <Field label="Full name" htmlFor="st-name" error={err.name?.message}>

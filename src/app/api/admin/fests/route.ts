@@ -7,7 +7,10 @@ import { compact, docToJson } from "@/server/serialize";
 import { audit } from "@/server/audit";
 
 /**
- * The fest container — created here and nowhere else.
+ * The fest container — the platform-staff path. Also created at
+ * `POST /api/register-event`, the public self-service path any signed-in
+ * account may use; that route sets the same fields (slug, `ownerId`, an
+ * audit entry) for a caller who isn't a super admin.
  *
  * A fest is the parent of everything: events hang off it, staff are scoped to
  * it, certificates carry its name. Creating one used to be a client write

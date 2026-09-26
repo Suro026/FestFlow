@@ -187,6 +187,28 @@ export const createFestSchema = z
 export type CreateFest = z.infer<typeof createFestSchema>;
 
 /**
+ * Public self-service event registration — `POST /api/register-event`.
+ *
+ * Deliberately a smaller surface than `createFestSchema`: a first-time Event
+ * Head is asked for what they actually know at the moment of registering,
+ * not the full fest-settings form. `organizationName`/`venue`/`city` are
+ * filled with placeholders server-side and are the Event Head's to edit from
+ * fest settings afterwards, same as any other admin would.
+ */
+export const registerEventSchema = z.object({
+  name: shortTextSchema,
+  description: longTextSchema.optional(),
+  festType: festTypeSchema,
+  startDate: calendarDateSchema,
+  endDate: calendarDateSchema,
+}).refine((fest) => fest.endDate >= fest.startDate, {
+  message: "The end date cannot be before the start date",
+  path: ["endDate"],
+});
+
+export type RegisterEvent = z.infer<typeof registerEventSchema>;
+
+/**
  * Partial update. `slug` is intentionally absent: changing it would break
  * every link already shared for the fest.
  */

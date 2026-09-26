@@ -85,6 +85,23 @@ export const mintUser = async (input: { role?: UserRole; festIds?: string[]; nam
   return { uid: user.uid, email, name, role, idToken: body.idToken, password };
 };
 
+/**
+ * A fresh ID token for an existing test user, reflecting whatever custom
+ * claims are on the account *right now* — a Firebase ID token bakes claims in
+ * at mint time, so a token minted before a mid-test promotion (a role or
+ * `festIds` change) still reads as the old role until a new one is issued.
+ */
+export const freshToken = async (user: Pick<TestUser, "email" | "password">): Promise<string> => {
+  const res = await fetch(`http://${AUTH_HOST}/identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=fake-api-key`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ email: user.email, password: user.password, returnSecureToken: true }),
+  });
+  const body = (await res.json()) as { idToken?: string; error?: unknown };
+  if (!body.idToken) throw new Error(`Could not refresh test user token: ${JSON.stringify(body.error)}`);
+  return body.idToken;
+};
+
 /** Sign the client SDK in as this user (for repository tests that run under the rules). */
 export const clientSignIn = async (user: TestUser): Promise<void> => {
   await signInWithEmailAndPassword(firebaseAuth(), user.email, user.password);

@@ -176,12 +176,23 @@ export const inScope = (actor: Scoped, festId: string | undefined | null): boole
 export const canInScope = (actor: Scoped, permission: Permission, festId: string | undefined | null): boolean =>
   can(actor.role, permission) && inScope(actor, festId);
 
-/** Roles a given role may create. Enforced by the staff route and the rules. */
-export const creatableRoles = (role: UserRole): UserRole[] => {
+/**
+ * Roles a given role may create. Enforced by the staff route and the rules.
+ *
+ * `isFestOwnerOfTarget` is the one exception to "only a super admin creates
+ * admins": the account that registered a fest through self-service (its
+ * `Fest.ownerId`) may build an admin team for that one fest, without holding
+ * the platform-wide `staff:createAdmin` permission. It has no effect for any
+ * other role — an owner is still an ordinary `admin` everywhere else.
+ */
+export const creatableRoles = (role: UserRole, isFestOwnerOfTarget = false): UserRole[] => {
   if (role === "super_admin") return ["volunteer", "admin", "super_admin"];
-  if (role === "admin") return ["volunteer"];
+  if (role === "admin") return isFestOwnerOfTarget ? ["volunteer", "admin"] : ["volunteer"];
   return [];
 };
+
+/** Does `uid` own this fest? The one capability an owner has beyond a scoped admin's. */
+export const isFestOwner = (uid: string, fest: { ownerId?: string }): boolean => Boolean(fest.ownerId) && fest.ownerId === uid;
 
 /** Where a signed-in account lands after authenticating. */
 export const homeForRole = (role: UserRole): string => {
