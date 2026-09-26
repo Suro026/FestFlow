@@ -2,8 +2,10 @@ import { z } from "zod";
 import {
   auditFieldsSchema,
   calendarDateSchema,
+  emailSchema,
   idSchema,
   longTextSchema,
+  phoneSchema,
   shortTextSchema, httpsUrlSchema } from "./common";
 import { registrationFieldsSchema } from "./registration-fields";
 
@@ -29,6 +31,36 @@ export const FEST_TYPE_LABELS: Record<FestType, string> = {
   conference: "Conference",
   other: "Other",
 };
+
+/** What kind of organization is registering the event — collected at self-service registration. */
+export const ORGANIZATION_TYPES = ["college", "university", "conference", "club", "company", "ngo"] as const;
+export const organizationTypeSchema = z.enum(ORGANIZATION_TYPES);
+export type OrganizationType = z.infer<typeof organizationTypeSchema>;
+
+export const ORGANIZATION_TYPE_LABELS: Record<OrganizationType, string> = {
+  college: "College",
+  university: "University",
+  conference: "Conference",
+  club: "Club",
+  company: "Company",
+  ngo: "NGO",
+};
+
+/**
+ * The person who registered the event — collected once, at registration, and
+ * kept on the fest for accountability. Distinct from their `users` profile:
+ * this is who they said they were *for this event*, not their account.
+ */
+export const eventHeadSchema = z.object({
+  name: shortTextSchema,
+  designation: shortTextSchema,
+  phone: phoneSchema,
+  /** ID card or an authorization letter — proof they're allowed to register on the organization's behalf. Not verified; kept for the record. */
+  idCardUrl: httpsUrlSchema.optional(),
+  linkedin: httpsUrlSchema.optional(),
+});
+
+export type EventHead = z.infer<typeof eventHeadSchema>;
 
 /**
  * Who can find the fest, as distinct from whether it is published.
@@ -79,9 +111,13 @@ export const festSchema = z
     description: longTextSchema.optional(),
 
     organizationName: shortTextSchema,
+    /** Absent on fests created before self-service registration. */
+    organizationType: organizationTypeSchema.optional(),
+    organizationWebsite: httpsUrlSchema.optional(),
     venue: shortTextSchema,
     /** City the fest is held in — the explorer's primary filter. */
     city: shortTextSchema,
+    state: shortTextSchema.optional(),
     startDate: calendarDateSchema,
     endDate: calendarDateSchema,
 
@@ -89,6 +125,9 @@ export const festSchema = z
     festType: festTypeSchema.default("other"),
     academicYear: academicYearSchema.optional(),
     themeColor: hexColorSchema.optional(),
+    expectedParticipants: z.number().int().min(1).max(1_000_000).optional(),
+    /** Who registered the event, on the organization's behalf. Absent on fests created by platform staff. */
+    eventHead: eventHeadSchema.optional(),
 
     bannerUrl: httpsUrlSchema.optional(),
     logoUrl: httpsUrlSchema.optional(),
@@ -189,24 +228,41 @@ export type CreateFest = z.infer<typeof createFestSchema>;
 /**
  * Public self-service event registration — `POST /api/register-event`.
  *
- * Deliberately a smaller surface than `createFestSchema`: a first-time Event
- * Head is asked for what they actually know at the moment of registering,
- * not the full fest-settings form. `organizationName`/`venue`/`city` are
- * filled with placeholders server-side and are the Event Head's to edit from
- * fest settings afterwards, same as any other admin would.
+ * The three-step wizard's whole shape: organization, event, event head.
+ * Everything here lands directly on the `Fest` document (see the field
+ * comments above) — there is no separate "registration request" record and
+ * no review step between submitting this and the fest existing.
  */
-export const registerEventSchema = z.object({
-  name: shortTextSchema,
-  description: longTextSchema.optional(),
-  festType: festTypeSchema,
-  startDate: calendarDateSchema,
-  endDate: calendarDateSchema,
-}).refine((fest) => fest.endDate >= fest.startDate, {
-  message: "The end date cannot be before the start date",
-  path: ["endDate"],
-});
+export const registerEventSchema = z
+  .object({
+    // Step 1 — organization
+    organizationName: shortTextSchema,
+    organizationType: organizationTypeSchema,
+    organizationWebsite: httpsUrlSchema.optional(),
+    contactEmail: emailSchema,
+    city: shortTextSchema,
+    state: shortTextSchema,
 
-export type RegisterEvent = z.infer<typeof registerEventSchema>;
+    // Step 2 — event
+    name: shortTextSchema,
+    festType: festTypeSchema,
+    startDate: calendarDateSchema,
+    endDate: calendarDateSchema,
+    venue: shortTextSchema,
+    expectedParticipants: z.coerce.number().int().min(1, "Enter at least 1").max(1_000_000),
+    description: longTextSchema.optional(),
+
+    // Step 3 — event head
+    eventHead: eventHeadSchema,
+  })
+  .refine((fest) => fest.endDate >= fest.startDate, {
+    message: "The end date cannot be before the start date",
+    path: ["endDate"],
+  });
+
+export type RegisterEvent = z.output<typeof registerEventSchema>;
+/** Pre-validation shape — what the wizard's form actually holds (e.g. `expectedParticipants` as a string before it's coerced). */
+export type RegisterEventInput = z.input<typeof registerEventSchema>;
 
 /**
  * Partial update. `slug` is intentionally absent: changing it would break

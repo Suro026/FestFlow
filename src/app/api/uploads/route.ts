@@ -2,7 +2,7 @@ import { z } from "zod";
 import { ApiError, authenticate, handler, ok, requireFestAccess, type Caller } from "@/server/api";
 import { COLLECTIONS, adminDb } from "@/server/firebase-admin";
 import { RATE_LIMITS } from "@/server/rate-limit";
-import { MAX_UPLOAD_BYTES, UPLOAD_POLICY, acceptImageUpload, acceptPdfUpload, type UploadKind } from "@/server/storage/upload";
+import { MAX_UPLOAD_BYTES, UPLOAD_POLICY, acceptFlexibleUpload, acceptImageUpload, acceptPdfUpload, type UploadKind } from "@/server/storage/upload";
 import { can } from "@/core/permissions";
 import { audit } from "@/server/audit";
 
@@ -11,7 +11,7 @@ export const runtime = "nodejs";
 export const maxDuration = 30;
 
 const querySchema = z.object({
-  kind: z.enum(["festBanner", "festLogo", "festHero", "festThumbnail", "festSocial", "eventPoster", "eventRulebook", "certificateTemplate", "profilePhoto"]),
+  kind: z.enum(["festBanner", "festLogo", "festHero", "festThumbnail", "festSocial", "eventPoster", "eventRulebook", "certificateTemplate", "profilePhoto", "eventHeadIdentity"]),
   /** The fest id for fest-owned kinds; ignored for profile photos (always self). */
   id: z.string().regex(/^[A-Za-z0-9_-]{1,128}$/).optional(),
 });
@@ -68,9 +68,12 @@ export const POST = handler(async (request) => {
   }
 
   const bytes = Buffer.from(await file.arrayBuffer());
-  const stored = UPLOAD_POLICY[kind].document
-    ? await acceptPdfUpload({ kind, ownerId, uploadedBy: caller.uid, bytes, declaredType: file.type || null })
-    : await acceptImageUpload({ kind, ownerId, uploadedBy: caller.uid, bytes, declaredType: file.type || null });
+  const input = { kind, ownerId, uploadedBy: caller.uid, bytes, declaredType: file.type || null };
+  const stored = UPLOAD_POLICY[kind].flexible
+    ? await acceptFlexibleUpload(input)
+    : UPLOAD_POLICY[kind].document
+      ? await acceptPdfUpload(input)
+      : await acceptImageUpload(input);
 
   if (UPLOAD_POLICY[kind].owner === "fest") {
     await audit(caller, {

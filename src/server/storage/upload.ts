@@ -28,7 +28,8 @@ export type UploadKind =
   | "eventPoster"
   | "eventRulebook"
   | "certificateTemplate"
-  | "profilePhoto";
+  | "profilePhoto"
+  | "eventHeadIdentity";
 
 export interface UploadPolicy {
   /** Owner segment: a fest id, or a user id. */
@@ -44,6 +45,8 @@ export interface UploadPolicy {
   permission: "upload:festArtwork" | "upload:eventPoster" | "certificate:publish" | "self";
   /** PDF kinds skip image processing entirely — sharp cannot decode one. */
   document?: boolean;
+  /** Accepts either an image or a PDF — whichever the bytes actually are. */
+  flexible?: boolean;
 }
 
 export const UPLOAD_POLICY: Record<UploadKind, UploadPolicy> = {
@@ -63,6 +66,13 @@ export const UPLOAD_POLICY: Record<UploadKind, UploadPolicy> = {
    */
   certificateTemplate: { owner: "fest", bucket: BUCKETS.certificates, folder: "certificate-templates", maxBytes: 8 * 1024 * 1024, maxDimension: 3508, permission: "certificate:publish" },
   profilePhoto: { owner: "user", bucket: BUCKETS.avatars, folder: "photo", maxBytes: 3 * 1024 * 1024, maxDimension: 1024, permission: "self" },
+  /**
+   * An Event Head's ID card (a photo) or authorization letter (a PDF), taken
+   * during self-service registration — before any fest exists, so this is
+   * owned by the *user*, not a fest. Kept for the record only: nothing here
+   * verifies it, and nothing in the registration flow waits on it.
+   */
+  eventHeadIdentity: { owner: "user", bucket: BUCKETS.uploads, folder: "identity", maxBytes: 8 * 1024 * 1024, maxDimension: 2400, permission: "self", flexible: true },
 };
 
 /** The largest any request body may be, whatever the kind. Checked first. */
@@ -211,4 +221,34 @@ export const acceptPdfUpload = async (input: UploadInput): Promise<StoredUpload>
 
   const path = objectPathFor(input.kind, input.ownerId, "application/pdf");
   return storeUpload(policy.bucket, path, input.bytes, "application/pdf", { uploadedBy: input.uploadedBy, kind: input.kind });
+};
+
+/**
+ * Accepts whichever of the two the bytes actually are — an ID card is
+ * usually a photo, an authorization letter is usually a PDF, and asking the
+ * uploader to know which bucket that maps to is not worth a second field.
+ * Detected by content, same as the other two; a PDF is stored as-is, an
+ * image goes through the same strip-and-bound pipeline as any other photo.
+ */
+export const acceptFlexibleUpload = async (input: UploadInput): Promise<StoredUpload> => {
+  const policy = UPLOAD_POLICY[input.kind];
+  if (input.bytes.length === 0) throw ApiError.badRequest("The file is empty.");
+  if (input.bytes.length > policy.maxBytes) {
+    throw new ApiError(413, "too-large", `That file is ${(input.bytes.length / 1048576).toFixed(1)} MB; the limit is ${policy.maxBytes / 1048576} MB.`);
+  }
+
+  const detected = sniffType(input.bytes);
+  if (!detected) throw new ApiError(415, "unsupported-type", describeRejectedType(input.bytes, input.declaredType));
+
+  if (detected === "application/pdf") {
+    const path = objectPathFor(input.kind, input.ownerId, "application/pdf");
+    return storeUpload(policy.bucket, path, input.bytes, "application/pdf", { uploadedBy: input.uploadedBy, kind: input.kind });
+  }
+
+  const image = await processImage(input.bytes, detected, policy.maxDimension);
+  if (image.bytes.length > policy.maxBytes) {
+    throw new ApiError(413, "too-large", `That image is too large even after processing; the limit is ${policy.maxBytes / 1048576} MB.`);
+  }
+  const path = objectPathFor(input.kind, input.ownerId, image.contentType);
+  return storeUpload(policy.bucket, path, image.bytes, image.contentType, { uploadedBy: input.uploadedBy, kind: input.kind, width: image.width, height: image.height });
 };
