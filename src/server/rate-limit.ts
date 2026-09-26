@@ -77,6 +77,8 @@ const DEFAULT_POLICY = {
     certificates: { bucket: "authenticated.certificates", limit: 6, windowSeconds: 10 * 60 },
     /** Staff account creation and invites. */
     staff: { bucket: "authenticated.staff", limit: 20, windowSeconds: 10 * 60 },
+    /** Self-service event registration — the one route that lets any signed-in account create platform content. */
+    registerEvent: { bucket: "authenticated.register-event", limit: 3, windowSeconds: 24 * 60 * 60 },
     /** Image uploads: each one decodes and re-encodes on the server. */
     uploads: { bucket: "authenticated.uploads", limit: 20, windowSeconds: 10 * 60 },
     /** Registration exports: reads the whole fest's roster, builds a file. */

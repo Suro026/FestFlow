@@ -9,6 +9,7 @@ import {
   hasAtLeast,
   homeForRole,
   inScope,
+  isFestOwner,
   type Permission,
   type UserRole,
 } from "@/core/permissions";
@@ -153,6 +154,23 @@ describe("who may create whom", () => {
     expect(creatableRoles("admin")).toEqual(["volunteer"]);
     expect(creatableRoles("volunteer")).toEqual([]);
     expect(creatableRoles("student")).toEqual([]);
+  });
+
+  it("an admin who owns the target fest may also create admins for it", () => {
+    expect(creatableRoles("admin", true)).toEqual(["volunteer", "admin"]);
+    // Ownership has no effect on any other role — it is not a back door to a
+    // bigger grant than the platform owner's.
+    expect(creatableRoles("volunteer", true)).toEqual([]);
+    expect(creatableRoles("student", true)).toEqual([]);
+    expect(creatableRoles("super_admin", true)).toEqual(["volunteer", "admin", "super_admin"]);
+  });
+});
+
+describe("fest ownership", () => {
+  it("is true only when ownerId matches, and false when unset", () => {
+    expect(isFestOwner("u1", { ownerId: "u1" })).toBe(true);
+    expect(isFestOwner("u1", { ownerId: "u2" })).toBe(false);
+    expect(isFestOwner("u1", {})).toBe(false);
   });
 });
 

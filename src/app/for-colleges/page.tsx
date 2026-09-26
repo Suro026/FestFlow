@@ -10,9 +10,12 @@ export const metadata: Metadata = {
 };
 
 /**
- * The organizer-side pitch the landing page and footer link to. Static: it
- * only explains how hosting works and where to ask for an account. Accounts
- * are invite-only, so there is deliberately no self-serve sign-up form here.
+ * The Event Head pitch the landing page and footer link to. Registering is
+ * self-service from here: `/register-event` creates the fest immediately and
+ * makes the registrant its admin on the spot — no email, no waiting on
+ * Plansphere. Staff beyond that first admin (more admins, volunteers) stays
+ * invitation-only, issued from inside the admin console, so an audit log can
+ * still stand behind every account above student.
  */
 export default function ForCollegesPage() {
   return (
@@ -23,21 +26,21 @@ export default function ForCollegesPage() {
         <div className="max-w-[620px]">
           <div className="mb-[18px] flex flex-wrap gap-2">
             <Tag tone="accent">For colleges</Tag>
-            <Tag tone="neutral">Invite-only accounts</Tag>
+            <Tag tone="neutral">Register instantly — no approval queue</Tag>
           </div>
           <h1 className="mb-5 text-[40px] leading-[1] tracking-[-0.035em] sm:text-[56px]">
-            Run the whole fest
+            Register your event.
             <br />
-            from one place.
+            You&apos;re already in charge.
           </h1>
           <p className="mb-[26px] max-w-[520px] text-[16px] text-neutral-300 sm:text-[17px]">
-            Events with capacity and teams, a gate that works without signal, meal counts that cannot be double-served, results that turn into verifiable
-            certificates — and an audit trail behind every override.
+            The moment you register, you&apos;re its admin — build your team, open registrations, run the gate and meals offline, and publish results that turn
+            into verifiable certificates.
           </p>
           <div className="flex flex-wrap gap-2.5">
-            <a href="mailto:hello@plansphere.in?subject=Hosting%20a%20fest%20on%20Plansphere" className="btn btn-primary btn-lg">
-              Request an organizer account
-            </a>
+            <Link href="/register-event" className="btn btn-primary btn-lg">
+              Register Your Event
+            </Link>
             <Link href="/explore" className="btn btn-secondary btn-lg">
               See fests already running
             </Link>
@@ -77,22 +80,23 @@ export default function ForCollegesPage() {
         <div>
           <Kick className="mb-3">Who does what</Kick>
           <MetaList>
-            <MetaRow label="Super admin">Creates fests and organizer accounts. Plansphere staff, or your institution’s owner account.</MetaRow>
-            <MetaRow label="Admin">Runs a fest: events, registrations, results, certificates, staff roster and settings.</MetaRow>
-            <MetaRow label="Organizer">The volunteer tier. Scans entry and meals at the posts they are rostered on — nothing more.</MetaRow>
-            <MetaRow label="Student">Registers, holds the pass, collects certificates. Self-serve sign-up.</MetaRow>
+            <MetaRow label="Platform super admin">Runs Plansphere itself. Not scoped to any one event — sees the whole platform.</MetaRow>
+            <MetaRow label="You, the Event Head">Register the event and you're its admin from that second — no request, no wait.</MetaRow>
+            <MetaRow label="Admin(s)">Whoever you add to run it with you — Registration, Sports, Cultural, Finance, however you split it.</MetaRow>
+            <MetaRow label="Volunteer(s)">Scans entry and meals, or runs the live scoreboard at the posts they're rostered on — nothing more.</MetaRow>
+            <MetaRow label="Student(s)">Registers, holds the pass, collects certificates. Self-serve sign-up.</MetaRow>
           </MetaList>
           <div className="mt-4 max-w-[52ch] text-[12.5px] text-neutral-500">
-            Staff accounts are created by invitation only. There is no public form that grants admin access, which is also why an audit log can stand
-            behind every action taken on your fest.
+            Registering is the one self-service step. Every account above it — more admins, volunteers — is invited from inside your own admin console, so
+            an audit log still stands behind every action taken on your event.
           </div>
         </div>
         <div>
           <Kick className="mb-3">Getting started</Kick>
           <Timeline>
-            <TimelineItem title={<><span className="text-neutral-500">Day 0 · </span>Write to us</>} meta="One email with the college, the fest name and dates, and who should own the account." />
-            <TimelineItem title={<><span className="text-neutral-500">Day 1 · </span>Your admin account arrives</>} meta="An invitation link sets the password. The fest is created for you, unpublished, with your organization details filled in." />
-            <TimelineItem title={<><span className="text-neutral-500">Same week · </span>Add events, invite staff</>} meta="Build the lineup, add co-admins and volunteers from the Staff page, and preview every event exactly as students will see it." />
+            <TimelineItem title={<><span className="text-neutral-500">Now · </span>Register your event</>} meta="Name it, pick its dates, say what it is. Takes minutes — nothing is reviewed before it goes live." />
+            <TimelineItem title={<><span className="text-neutral-500">Same second · </span>You're its admin</>} meta="No invitation link to wait on. The same account that registered the event now runs it." />
+            <TimelineItem title={<><span className="text-neutral-500">Same day · </span>Add events, invite your team</>} meta="Build the lineup, add other admins and volunteers from the Staff page, and preview every event exactly as students will see it." />
             <TimelineItem title={<><span className="text-neutral-500">Launch · </span>Publish</>} meta="The fest appears on Explore and registrations open on schedule. Live counts are on your dashboard from the first sign-up." />
           </Timeline>
         </div>

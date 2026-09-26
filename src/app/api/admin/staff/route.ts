@@ -1,4 +1,5 @@
-import { ROLE_LABELS, createStaffSchema, creatableRoles, generateStaffCode } from "@/core/models/user";
+import { ROLE_LABELS, createStaffSchema, generateStaffCode } from "@/core/models/user";
+import { creatableRoles, isFestOwner } from "@/core/permissions";
 import { ApiError, handler, ok, readBody, requirePermission, requireRole } from "@/server/api";
 import { RATE_LIMITS } from "@/server/rate-limit";
 import { COLLECTIONS, FieldValue, adminAuth, adminDb } from "@/server/firebase-admin";
@@ -12,14 +13,17 @@ import { staffInviteEmail } from "@/server/email/templates";
 /**
  * Invite-only staff accounts.
  *
- * This route is the *only* place a role above `student` is ever granted.
- * Everything else reads the role from the Auth token's custom claim, and the
- * Firestore rules refuse any client write that touches `role` — so an account
- * can only become a volunteer, admin or super admin by passing through here.
+ * This route grants a role above `student` to *someone else's* account. The
+ * one other place a role is ever granted is `POST /api/register-event`,
+ * which promotes the caller's *own* account to admin, scoped to the event
+ * they just registered — self-elevation, not an invitation. Everything else
+ * reads the role from the Auth token's custom claim, and the Firestore rules
+ * refuse any client write that touches `role`.
  *
  * Who may create whom comes from `creatableRoles()` in the permission matrix:
  * a super admin creates any role, an admin creates volunteers for the fests
- * they manage, nobody else gets here.
+ * they manage, and an admin who owns a fest (registered it — `Fest.ownerId`)
+ * may also create admins for that one fest. Nobody else gets here.
  */
 
 /**
@@ -33,16 +37,32 @@ import { staffInviteEmail } from "@/server/email/templates";
 export const POST = handler(async (request) => {
   const caller = await requirePermission(request, "staff:createVolunteer");
   const input = await readBody(request, createStaffSchema);
+  const db = adminDb();
 
-  if (!creatableRoles(caller.role).includes(input.role)) {
+  // A plain admin may also create other admins, but only for a fest they
+  // themselves own — the account that registered it through self-service
+  // (Fest.ownerId). Checked before deciding what they may create.
+  let isOwnerOfAllTargets = false;
+  if (caller.role === "admin" && input.role === "admin" && input.festIds.length > 0) {
+    const ownershipChecks = await Promise.all(
+      input.festIds.map(async (festId) => {
+        const fest = await db.collection(COLLECTIONS.fests).doc(festId).get();
+        return fest.exists && isFestOwner(caller.uid, fest.data() as { ownerId?: string });
+      }),
+    );
+    isOwnerOfAllTargets = ownershipChecks.every(Boolean);
+  }
+
+  if (!creatableRoles(caller.role, isOwnerOfAllTargets).includes(input.role)) {
     throw ApiError.forbidden(
       input.role === "volunteer"
         ? "You cannot create staff accounts."
-        : "Only a super admin can create admin or super admin accounts.",
+        : "Only a super admin, or the account that registered this fest, can create admin accounts for it.",
     );
   }
 
-  // An admin may only hand out access to fests they themselves manage.
+  // An admin may only hand out access to fests they themselves manage — an
+  // owner already has their own fest in scope from registering it.
   for (const festId of input.festIds) {
     if (!caller.festIds.includes(festId) && caller.role !== "super_admin") {
       throw ApiError.forbidden("You do not manage that fest.");
@@ -50,7 +70,6 @@ export const POST = handler(async (request) => {
   }
 
   const auth = adminAuth();
-  const db = adminDb();
 
   // Reject an address that already has an account rather than silently
   // upgrading it: promoting an existing student is a different, deliberate
