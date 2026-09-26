@@ -84,8 +84,9 @@ describe("authorization", () => {
   });
 
   it("rejects a body missing a required step-3 field", async () => {
-    const { eventHead: _eventHead, ...rest } = validBody("Missing Event Head");
-    const res = await callRoute(registerEvent, { method: "POST", path: "/api/register-event", token: student.idToken, body: rest });
+    const body: Record<string, unknown> = validBody("Missing Event Head");
+    delete body.eventHead;
+    const res = await callRoute(registerEvent, { method: "POST", path: "/api/register-event", token: student.idToken, body });
     expect(res.status).toBe(400);
   });
 });
