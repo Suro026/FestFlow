@@ -13,9 +13,14 @@ import { audit } from "@/server/audit";
  * account create a fest, not just a super admin.
  *
  * `POST /api/admin/fests` (super admin only) still exists for platform staff.
- * This route is additive: an Event Head signs in (or creates an account) and
- * registers their event directly, no invitation, no approval queue. In the
- * same request:
+ * This route is additive: an Event Head signs in (or creates an account),
+ * fills the three-step wizard (organization, event, themselves), and
+ * registers their event directly — no invitation, no approval queue, no
+ * pending state. Everything the wizard collects lands on the `Fest`
+ * document in this same request (see `registerEventSchema` and the field
+ * comments on `Fest` in `core/models/fest.ts`); there is nothing left to
+ * fill in from a "pending registrations" screen because there is no such
+ * screen. In the same request:
  *
  *  1. The fest is created with `ownerId` set to the caller — the field
  *     already existed on `Fest` for exactly this ("the admin accountable for
@@ -73,15 +78,18 @@ export const POST = handler(async (request) => {
       name: input.name,
       slug,
       description: input.description,
-      // Placeholders the Event Head fills in from fest settings afterwards —
-      // the registration form asks only what a first-time visitor actually
-      // knows, not the full fest-settings surface.
-      organizationName: input.name,
-      venue: "To be announced",
-      city: "To be announced",
+      organizationName: input.organizationName,
+      organizationType: input.organizationType,
+      organizationWebsite: input.organizationWebsite,
+      contactEmail: input.contactEmail,
+      venue: input.venue,
+      city: input.city,
+      state: input.state,
       startDate: input.startDate,
       endDate: input.endDate,
       festType: input.festType,
+      expectedParticipants: input.expectedParticipants,
+      eventHead: input.eventHead,
       status: "draft",
       visibility: "public",
       registrationState: "upcoming",
@@ -117,7 +125,7 @@ export const POST = handler(async (request) => {
     festId: ref.id,
     subjectType: "fest",
     subjectId: ref.id,
-    details: { slug, festType: input.festType },
+    details: { slug, festType: input.festType, organizationName: input.organizationName, organizationType: input.organizationType },
   });
 
   const created = await ref.get();

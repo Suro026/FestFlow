@@ -15,11 +15,28 @@ let scopedAdmin: TestUser;
 let superAdmin: TestUser;
 
 const validBody = (name: string) => ({
+  // Step 1 — organization
+  organizationName: "Test Institute of Technology",
+  organizationType: "college" as const,
+  organizationWebsite: "https://test-institute.edu",
+  contactEmail: "events@test-institute.edu",
+  city: "Chennai",
+  state: "Tamil Nadu",
+  // Step 2 — event
   name,
   description: "A three-day tech and culture fest.",
   festType: "tech" as const,
   startDate: "2026-11-01",
   endDate: "2026-11-03",
+  venue: "Main campus",
+  expectedParticipants: 500,
+  // Step 3 — event head
+  eventHead: {
+    name: "Meena R. Kumar",
+    designation: "Cultural Secretary",
+    phone: "+919000000000",
+    linkedin: "https://linkedin.com/in/meena-kumar",
+  },
 });
 
 beforeAll(async () => {
@@ -61,8 +78,14 @@ describe("authorization", () => {
     expect(res.status).toBe(401);
   });
 
-  it("rejects an invalid body", async () => {
+  it("rejects an empty body", async () => {
     const res = await callRoute(registerEvent, { method: "POST", path: "/api/register-event", token: student.idToken, body: { name: "" } });
+    expect(res.status).toBe(400);
+  });
+
+  it("rejects a body missing a required step-3 field", async () => {
+    const { eventHead: _eventHead, ...rest } = validBody("Missing Event Head");
+    const res = await callRoute(registerEvent, { method: "POST", path: "/api/register-event", token: student.idToken, body: rest });
     expect(res.status).toBe(400);
   });
 });
@@ -79,6 +102,26 @@ describe("a plain student registers an event", () => {
     const userDoc = await adminDb().collection(COLLECTIONS.users).doc(student.uid).get();
     expect(userDoc.data()?.role).toBe("admin");
     expect(userDoc.data()?.festIds).toEqual([res.body.fest.id]);
+  });
+
+  it("stores every wizard field on the fest document, with no verification or pending status", async () => {
+    const res = await callRoute(registerEvent, { method: "POST", path: "/api/register-event", token: student.idToken, body: validBody("Full Wizard Fest") });
+    expect(res.status).toBe(201);
+    const fest = res.body.fest;
+    expect(fest.organizationName).toBe("Test Institute of Technology");
+    expect(fest.organizationType).toBe("college");
+    expect(fest.organizationWebsite).toBe("https://test-institute.edu");
+    expect(fest.contactEmail).toBe("events@test-institute.edu");
+    expect(fest.city).toBe("Chennai");
+    expect(fest.state).toBe("Tamil Nadu");
+    expect(fest.venue).toBe("Main campus");
+    expect(fest.expectedParticipants).toBe(500);
+    expect(fest.eventHead).toMatchObject({ name: "Meena R. Kumar", designation: "Cultural Secretary", phone: "+919000000000" });
+    // Instant, no moderation: nothing marks this as pending or unverified.
+    expect(fest.status).toBe("draft");
+    expect(fest).not.toHaveProperty("verified");
+    expect(fest).not.toHaveProperty("approvalStatus");
+    expect(fest).not.toHaveProperty("pendingReview");
   });
 
   it("auto-suffixes a slug collision", async () => {

@@ -146,6 +146,18 @@ describe("authorization", () => {
     expect(String(ok.body.path)).toMatch(new RegExp(`^users/${student.uid}/photo/[0-9a-f-]{36}\\.png$`));
   });
 
+  it("an event head identity upload accepts either an image or a PDF, for any signed-in account", async () => {
+    const imageUpload = await send(student, "kind=eventHeadIdentity", { bytes: await png(), name: "id.png", type: "image/png" });
+    expect(imageUpload.status).toBe(201);
+    expect(imageUpload.body.bucket).toBe("uploads");
+    expect(String(imageUpload.body.path)).toMatch(new RegExp(`^users/${student.uid}/identity/[0-9a-f-]{36}\\.png$`));
+
+    const pdfUpload = await send(student, "kind=eventHeadIdentity", { bytes: Buffer.from("%PDF-1.4\n%authorization letter\n"), name: "letter.pdf", type: "application/pdf" });
+    expect(pdfUpload.status).toBe(201);
+    expect(pdfUpload.body.contentType).toBe("application/pdf");
+    expect(String(pdfUpload.body.path)).toMatch(new RegExp(`^users/${student.uid}/identity/[0-9a-f-]{36}\\.pdf$`));
+  });
+
   it("rejects unknown kinds, missing ids and ids that could traverse", async () => {
     const file = { bytes: await png(), name: "x.png", type: "image/png" };
     expect((await send(admin, "kind=anything&id=fest1", file)).status).toBe(400);
