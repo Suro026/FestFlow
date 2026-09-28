@@ -23,7 +23,6 @@ import {
   type RegisterEventInput,
 } from "@/core/models/fest";
 import { api, apiUpload, ApiClientError } from "@/data/api-client";
-import { firebaseAuth } from "@/data/firebase/client";
 
 /**
  * The self-service onboarding page: `POST /api/register-event` creates the
@@ -109,6 +108,7 @@ const StepIndicator = ({ step }: { step: Step }) => (
 
 const RegisterEventWizard = () => {
   const router = useRouter();
+  const { auth } = useAuth();
   const [step, setStep] = React.useState<Step>(1);
   const [uploading, setUploading] = React.useState(false);
   const [idCardName, setIdCardName] = React.useState<string | null>(null);
@@ -181,7 +181,7 @@ const RegisterEventWizard = () => {
       // browser is holding still says the old role until refreshed. Without
       // this, the very next authenticated call — loading the admin console —
       // would see the caller as they were a moment ago, not as they are now.
-      await firebaseAuth().currentUser?.getIdToken(true);
+      await auth.getIdToken(true);
 
       toast.success(`${fest.name} is registered — you're its admin`);
       router.push(`/admin/${fest.slug}/overview`);

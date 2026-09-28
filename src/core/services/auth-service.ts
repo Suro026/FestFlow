@@ -79,5 +79,5 @@ export interface AuthService {
   applyEmailVerification(code: string): Promise<void>;
 
   /** Fresh ID token for calling the app's own API. */
-  getIdToken(): Promise<string | null>;
+  getIdToken(forceRefresh?: boolean): Promise<string | null>;
 }

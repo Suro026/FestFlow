@@ -226,9 +226,9 @@ export class FirebaseAuthService implements AuthService {
     }
   }
 
-  async getIdToken(): Promise<string | null> {
+  async getIdToken(forceRefresh?: boolean): Promise<string | null> {
     const user = firebaseAuth().currentUser;
-    return user ? user.getIdToken() : null;
+    return user ? user.getIdToken(forceRefresh) : null;
   }
 }
 
