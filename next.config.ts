@@ -47,6 +47,13 @@ const nextConfig: NextConfig = {
   eslint: {
     dirs: ["src", "tests"],
   },
+  experimental: {
+    // 23 files import icons from the package's barrel ("@phosphor-icons/react"
+    // itself, not a per-icon path) — this rewrites those to per-icon imports
+    // at build time so only the icons actually used are bundled, without
+    // touching any of those 23 files.
+    optimizePackageImports: ["@phosphor-icons/react"],
+  },
   images: {
     formats: ["image/avif", "image/webp"],
     remotePatterns: [
