@@ -1,9 +1,13 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { ImageResponse } from "next/og";
 import { SITE } from "@/lib/site";
 
 export const alt = `${SITE.name} — ${SITE.tagline}`;
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
+
+const iconMark = readFileSync(join(process.cwd(), "public", "icon-mark.png")).toString("base64");
 
 /** The default social card: dark ground, blurple accent, the tagline. */
 export default function OpenGraphImage() {
@@ -23,9 +27,7 @@ export default function OpenGraphImage() {
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: 18 }}>
-          <div style={{ width: 56, height: 56, borderRadius: 14, background: "#9184d9", display: "flex", alignItems: "center", justifyContent: "center", color: "#161826", fontSize: 34, fontWeight: 700 }}>
-            F
-          </div>
+          <img src={`data:image/png;base64,${iconMark}`} width={56} height={56} alt="" />
           <div style={{ fontSize: 30, fontWeight: 600, letterSpacing: -0.5 }}>{SITE.name}</div>
           <div style={{ marginLeft: "auto", fontSize: 22, color: "#9397ab" }}>plansphere.in</div>
         </div>

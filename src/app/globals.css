@@ -407,7 +407,7 @@
   }
   .nav-brand {
     font-weight: var(--font-heading-weight); font-size: 18px; margin-right: auto;
-    color: inherit; text-decoration: none; display: inline-flex; align-items: baseline; gap: 6px;
+    color: inherit; text-decoration: none; display: inline-flex; align-items: center; gap: 8px;
   }
   .nav-role { font-size: 11px; color: var(--color-neutral-500); letter-spacing: 0.06em; }
   .nav a, .nav-link {

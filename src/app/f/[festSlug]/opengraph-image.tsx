@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { ImageResponse } from "next/og";
 import { repositories } from "@/data/repositories";
 import { formatDateRange } from "@/lib/utils";
@@ -5,6 +7,8 @@ import { formatDateRange } from "@/lib/utils";
 export const alt = "Fest on Plansphere";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
+
+const iconMark = readFileSync(join(process.cwd(), "public", "icon-mark.png")).toString("base64");
 
 /** A fest's social card: name, college, dates, live counts. */
 export default async function FestOpenGraphImage({ params }: { params: Promise<{ festSlug: string }> }) {
@@ -32,9 +36,7 @@ export default async function FestOpenGraphImage({ params }: { params: Promise<{
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: 14, fontSize: 24, color: "#9397ab" }}>
-          <div style={{ width: 40, height: 40, borderRadius: 10, background: "#9184d9", display: "flex", alignItems: "center", justifyContent: "center", color: "#161826", fontSize: 24, fontWeight: 700 }}>
-            F
-          </div>
+          <img src={`data:image/png;base64,${iconMark}`} width={40} height={40} alt="" />
           Plansphere · plansphere.in
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>

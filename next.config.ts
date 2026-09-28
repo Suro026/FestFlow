@@ -53,6 +53,10 @@ const nextConfig: NextConfig = {
     // at build time so only the icons actually used are bundled, without
     // touching any of those 23 files.
     optimizePackageImports: ["@phosphor-icons/react"],
+    // Inlines the CSS a route actually needs into the HTML and loads the rest
+    // async, instead of one render-blocking <link> for the whole stylesheet.
+    // CSP already allows 'unsafe-inline' style-src, which this relies on.
+    optimizeCss: true,
   },
   images: {
     formats: ["image/avif", "image/webp"],
