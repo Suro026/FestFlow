@@ -67,7 +67,6 @@
     "@types/react": "^19.1.0",
     "@types/react-dom": "^19.1.0",
     "@vitejs/plugin-react": "^5.2.0",
-    "critters": "^0.0.25",
     "eslint": "^9.32.0",
     "eslint-config-next": "15.5.25",
     "fake-indexeddb": "^6.2.5",
