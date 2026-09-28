@@ -1,23 +1,150 @@
-# Plansphere
+<p align="center">
+  <img src="public/logo.png" alt="Plansphere" width="360">
+</p>
 
-Multi-fest campus event platform — registrations, QR tickets, gate and meal
-scanning, results and publicly verifiable certificates, and live tournaments
-with sport-specific scoring and public scoreboards. Web today, Expo app
+<p align="center">
+  <b>Every fest. One pass.</b><br>
+  One platform for a college to run a fest, and one pass for a student to get through it.
+</p>
+
+<p align="center">
+  <a href="https://github.com/Suro026/FestFlow/actions/workflows/ci.yml"><img src="https://github.com/Suro026/FestFlow/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <img src="https://img.shields.io/badge/Next.js-15-black?logo=next.js" alt="Next.js 15">
+  <img src="https://img.shields.io/badge/React-19-149eca?logo=react" alt="React 19">
+  <img src="https://img.shields.io/badge/TypeScript-strict-3178c6?logo=typescript" alt="TypeScript">
+  <img src="https://img.shields.io/badge/Tailwind_CSS-v4-38bdf8?logo=tailwindcss" alt="Tailwind CSS v4">
+  <img src="https://img.shields.io/badge/Firebase-Auth%20%2B%20Firestore-ffca28?logo=firebase" alt="Firebase">
+</p>
+
+Registrations, QR tickets, gate and meal scanning, results and publicly
+verifiable certificates, and live tournaments with sport-specific scoring
+and public scoreboards — all from one Next.js app. Web today; an Expo app is
 next, sharing the same Firestore collections and the same `src/core`.
 
-An event can turn on **live mode** (`Event.liveEnabled`) to become a
-tournament: a bracket generated from confirmed entries (`core/services/
-bracket.ts`), matches scored by a per-sport engine
-(`core/services/scoring/*`) that a volunteer runs from `/volunteer/live`
-scoped to the arena their shift assigns them to, and a public scoreboard at
-`/live` with no account needed. See `src/core/models/match.ts` for the
-shapes and `src/app/api/volunteer/matches/[id]/action/route.ts` for the one
-route every live-scoring action goes through.
+<p align="center">
+  <img src="docs/screenshots/hero.png" alt="Plansphere landing page" width="49%">
+  <img src="docs/screenshots/explore.png" alt="Browsing fests on /explore" width="49%">
+</p>
 
-**Stack:** Next.js 15 (App Router) · React 19 · TypeScript · Tailwind CSS v4 ·
-Firebase Auth + Firestore · Supabase Storage · Zod · react-query.
+## Contents
 
-## Layout
+- [What it does](#what-it-does)
+- [User guide](#user-guide)
+  - [Anyone, no account](#anyone-no-account)
+  - [Students](#students)
+  - [Event Heads — putting your fest on Plansphere](#event-heads--putting-your-fest-on-plansphere)
+  - [Super Admins](#super-admins)
+  - [Admins](#admins)
+  - [Volunteers](#volunteers)
+- [Live tournaments](#live-tournaments)
+- [Architecture](#architecture)
+- [Run locally](#run-locally)
+- [Deploy (Vercel)](#deploy-vercel)
+- [Security model](#security-model-in-one-paragraph)
+- [Further reading](#further-reading)
+
+## What it does
+
+A college registers its fest once and gets, for free: a public event page,
+a registration form per event (solo or team), QR tickets, offline-capable
+gate and meal scanning, a volunteer roster with shifts, live results,
+auto-generated certificates anyone can verify by number, and analytics —
+all under one roof, with no spreadsheets stitching it together.
+
+**Stack:** Next.js 15 (App Router) · React 19 · TypeScript · Tailwind CSS v4
+· Firebase Auth + Firestore · Supabase Storage · Zod · React Query.
+
+## User guide
+
+Plansphere has one sign-in for everyone; what you can do depends on your
+role. Authority flows one way — from the person who registered the event
+down:
+
+```
+Event Head  →  Super Admin  →  Admin  →  Volunteer
+(the same person, the moment      (created by     (rostered by
+ registration finishes)            Super Admin)     Admin, by shift)
+```
+
+Students sit outside that chain — they explore, register, and attend.
+
+### Anyone, no account
+
+| Page | What's there |
+|---|---|
+| [`/explore`](src/app/explore/page.tsx) | Every published fest — search by name, college or venue, filter by city and date |
+| `/f/[festSlug]` | A fest's public page: schedule, venue, events |
+| `/f/[festSlug]/e/[eventSlug]` | One event's details, and where registration happens |
+| [`/live`](src/app/live/page.tsx) | Every fest currently in live-scoring mode, scoreboards updating in real time |
+| [`/verify`](src/app/verify/page.tsx) | Look up any certificate by its number — no login, so an employer or another college can check it |
+| [`/for-colleges`](src/app/for-colleges/page.tsx) | The pitch, for a college deciding whether to run their fest here |
+
+### Students
+
+1. **Create an account** — [`/create-account`](<src/app/(auth)/create-account/page.tsx>) with a college email, or sign in at [`/sign-in`](<src/app/(auth)/sign-in/page.tsx>).
+2. **Find something to register for** — browse [`/explore`](src/app/explore/page.tsx) or open a fest link someone shared, then open an event and register (solo, or as a team — the form adapts to what the event needs).
+3. **Carry your pass** — [`/my-pass`](<src/app/(student)/my-pass/page.tsx>) is your QR ticket, working offline; gate and meal staff scan the same code.
+4. **Track everything** — [`/my-registrations`](<src/app/(student)/my-registrations/page.tsx>) and [`/my-events`](<src/app/(student)/my-events/page.tsx>) list what you've signed up for; [`/teams`](<src/app/(student)/teams/page.tsx>) manages a team roster if the event needs one.
+5. **After it's over** — [`/certificates`](<src/app/(student)/certificates/page.tsx>) has every certificate you've earned, each independently checkable at `/verify` by its number — you can hand the number to anyone without sharing an account.
+
+### Event Heads — putting your fest on Plansphere
+
+There's no approval queue. [`/register-event`](src/app/register-event/page.tsx)
+is a three-step form — **Organization → Event → Event Head** — and the moment
+you submit it, the fest exists and you're its **Super Admin**. From there
+you're in the admin console at `/admin/[festSlug]`, building your team and
+opening registrations.
+
+### Super Admins
+
+The Event Head's own role, or anyone they hand it to. On top of everything
+an Admin can do:
+
+- **Build the admin team** — [`/admin/[festSlug]/staff`](<src/app/admin/[festSlug]/staff/page.tsx>) creates Admin accounts (and other Super Admins) for this one fest.
+- **Fest-wide settings** — [`/admin/[festSlug]/settings`](<src/app/admin/[festSlug]/settings/page.tsx>) and [`/admin/[festSlug]/arenas`](<src/app/admin/[festSlug]/arenas/page.tsx>) (the physical spaces live matches run in).
+- **Cross-fest view** — if a Super Admin runs more than one fest, [`/admin/fests`](src/app/admin/fests/page.tsx) lists them all.
+
+### Admins
+
+The day-to-day operators of one fest, from `/admin/[festSlug]`:
+
+| Page | What it's for |
+|---|---|
+| [`overview`](<src/app/admin/[festSlug]/overview/page.tsx>) | The dashboard: registrations, check-ins, revenue, today's events |
+| [`events`](<src/app/admin/[festSlug]/events/page.tsx>) | Create and edit events — rules, capacity, fees, schedule, gates, meal slots |
+| [`registrations`](<src/app/admin/[festSlug]/registrations/page.tsx>) | Every registration, exportable, with the audit trail |
+| [`volunteers`](<src/app/admin/[festSlug]/volunteers/page.tsx>) | Roster volunteers onto shifts and posts |
+| [`gate`](<src/app/admin/[festSlug]/gate/page.tsx>) | Live throughput at the doors — check-ins today, who's scanning where |
+| [`certificates`](<src/app/admin/[festSlug]/certificates/page.tsx>) | The four-stage pipeline: results published → eligible participants → generate → email & verification |
+| [`analytics`](<src/app/admin/[festSlug]/analytics/page.tsx>) | Registrations, attendance and certificate stats over time |
+
+Publishing results and issuing certificates are one-way, audited actions —
+see [Security model](#security-model-in-one-paragraph) for why those go
+through the server rather than a direct database write.
+
+### Volunteers
+
+Not a separate account type — an Admin rosters an existing account onto a
+shift and post from `/admin/[festSlug]/volunteers`. From then on:
+
+- **[`/volunteer/[festSlug]`](<src/app/volunteer/[festSlug]/page.tsx>)** — your shifts, your post, what's next.
+- **[`/scan`](src/app/scan/page.tsx)** — the gate/meal scanner. Works offline: it preloads the event roster, validates locally, queues scans, and syncs when back online. A second scan for the same ticket is refused, never double-counted.
+- **[`/volunteer/live`](src/app/volunteer/live/page.tsx)** — if the shift is scoring a live match, this is where a result gets entered (see below).
+
+## Live tournaments
+
+Any event can turn on **live mode** (`Event.liveEnabled`) and become a
+scored tournament instead of just an attendance list:
+
+1. A bracket is generated from confirmed entries ([`core/services/bracket.ts`](src/core/services/bracket.ts)).
+2. A volunteer scoped to an arena scores matches from [`/volunteer/[festSlug]/live`](<src/app/volunteer/[festSlug]/live/page.tsx>), through a per-sport scoring engine ([`core/services/scoring/*`](src/core/services/scoring)).
+3. Anyone can watch it live at [`/live/[eventId]`](<src/app/live/[eventId]/page.tsx>) — no account needed.
+
+Every scoring action goes through the one route in
+[`app/api/volunteer/matches/[id]/action/route.ts`](<src/app/api/volunteer/matches/[id]/action/route.ts>);
+the shapes are in [`core/models/match.ts`](src/core/models/match.ts).
+
+## Architecture
 
 ```
 src/
@@ -141,3 +268,9 @@ directly and write only what the rules allow; anything that must be atomic
 or privileged — registration with capacity, results, certificates, staff —
 goes through `app/api`, where `requireRole` verifies the token with
 revocation checking and re-reads the account's `disabled` flag on every call.
+
+## Further reading
+
+- [`FRONTEND_FEATURES.md`](FRONTEND_FEATURES.md) — a page-by-page inventory of what's built
+- [`LAUNCH_AUDIT.md`](LAUNCH_AUDIT.md) — launch-readiness audit, with file-level evidence for every item
+- [`docs/SECURITY-ENV.md`](docs/SECURITY-ENV.md) — secrets handling and the dependency overrides in `package.json`
