@@ -4,11 +4,12 @@ import { withSentryConfig } from "@sentry/nextjs";
 /**
  * Security headers on every response.
  *
- * HSTS is preload-grade (two years, subdomains). The CSP is report-only
- * here to start with: Next's inline runtime, Firebase's endpoints and the
- * reCAPTCHA/Sentry scripts each need an allowance, and a wrong entry blocks
- * the app for everyone — so the policy ships observing first and is
- * switched to enforcing once the report stream is clean.
+ * HSTS is preload-grade (two years, subdomains). The CSP is enforcing:
+ * every directive below already covers what the app actually loads — Next's
+ * inline runtime, Firebase's endpoints, Supabase Storage, the
+ * reCAPTCHA/Sentry/Vercel scripts — so a legitimate request is never
+ * blocked. Widen this list (never with a wildcard host) before adding a new
+ * third-party script or API, not after something breaks in production.
  */
 const csp = [
   "default-src 'self'",
@@ -37,7 +38,7 @@ const securityHeaders = [
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
   { key: "Permissions-Policy", value: "camera=(self), microphone=(), geolocation=(), payment=(), usb=(), browsing-topics=()" },
   { key: "X-DNS-Prefetch-Control", value: "on" },
-  { key: "Content-Security-Policy-Report-Only", value: csp },
+  { key: "Content-Security-Policy", value: csp },
 ];
 
 const nextConfig: NextConfig = {
