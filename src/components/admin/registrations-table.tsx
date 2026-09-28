@@ -11,7 +11,6 @@ import { RepositoryError } from "@/core/models/common";
 import { hasAtLeast } from "@/core/models/user";
 import { useAuth, useRepositories } from "@/components/providers";
 import { useFest } from "@/components/shell/admin-shell";
-import { firebaseAuth } from "@/data/firebase/client";
 import { useFestAudit } from "./hooks";
 import { Input } from "@/components/ui/field";
 import { Button } from "@/components/ui/button";
@@ -46,7 +45,7 @@ const statusTag = (r: Registration, att?: Attendance) => {
 
 
 export const RegistrationsTable = ({ registrations, attendance, events, event, loading }: RegistrationsTableProps) => {
-  const { session } = useAuth();
+  const { session, auth } = useAuth();
   const repos = useRepositories();
   const { fest } = useFest();
   const [search, setSearch] = React.useState("");
@@ -112,7 +111,7 @@ export const RegistrationsTable = ({ registrations, attendance, events, event, l
       else if (filter === "cancelled") params.set("status", "cancelled");
       if (collegeFilter.trim()) params.set("college", collegeFilter.trim());
 
-      const token = await firebaseAuth().currentUser?.getIdToken();
+      const token = await auth.getIdToken();
       const res = await fetch(`/api/admin/registrations/export?${params.toString()}`, {
         headers: token ? { authorization: `Bearer ${token}` } : {},
       });

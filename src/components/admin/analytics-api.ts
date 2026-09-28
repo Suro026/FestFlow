@@ -2,8 +2,6 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/data/api-client";
-import { firebaseAuth } from "@/data/firebase/client";
-import { appCheckToken } from "@/data/firebase/app-check";
 import type { AuditAction, AuditEntry } from "@/core/models/audit";
 
 /**
@@ -144,6 +142,10 @@ export const downloadAnalyticsExport = async (
   if (params.from) search.set("from", params.from.toISOString());
   if (params.to) search.set("to", params.to.toISOString());
 
+  // Dynamically imported: this module is pulled in by every admin analytics
+  // screen, and a click-triggered export can afford one extra chunk fetch
+  // rather than putting the Firebase client SDK on those screens' first load.
+  const [{ firebaseAuth }, { appCheckToken }] = await Promise.all([import("@/data/firebase/client"), import("@/data/firebase/app-check")]);
   const user = firebaseAuth().currentUser;
   const token = await user?.getIdToken();
   const attestation = await appCheckToken();

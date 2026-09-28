@@ -1,5 +1,3 @@
-import { firebaseAuth } from "@/data/firebase/client";
-import { appCheckToken } from "@/data/firebase/app-check";
 import { RepositoryError, type RepositoryErrorCode } from "@/core/models/common";
 
 /**
@@ -10,7 +8,23 @@ import { RepositoryError, type RepositoryErrorCode } from "@/core/models/common"
  * generating certificates. From a screen's point of view these are ordinary
  * repository methods; that they cross an HTTP boundary is an implementation
  * detail, which is what lets the Expo app call the very same endpoints.
+ *
+ * `firebaseAuth`/`appCheckToken` are dynamically imported rather than
+ * imported at the top: this module is pulled in from ~24 files across every
+ * area of the app (any form, any mutation), so a static import here would put
+ * the Firebase client SDK on the first-load JS of every page that has so much
+ * as a sign-in form, whether or not a call has actually been made yet.
  */
+let firebaseClientPromise: Promise<typeof import("@/data/firebase/client")> | null = null;
+const loadFirebaseClient = () => {
+  if (!firebaseClientPromise) firebaseClientPromise = import("@/data/firebase/client");
+  return firebaseClientPromise;
+};
+let appCheckPromise: Promise<typeof import("@/data/firebase/app-check")> | null = null;
+const loadAppCheck = () => {
+  if (!appCheckPromise) appCheckPromise = import("@/data/firebase/app-check");
+  return appCheckPromise;
+};
 
 const STATUS_TO_CODE: Record<number, RepositoryErrorCode> = {
   400: "invalid-argument",
@@ -55,6 +69,7 @@ export const api = async <T>(
   if (body !== undefined) requestHeaders.set("Content-Type", "application/json");
 
   if (withAuth) {
+    const { firebaseAuth } = await loadFirebaseClient();
     const user = firebaseAuth().currentUser;
     if (!user) throw new RepositoryError("permission-denied", "Sign in to continue.");
     requestHeaders.set("Authorization", `Bearer ${await user.getIdToken()}`);
@@ -62,6 +77,7 @@ export const api = async <T>(
 
   // App Check proves the call came from the real app; absent when App Check
   // is not configured, in which case the server monitors rather than refuses.
+  const { appCheckToken } = await loadAppCheck();
   const attestation = await appCheckToken();
   if (attestation) requestHeaders.set("X-Firebase-AppCheck", attestation);
 
@@ -104,6 +120,7 @@ export const api = async <T>(
  * `api()`, but the body is FormData and the browser sets the boundary.
  */
 export const apiUpload = async <T>(path: string, file: File, field = "file"): Promise<T> => {
+  const [{ firebaseAuth }, { appCheckToken }] = await Promise.all([loadFirebaseClient(), loadAppCheck()]);
   const user = firebaseAuth().currentUser;
   if (!user) throw new RepositoryError("permission-denied", "Sign in to continue.");
   const headers = new Headers({ Authorization: `Bearer ${await user.getIdToken()}` });
