@@ -1,10 +1,9 @@
 import Link from "next/link";
+import { Suspense } from "react";
 import type { Metadata } from "next";
-import { repositories } from "@/data/repositories";
 import { PublicFooter, PublicNav } from "@/components/shell/public-nav";
-import { FestCard } from "@/components/fest/fest-card";
-import { EmptyState, HeroField, Kick, Kpi, KpiStrip, MetaList, MetaRow, Tag } from "@/components/ui/primitives";
-import { formatCount } from "@/lib/utils";
+import { HeroField, Kick, MetaList, MetaRow, Skeleton, Tag } from "@/components/ui/primitives";
+import HomeStats from "./_home-stats";
 
 /** The event lifecycle, in the order it actually happens. */
 const LIFECYCLE = [
@@ -29,22 +28,36 @@ export const metadata: Metadata = {
 // Public data; a minute of staleness is fine and keeps Firestore reads low.
 export const revalidate = 60;
 
+/** Matches HomeStats's real layout closely enough that nothing jumps when it swaps in. */
+const HomeStatsFallback = () => (
+  <>
+    <Skeleton className="mx-auto h-20 w-full max-w-[1180px]" />
+    <div className="mx-auto w-full max-w-[1180px] px-[18px] pb-5 pt-[30px] sm:px-6 lg:px-10">
+      <div className="grid grid-cols-1 gap-[18px] sm:grid-cols-2 lg:grid-cols-3">
+        <Skeleton className="h-40" />
+        <Skeleton className="h-40" />
+        <Skeleton className="h-40" />
+      </div>
+    </div>
+  </>
+);
+
 /**
  * The landing page — 4a in the canvas. The one place the system allows a
  * full-bleed photograph and a headline at 76px.
+ *
+ * This component has no `await` of its own on purpose: it used to fetch
+ * `fests` at the top before returning any JSX, which meant the *entire*
+ * page — hero, H1 and all — sat behind that one Firestore call and only
+ * reached the browser via `loading.tsx`'s streamed skeleton-then-swap.
+ * A real Lighthouse trace confirmed the H1 as the LCP element with LCP
+ * dominated by render delay, not image or font load — exactly what a
+ * streamed swap looks like. The stat band and "Happening now" cards are
+ * the only part that actually needs Firestore; they're isolated in
+ * `HomeStats` behind their own `<Suspense>` below, so the hero renders
+ * immediately as plain HTML instead of waiting on that boundary.
  */
-export default async function LandingPage() {
-  const repos = repositories();
-
-  const fests = await repos.fests.listPublished().catch(() => []);
-  const today = new Date().toISOString().slice(0, 10);
-  const live = fests.filter((f) => f.startDate <= today && f.endDate >= today);
-  const happening = [...live, ...fests.filter((f) => f.startDate > today)].slice(0, 3);
-
-  const totalEvents = fests.reduce((a, f) => a + f.stats.events, 0);
-  const totalRegistrations = fests.reduce((a, f) => a + f.stats.registrations, 0);
-  const colleges = new Set(fests.map((f) => f.organizationName)).size;
-
+export default function LandingPage() {
   return (
     <div className="flex min-h-dvh flex-col">
       <PublicNav />
@@ -97,40 +110,9 @@ export default async function LandingPage() {
         ))}
       </section>
 
-      {/* Stat band */}
-      <KpiStrip className="mx-auto w-full max-w-[1180px]">
-        <Kpi value={formatCount(colleges)} label="Colleges hosting" />
-        <Kpi value={totalEvents ? `${formatCount(totalEvents)}${totalEvents >= 100 ? "+" : ""}` : "0"} label="Events run" />
-        <Kpi value={formatCount(totalRegistrations)} label="Registrations" />
-        <Kpi value="0" label="Spreadsheets required" />
-      </KpiStrip>
-
-      {/* Happening now */}
-      <section className="mx-auto w-full max-w-[1180px] px-[18px] pb-5 pt-[30px] sm:px-6 lg:px-10">
-        <div className="mb-4 flex items-center justify-between">
-          <h4>Happening now</h4>
-          <Link href="/explore" className="btn btn-ghost">
-            See all {fests.length}
-          </Link>
-        </div>
-        {happening.length ? (
-          <div className="grid grid-cols-1 gap-[18px] sm:grid-cols-2 lg:grid-cols-3">
-            {happening.map((fest) => (
-              <FestCard key={fest.id} fest={fest} />
-            ))}
-          </div>
-        ) : (
-          <EmptyState
-            title="No fests published yet"
-            body="When an Event Head registers the first one it appears here, with live registration and check-in counts."
-            action={
-              <Link href="/register-event" className="btn btn-primary">
-                Register the first one
-              </Link>
-            }
-          />
-        )}
-      </section>
+      <Suspense fallback={<HomeStatsFallback />}>
+        <HomeStats />
+      </Suspense>
 
       {/* Who does what */}
       <section className="mx-auto mt-[34px] w-full max-w-[1180px] border-t border-divider px-[18px] pb-[34px] pt-7 sm:px-6 lg:px-10">
