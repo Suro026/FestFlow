@@ -207,8 +207,8 @@ export const HeroField = ({ className, seed = 7 }: { className?: string; seed?: 
     <svg className={className} viewBox="0 0 1200 470" preserveAspectRatio="xMidYMid slice" aria-hidden focusable="false">
       <defs>
         <radialGradient id="hero-glow" cx="78%" cy="40%" r="60%">
-          <stop offset="0%" stopColor="var(--color-accent)" stopOpacity="0.28" />
-          <stop offset="60%" stopColor="var(--color-accent)" stopOpacity="0.06" />
+          <stop offset="0%" stopColor="var(--color-accent-fill)" stopOpacity="0.28" />
+          <stop offset="60%" stopColor="var(--color-accent-fill)" stopOpacity="0.06" />
           <stop offset="100%" stopColor="var(--color-bg)" stopOpacity="0" />
         </radialGradient>
         <linearGradient id="hero-fade" x1="0" y1="0" x2="0" y2="1">
@@ -219,7 +219,7 @@ export const HeroField = ({ className, seed = 7 }: { className?: string; seed?: 
       <rect width="1200" height="470" fill="var(--color-bg)" />
       <rect width="1200" height="470" fill="url(#hero-glow)" />
       {dots.map((d, i) => (
-        <circle key={i} cx={d.x} cy={d.y} r={d.r} fill="var(--color-accent)" opacity={d.o} />
+        <circle key={i} cx={d.x} cy={d.y} r={d.r} fill="var(--color-accent-fill)" opacity={d.o} />
       ))}
       <rect y="300" width="1200" height="170" fill="url(#hero-fade)" />
     </svg>

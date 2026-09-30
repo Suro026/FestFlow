@@ -8,8 +8,8 @@ import { ConsentSettingsLink } from "@/components/consent";
  * Same `.nav` as the student side; the difference is only which links show.
  */
 export const PublicNav = ({ active }: { active?: "fests" | "colleges" | "verify" | "live" }) => (
-  <header>
-    <nav className="nav mx-auto w-full max-w-[1180px] gap-[26px] px-[18px] py-4 sm:px-6 lg:px-10" aria-label="Primary">
+  <header className="sticky top-0 z-40 border-b border-divider bg-bg/85 backdrop-blur-md">
+    <nav className="nav mx-auto w-full max-w-[1180px] gap-[26px] px-[18px] py-4 sm:px-6 lg:px-10 lg:py-5" aria-label="Primary">
       <Brand href="/" />
       <Link href="/explore" aria-current={active === "fests" ? "page" : undefined}>
         Fests
@@ -30,27 +30,54 @@ export const PublicNav = ({ active }: { active?: "fests" | "colleges" | "verify"
   </header>
 );
 
+/** Muted tone tuned for text on the footer's ink background — see the
+ *  identical pattern in page.tsx for why the plain `text-neutral-*`
+ *  utilities (tuned for bone) can't be reused inside an inverted section. */
+const footerMuted = "text-[color:color-mix(in_srgb,var(--color-bg)_58%,transparent)]";
+const footerDivider = "border-[color:color-mix(in_srgb,var(--color-bg)_16%,transparent)]";
+
 export const PublicFooter = () => (
-  <footer className="mt-auto border-t border-divider">
-    <div className="mx-auto flex w-full max-w-[1180px] flex-wrap items-center justify-between gap-x-8 gap-y-3 px-[18px] py-6 text-[12.5px] text-neutral-500 sm:px-6 lg:px-10">
-      <span>© {new Date().getFullYear()} Plansphere</span>
-      <div className="flex flex-wrap gap-x-6 gap-y-2">
-        <Link href="/explore" className="text-inherit no-underline hover:text-accent">
-          Fests
+  <footer className="mt-auto bg-text text-bg">
+    <div className="mx-auto w-full max-w-[1180px] px-[18px] py-12 sm:px-6 lg:px-10 lg:py-[72px]">
+      <div className="flex flex-col items-start justify-between gap-9 lg:flex-row lg:items-end">
+        <Link href="/" className="inline-flex items-center gap-2.5 text-bg no-underline">
+          <span className="grid h-7 w-7 flex-none -rotate-[15deg] place-items-center rounded-full bg-accent-fill text-text">
+            <span className="rotate-[15deg] font-display text-[13px] font-medium">P</span>
+          </span>
+          <span className="font-display text-[16px] font-medium tracking-[-0.03em]">Plansphere</span>
         </Link>
-        <Link href="/for-colleges" className="text-inherit no-underline hover:text-accent">
-          For colleges
-        </Link>
-        <Link href="/verify" className="text-inherit no-underline hover:text-accent">
-          Verify a certificate
-        </Link>
-        <Link href="/privacy" className="text-inherit no-underline hover:text-accent">
-          Privacy
-        </Link>
-        <Link href="/terms" className="text-inherit no-underline hover:text-accent">
-          Terms
-        </Link>
-        <ConsentSettingsLink className="text-inherit hover:text-accent" />
+
+        <div className="font-display text-[26px] leading-[0.95] tracking-[-0.03em] sm:text-[32px]">
+          Create. Host.
+          <br />
+          Run every <em className="text-emphasis text-accent-fill">event.</em>
+        </div>
+
+        <div className={`flex flex-wrap gap-x-6 gap-y-2 text-[11.5px] uppercase tracking-[0.06em] ${footerMuted}`}>
+          <Link href="/explore" className="text-inherit no-underline transition-colors duration-150 hover:text-accent-fill">
+            Fests
+          </Link>
+          <Link href="/for-colleges" className="text-inherit no-underline transition-colors duration-150 hover:text-accent-fill">
+            For colleges
+          </Link>
+          <Link href="/verify" className="text-inherit no-underline transition-colors duration-150 hover:text-accent-fill">
+            Verify a certificate
+          </Link>
+          <Link href="/privacy" className="text-inherit no-underline transition-colors duration-150 hover:text-accent-fill">
+            Privacy
+          </Link>
+          <Link href="/terms" className="text-inherit no-underline transition-colors duration-150 hover:text-accent-fill">
+            Terms
+          </Link>
+          <ConsentSettingsLink className={`text-inherit transition-colors duration-150 hover:text-accent-fill`} />
+        </div>
+      </div>
+
+      <div className={`my-8 h-px w-full ${footerDivider} lg:my-10`} />
+
+      <div className={`flex flex-wrap items-center justify-between gap-3 text-[10px] uppercase tracking-[0.08em] ${footerMuted}`}>
+        <span>© {new Date().getFullYear()} Plansphere</span>
+        <span>India</span>
       </div>
     </div>
   </footer>
