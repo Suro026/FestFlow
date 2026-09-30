@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Inter } from "next/font/google";
+import { DM_Sans, Space_Grotesk } from "next/font/google";
 import { Providers } from "@/components/providers";
 import { ConsentProvider } from "@/components/consent";
 import { SITE, SITE_URL } from "@/lib/site";
@@ -8,15 +8,24 @@ import "./globals.css";
 /**
  * Root layout.
  *
- * Inter is the design system's one typeface, for headings and body alike.
- * next/font self-hosts it and reserves the metrics, so nothing reflows when
- * the font lands.
+ * Two typefaces, per the editorial design system: DM Sans for body and UI,
+ * Space Grotesk for every heading. next/font self-hosts both and reserves
+ * their metrics, so nothing reflows when they land. The Georgia emphasis
+ * treatment (the italic word in a display headline) is a system font and
+ * needs no loading — see the `text-emphasis` utility in globals.css.
  */
-const inter = Inter({
+const dmSans = DM_Sans({
   subsets: ["latin"],
   weight: ["400", "500", "600", "700"],
   display: "swap",
-  variable: "--font-inter",
+  variable: "--font-dm-sans",
+});
+
+const spaceGrotesk = Space_Grotesk({
+  subsets: ["latin"],
+  weight: ["500", "600"],
+  display: "swap",
+  variable: "--font-space-grotesk",
 });
 
 const TITLE = `${SITE.name} — ${SITE.tagline}`;
@@ -71,8 +80,8 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
-  themeColor: "#161826",
-  colorScheme: "dark",
+  themeColor: "#f3f1ea",
+  colorScheme: "light",
 };
 
 /** Organization + WebSite structured data, once, on every page. */
@@ -108,7 +117,7 @@ const jsonLd = {
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en" className={inter.variable} suppressHydrationWarning>
+    <html lang="en" className={`${dmSans.variable} ${spaceGrotesk.variable}`} suppressHydrationWarning>
       <body className="font-sans">
         <a
           href="#main"
