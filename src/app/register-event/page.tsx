@@ -11,7 +11,7 @@ import { useAuth } from "@/components/providers";
 import { PublicFooter, PublicNav } from "@/components/shell/public-nav";
 import { Field, Input, NativeSelect, Textarea } from "@/components/ui/field";
 import { Button } from "@/components/ui/button";
-import { Kick, Note, Skeleton, Tag } from "@/components/ui/primitives";
+import { Kick, Note, Skeleton } from "@/components/ui/primitives";
 import {
   FEST_TYPE_LABELS,
   FEST_TYPES,
@@ -35,13 +35,13 @@ export default function RegisterEventPage() {
     <div className="flex min-h-dvh flex-col">
       <PublicNav active="colleges" />
       <main id="main" className="mx-auto w-full max-w-[680px] flex-1 px-[18px] pb-16 pt-8 sm:px-6 sm:pt-14">
-        <div className="mb-[18px] flex flex-wrap gap-2">
-          <Tag tone="accent">Register your event</Tag>
-        </div>
-        <h1 className="mb-3 text-[34px] leading-[1.05] tracking-[-0.03em] sm:text-[42px]">
-          You&apos;re already in charge.
+        <span className="mb-3 block text-[10px] font-semibold uppercase tracking-[0.16em] text-neutral-600">
+          [ register your event ]
+        </span>
+        <h1 className="mb-3 text-[36px] leading-[0.98] tracking-[-0.03em] sm:text-[48px] sm:leading-[0.94] sm:tracking-[-0.035em]">
+          You&apos;re already <em className="text-emphasis text-accent not-italic sm:italic">in charge.</em>
         </h1>
-        <p className="mb-8 max-w-[54ch] text-[15px] text-neutral-300">
+        <p className="mb-9 max-w-[54ch] text-[15px] text-neutral-400">
           No approval queue. The second you finish this, you&apos;re its admin — build your team, open registrations, and run it live.
         </p>
         <Gate />
@@ -87,22 +87,25 @@ const STEP_FIELDS: Record<Step, Path<RegisterEventInput>[]> = {
 };
 
 const StepIndicator = ({ step }: { step: Step }) => (
-  <div className="mb-6 flex items-center gap-2">
-    {STEPS.map((s, i) => (
-      <React.Fragment key={s.n}>
-        {i > 0 ? <div className="h-px w-6 bg-divider" aria-hidden /> : null}
-        <div className={`flex items-center gap-1.5 text-[12.5px] ${s.n === step ? "text-text" : s.n < step ? "text-accent-300" : "text-neutral-500"}`}>
-          <span
-            className={`flex h-5 w-5 items-center justify-center rounded-full border text-[11px] ${
-              s.n === step ? "border-accent-300 text-accent-300" : s.n < step ? "border-accent-300 bg-accent-300/10 text-accent-300" : "border-divider"
-            }`}
-          >
-            {s.n}
-          </span>
-          {s.label}
-        </div>
-      </React.Fragment>
-    ))}
+  <div className="mb-8 border-b border-divider pb-6">
+    <div className="mb-4 flex items-center gap-2">
+      {STEPS.map((s, i) => (
+        <React.Fragment key={s.n}>
+          {i > 0 ? <div className="h-px w-6 bg-divider" aria-hidden /> : null}
+          <div className={`flex items-center gap-1.5 text-[12.5px] ${s.n === step ? "text-text" : s.n < step ? "text-accent" : "text-neutral-600"}`}>
+            <span
+              className={`flex h-5 w-5 items-center justify-center rounded-full border text-[11px] ${
+                s.n === step ? "border-accent text-accent" : s.n < step ? "border-accent bg-accent/10 text-accent" : "border-divider"
+              }`}
+            >
+              {s.n}
+            </span>
+            {s.label}
+          </div>
+        </React.Fragment>
+      ))}
+    </div>
+    <h2 className="text-[24px] tracking-[-0.02em] sm:text-[28px]">{STEPS.find((s) => s.n === step)?.label}</h2>
   </div>
 );
 
@@ -191,7 +194,7 @@ const RegisterEventWizard = () => {
   });
 
   return (
-    <form onSubmit={submit} noValidate className="flex flex-col gap-4">
+    <form onSubmit={submit} noValidate className="flex flex-col gap-[18px]">
       <StepIndicator step={step} />
 
       {step === 1 ? (

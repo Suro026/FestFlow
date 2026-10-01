@@ -16,8 +16,8 @@ export default function TermsPage() {
       <PublicNav />
       <main id="main" className="mx-auto w-full max-w-[720px] flex-1 px-[18px] pb-16 pt-8 sm:px-6 sm:pt-14">
         <Kick className="mb-2">Effective {SITE.legalUpdated}</Kick>
-        <h1 className="mb-3 text-[32px] font-medium leading-[1.05] tracking-[-0.03em] sm:text-[40px]">Terms &amp; Conditions</h1>
-        <p className="mb-9 max-w-[56ch] text-[15px] text-neutral-300">
+        <h1 className="mb-3 text-[34px] leading-[0.98] tracking-[-0.03em] sm:text-[46px] sm:leading-[0.94]">Terms &amp; Conditions</h1>
+        <p className="mb-9 max-w-[56ch] text-[15px] text-neutral-400">
           These terms are an agreement between you and Plansphere, the operator of the service at plansphere.in (“the service”). By creating an account or
           using the service you accept them. If you are using Plansphere on behalf of a college or organisation, you confirm you are authorised to bind it.
         </p>
@@ -125,8 +125,8 @@ export default function TermsPage() {
 }
 
 const Section = ({ title, children }: { title: string; children: React.ReactNode }) => (
-  <section className="mb-9">
-    <h2 className="mb-3 text-[18px] font-medium tracking-[-0.01em]">{title}</h2>
-    <div className="flex flex-col gap-3 text-[14px] leading-relaxed text-neutral-300 [&_p]:max-w-[60ch]">{children}</div>
+  <section className="mb-8 border-t border-divider pt-8">
+    <h2 className="mb-3 text-[19px] tracking-[-0.015em]">{title}</h2>
+    <div className="flex flex-col gap-3 text-[14px] leading-relaxed text-neutral-400 [&_p]:max-w-[60ch]">{children}</div>
   </section>
 );

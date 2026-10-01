@@ -155,7 +155,7 @@ export const CheckOption = React.forwardRef<HTMLInputElement, CheckOptionProps>(
       <input
         ref={ref}
         type="checkbox"
-        className="mt-[3px] h-4 w-4 flex-none cursor-pointer appearance-none rounded-[4px] border-[1.5px] border-divider bg-transparent checked:border-accent checked:bg-accent checked:[background-image:url(&quot;data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><path fill='none' stroke='%23161826' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round' d='M3.5 8.5l2.8 2.8 6.2-6.6'/></svg>&quot;)] hover:border-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+        className="mt-[3px] h-4 w-4 flex-none cursor-pointer appearance-none rounded-[3px] border-[1.5px] border-divider bg-transparent checked:border-accent checked:bg-accent checked:[background-image:url(&quot;data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><path fill='none' stroke='%23f3f1ea' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round' d='M3.5 8.5l2.8 2.8 6.2-6.6'/></svg>&quot;)] hover:border-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
         {...props}
       />
       <span>
