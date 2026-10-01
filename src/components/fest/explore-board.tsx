@@ -76,9 +76,18 @@ export const ExploreBoard = ({ items }: { items: FestWithStats[] }) => {
 
   return (
     <div className="mx-auto w-full max-w-[1180px] flex-1">
-      {/* Phone header: title, search, chip rail */}
-      <div className="px-[18px] pb-3 pt-2.5 md:hidden">
-        <h4 className="mb-2.5 text-[22px] tracking-[-0.02em]">Fests</h4>
+      {/* Page header — editorial, both breakpoints get it */}
+      <div className="border-b border-divider px-[18px] pb-6 pt-8 md:px-9 md:pb-8 md:pt-12">
+        <span className="mb-3 block text-[10px] font-semibold uppercase tracking-[0.16em] text-neutral-600">
+          [ explore ]
+        </span>
+        <h1 className="text-[32px] leading-[0.96] tracking-[-0.025em] md:text-[44px] md:leading-[0.92] md:tracking-[-0.03em]">
+          Every fest, <em className="text-emphasis text-accent not-italic md:italic">in one place.</em>
+        </h1>
+      </div>
+
+      {/* Phone header: search, chip rail */}
+      <div className="px-[18px] pb-3 pt-4 md:hidden">
         <Input
           type="search"
           placeholder="Search fest, college or city"
@@ -118,7 +127,8 @@ export const ExploreBoard = ({ items }: { items: FestWithStats[] }) => {
 
       <div className="grid grid-cols-1 md:grid-cols-[236px_1fr] md:min-h-[640px]">
         {/* Desktop filter rail */}
-        <aside className="hidden flex-col gap-[22px] border-r border-divider px-[26px] pb-[30px] pt-[26px] md:flex">
+        <aside className="hidden flex-col gap-[22px] border-r border-divider px-[26px] pb-[30px] pt-[30px] md:flex">
+          <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-neutral-600">Filters</span>
           <Field label="Search" htmlFor="explore-search">
             <Input
               id="explore-search"
@@ -150,11 +160,11 @@ export const ExploreBoard = ({ items }: { items: FestWithStats[] }) => {
         </aside>
 
         {/* Results */}
-        <section className="px-[18px] pb-[34px] pt-3 md:px-9 md:pt-[26px]">
-          <div className="mb-5 hidden items-center justify-between md:flex">
+        <section className="px-[18px] pb-[34px] pt-3 md:px-9 md:pt-[30px]">
+          <div className="mb-7 hidden items-end justify-between md:flex">
             <div>
-              <h4 className="mb-[3px]">{heading}</h4>
-              <div className="text-[12px] text-neutral-500">Sorted by start date</div>
+              <h2 className="mb-[5px] text-[24px] tracking-[-0.02em]">{heading}</h2>
+              <div className="text-[12px] text-neutral-600">Sorted by start date</div>
             </div>
             <Seg
               value={view}
@@ -214,9 +224,11 @@ export const ExploreBoard = ({ items }: { items: FestWithStats[] }) => {
 
               {/* Desktop grid */}
               {view === "grid" ? (
-                <div className="hidden grid-cols-2 gap-[18px] md:grid lg:grid-cols-3">
+                <div className="hidden grid-cols-2 gap-x-[18px] gap-y-8 md:grid lg:grid-cols-3">
                   {filtered.map(({ fest, events, registered }) => (
-                    <FestCard key={fest.id} fest={fest} variant="full" stats={{ events, registered }} />
+                    <div key={fest.id} className="transition-transform duration-200 hover:-translate-y-1">
+                      <FestCard fest={fest} variant="full" stats={{ events, registered }} />
+                    </div>
                   ))}
                 </div>
               ) : null}

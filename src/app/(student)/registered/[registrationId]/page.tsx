@@ -58,7 +58,7 @@ export default function RegisteredPage() {
 
   return (
     <Page className="max-w-[560px] pb-10 pt-[26px]">
-      <div className="mb-[18px] grid h-[58px] w-[58px] place-items-center rounded-full text-accent shadow-[inset_0_0_0_2px_var(--color-accent)]">
+      <div className="mb-[18px] grid h-[58px] w-[58px] place-items-center rounded-full bg-accent-fill text-text">
         <Check size={28} weight="bold" />
       </div>
       <h1 className="text-[31px] leading-[1.06] tracking-[-0.025em]">

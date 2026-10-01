@@ -23,17 +23,19 @@ export default function ForCollegesPage() {
       <PublicNav active="colleges" />
 
       <section className="mx-auto w-full max-w-[1180px] px-[18px] pb-10 pt-8 sm:px-6 sm:pt-14 lg:px-10">
-        <div className="max-w-[620px]">
-          <div className="mb-[18px] flex flex-wrap gap-2">
-            <Tag tone="accent">For colleges</Tag>
-            <Tag tone="neutral">Register instantly — no approval queue</Tag>
-          </div>
-          <h1 className="mb-5 text-[40px] leading-[1] tracking-[-0.035em] sm:text-[56px]">
+        <div className="max-w-[640px]">
+          <span className="mb-4 block text-[10px] font-semibold uppercase tracking-[0.16em] text-neutral-600">
+            [ for colleges ]
+          </span>
+          <h1 className="mb-5 text-[38px] leading-[0.96] tracking-[-0.03em] sm:text-[58px] sm:leading-[0.9] sm:tracking-[-0.035em]">
             Register your event.
             <br />
-            You&apos;re already in charge.
+            You&apos;re already <em className="text-emphasis text-accent not-italic sm:italic">in charge.</em>
           </h1>
-          <p className="mb-[26px] max-w-[520px] text-[16px] text-neutral-300 sm:text-[17px]">
+          <div className="mb-6 flex flex-wrap gap-2">
+            <Tag tone="neutral">Register instantly — no approval queue</Tag>
+          </div>
+          <p className="mb-[26px] max-w-[520px] text-[16px] text-neutral-400 sm:text-[17px]">
             The moment you register, you&apos;re its admin — build your team, open registrations, run the gate and meals offline, and publish results that turn
             into verifiable certificates.
           </p>
@@ -49,34 +51,46 @@ export default function ForCollegesPage() {
       </section>
 
       {/* What you get */}
-      <section className="mx-auto grid w-full max-w-[1180px] grid-cols-1 border-t border-divider sm:grid-cols-3">
-        {[
-          {
-            kick: "Before the fest",
-            title: "Set up in under 30 minutes",
-            body: "Create the fest, add events through the wizard — solo or team, free or paid, with gates and meal slots — and publish when the lineup is ready. Registrations open and close on the dates you set.",
-          },
-          {
-            kick: "On the day",
-            title: "A gate that keeps working offline",
-            body: "Volunteers scan passes from their phones. The roster is cached, duplicates are caught locally, and every scan syncs the moment the network is back — nothing is lost, nobody is let in twice.",
-          },
-          {
-            kick: "After",
-            title: "Results become certificates",
-            body: "Upload results, and the system works out who is eligible from attendance. Certificates are generated, emailed, and carry a public verification link a recruiter can check in seconds.",
-          },
-        ].map((c, i) => (
-          <div key={c.kick} className={`px-[18px] pb-[34px] pt-7 sm:px-6 lg:px-10 ${i > 0 ? "border-t border-divider sm:border-l sm:border-t-0" : ""}`}>
-            <Kick className="mb-2.5">{c.kick}</Kick>
-            <div className="mb-2.5 text-[22px] tracking-[-0.02em]">{c.title}</div>
-            <div className="max-w-[44ch] text-[13.5px] text-neutral-300">{c.body}</div>
+      <section className="bg-text text-bg">
+        <div className="mx-auto w-full max-w-[1180px] px-[18px] py-12 sm:px-6 lg:px-10 lg:py-16">
+          <span className="mb-8 block text-[10px] font-semibold uppercase tracking-[0.16em] text-[color:color-mix(in_srgb,var(--color-bg)_58%,transparent)] lg:mb-11">
+            [ what you get ]
+          </span>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            {[
+              {
+                kick: "Before the fest",
+                title: "Set up in under 30 minutes",
+                body: "Create the fest, add events through the wizard — solo or team, free or paid, with gates and meal slots — and publish when the lineup is ready. Registrations open and close on the dates you set.",
+              },
+              {
+                kick: "On the day",
+                title: "A gate that keeps working offline",
+                body: "Volunteers scan passes from their phones. The roster is cached, duplicates are caught locally, and every scan syncs the moment the network is back — nothing is lost, nobody is let in twice.",
+              },
+              {
+                kick: "After",
+                title: "Results become certificates",
+                body: "Upload results, and the system works out who is eligible from attendance. Certificates are generated, emailed, and carry a public verification link a recruiter can check in seconds.",
+              },
+            ].map((c) => (
+              <div
+                key={c.kick}
+                className="flex min-h-[220px] flex-col justify-between border border-[color:color-mix(in_srgb,var(--color-bg)_16%,transparent)] p-5 transition-colors duration-200 hover:border-accent-fill"
+              >
+                <span className="text-[10px] uppercase tracking-[0.12em] text-accent-fill">{c.kick}</span>
+                <div>
+                  <h3 className="mb-2 font-display text-[19px] tracking-[-0.02em]">{c.title}</h3>
+                  <p className="text-[12.5px] leading-[1.55] text-[color:color-mix(in_srgb,var(--color-bg)_82%,transparent)]">{c.body}</p>
+                </div>
+              </div>
+            ))}
           </div>
-        ))}
+        </div>
       </section>
 
       {/* Roles + how onboarding works */}
-      <section className="mx-auto grid w-full max-w-[1180px] grid-cols-1 gap-10 border-t border-divider px-[18px] py-10 sm:px-6 lg:grid-cols-2 lg:px-10">
+      <section className="mx-auto grid w-full max-w-[1180px] grid-cols-1 gap-10 px-[18px] py-12 sm:px-6 lg:grid-cols-2 lg:px-10 lg:py-16">
         <div>
           <Kick className="mb-3">Who does what</Kick>
           <MetaList>
@@ -99,6 +113,23 @@ export default function ForCollegesPage() {
             <TimelineItem title={<><span className="text-neutral-500">Same day · </span>Add events, invite your team</>} meta="Build the lineup, add other admins and volunteers from the Staff page, and preview every event exactly as students will see it." />
             <TimelineItem title={<><span className="text-neutral-500">Launch · </span>Publish</>} meta="The fest appears on Explore and registrations open on schedule. Live counts are on your dashboard from the first sign-up." />
           </Timeline>
+        </div>
+      </section>
+
+      {/* Closing CTA */}
+      <section className="bg-grid-lines bg-accent-fill text-text">
+        <div className="mx-auto flex w-full max-w-[860px] flex-col items-center gap-5 px-[18px] py-14 text-center sm:px-6 lg:py-20">
+          <p className="text-[28px] leading-[0.98] tracking-[-0.03em] sm:text-[40px] sm:leading-[0.94] sm:tracking-[-0.035em]">
+            No queue. No waiting. <em className="text-emphasis">Just register.</em>
+          </p>
+          <div className="mt-1 flex flex-wrap items-center justify-center gap-x-7 gap-y-3">
+            <Link href="/register-event" className="btn btn-primary btn-lg">
+              Register Your Event
+            </Link>
+            <Link href="/explore" className="btn btn-secondary btn-lg">
+              See fests already running
+            </Link>
+          </div>
         </div>
       </section>
 

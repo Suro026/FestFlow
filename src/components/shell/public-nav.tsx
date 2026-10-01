@@ -2,10 +2,22 @@ import Link from "next/link";
 import { Brand } from "./brand";
 import { PublicAuthControls } from "./signed-out-only";
 import { ConsentSettingsLink } from "@/components/consent";
+import { WordmarkOrb } from "./wordmark-orb";
 
 /**
  * The header for pages seen before sign-in: landing, explorer, public verify.
  * Same `.nav` as the student side; the difference is only which links show.
+ *
+ * This file deliberately has no knowledge of the homepage's scroll-aware
+ * nav (`TransparentNav` in `./scroll-nav`) — a plain top-level `import` of
+ * a Client Component gets bundled into every page that imports the module
+ * it sits in, whether or not that page ever renders it, since Next.js
+ * builds the client chunk graph statically. The homepage imports
+ * `TransparentNav` directly instead of going through `PublicNav`, so the
+ * other ~15 pages that use this file carry none of that weight. Verified:
+ * routing a `transparentAtTop` prop through this component (even via
+ * `next/dynamic`) still added ~0.75 kB to every one of those pages; having
+ * the homepage import it directly removed that entirely.
  */
 export const PublicNav = ({ active }: { active?: "fests" | "colleges" | "verify" | "live" }) => (
   <header className="sticky top-0 z-40 border-b border-divider bg-bg/85 backdrop-blur-md">
@@ -41,9 +53,7 @@ export const PublicFooter = () => (
     <div className="mx-auto w-full max-w-[1180px] px-[18px] py-12 sm:px-6 lg:px-10 lg:py-[72px]">
       <div className="flex flex-col items-start justify-between gap-9 lg:flex-row lg:items-end">
         <Link href="/" className="inline-flex items-center gap-2.5 text-bg no-underline">
-          <span className="grid h-7 w-7 flex-none -rotate-[15deg] place-items-center rounded-full bg-accent-fill text-text">
-            <span className="rotate-[15deg] font-display text-[13px] font-medium">P</span>
-          </span>
+          <WordmarkOrb inverted />
           <span className="font-display text-[16px] font-medium tracking-[-0.03em]">Plansphere</span>
         </Link>
 

@@ -7,9 +7,10 @@ import { cn } from "@/lib/utils";
 /**
  * Buttons.
  *
- * `primary` is an accent *outline* — Nocturne never fills a button, with one
- * exception: `fill`, reserved for a fest's own hero where the design wants
- * poster energy. Reach for `fill` nowhere else.
+ * `primary` is an ink fill with a mint hover — the editorial system's one
+ * loud button. `fill` is the other filled variant, mint-first, reserved for
+ * a fest's own hero or a landing-page CTA where the design wants poster
+ * energy. `secondary` is text-weight with an underline, not a second box.
  */
 const buttonVariants = cva("btn", {
   variants: {

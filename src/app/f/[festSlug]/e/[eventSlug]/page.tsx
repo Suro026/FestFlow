@@ -123,7 +123,7 @@ export default async function EventPage({ params }: { params: Promise<Params> })
             {event.description ? <p className="mt-4 text-[13.5px] text-neutral-300 lg:hidden">{event.description}</p> : null}
 
             {/* Details */}
-            <div className="mt-4 grid gap-8 sm:grid-cols-2 lg:mt-0">
+            <div className="mt-6 grid gap-8 border-t border-divider pt-6 sm:grid-cols-2 lg:mt-8 lg:pt-8">
               {event.prizes.length ? (
                 <div className="sm:col-span-2 lg:col-span-1">
                   <Kick className="mb-2">Prizes</Kick>

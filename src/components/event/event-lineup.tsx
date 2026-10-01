@@ -60,9 +60,14 @@ export const EventLineup = ({ events, festSlug }: { events: Event[]; festSlug: s
       </div>
 
       {/* Everyone: the full lineup */}
-      <div id="lineup" className="mt-8 scroll-mt-6 sm:mt-0">
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-          <h4>{filter === "all" ? "Lineup" : categoryLabel(filter)}</h4>
+      <div id="lineup" className="mt-8 scroll-mt-6 border-t border-divider pt-8 sm:mt-0">
+        <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <span className="mb-1.5 block text-[10px] font-semibold uppercase tracking-[0.16em] text-neutral-600">
+              [ lineup ]
+            </span>
+            <h2 className="text-[22px] tracking-[-0.02em] sm:text-[26px]">{filter === "all" ? "The lineup" : categoryLabel(filter)}</h2>
+          </div>
           {categories.length > 1 ? (
             <div className="max-w-full overflow-x-auto scrollbar-none">
               <Seg
@@ -74,9 +79,11 @@ export const EventLineup = ({ events, festSlug }: { events: Event[]; festSlug: s
             </div>
           ) : null}
         </div>
-        <div className="grid grid-cols-1 gap-[18px] sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid grid-cols-1 gap-x-[18px] gap-y-6 sm:grid-cols-2 lg:grid-cols-4">
           {visible.map((event) => (
-            <EventCard key={event.id} event={event} festSlug={festSlug} />
+            <div key={event.id} className="transition-transform duration-200 hover:-translate-y-1">
+              <EventCard event={event} festSlug={festSlug} />
+            </div>
           ))}
         </div>
       </div>

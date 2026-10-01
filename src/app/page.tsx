@@ -2,9 +2,11 @@ import Link from "next/link";
 import { Suspense } from "react";
 import type { Metadata } from "next";
 import { ArrowDown, ArrowRight, ArrowUpRight, Gear, QrCode, Trophy } from "@phosphor-icons/react/dist/ssr";
-import { PublicFooter, PublicNav } from "@/components/shell/public-nav";
+import { PublicFooter } from "@/components/shell/public-nav";
+import { TransparentNav } from "@/components/shell/scroll-nav";
 import { HeroField } from "@/components/ui/primitives";
 import HomeStats, { HomeStatsFallback } from "./_home-stats";
+import { HeroOrbit, type OrbitFeature } from "./_hero-orbit";
 
 /** The event lifecycle, in the order it actually happens. */
 const LIFECYCLE = [
@@ -12,6 +14,13 @@ const LIFECYCLE = [
   { kick: "During", title: "Run Live Operations", body: "QR gate entry, volunteer management, offline scanning and live scoring.", icon: QrCode },
   { kick: "After", title: "Results & Certificates", body: "Publish results and automatically generate verified certificates.", icon: Trophy },
 ] as const;
+
+/** Same three stages as LIFECYCLE, shaped for the rotating hero orbit. */
+const ORBIT_FEATURES: readonly OrbitFeature[] = [
+  { eyebrow: "01 / CONFIGURE", title: "Register & configure", copy: "Fest setup, solo or team forms, schedules and capacity — in one flow.", icon: "✦" },
+  { eyebrow: "02 / RUN LIVE", title: "Run live operations", copy: "Offline QR check-in, meal scans, volunteer shifts, and live scoring.", icon: "◌" },
+  { eyebrow: "03 / CERTIFY", title: "Results & certificates", copy: "Publish results, auto-generate certificates, verify without login.", icon: "✳" },
+];
 
 /** Who does what, top to bottom — authority flows one way. */
 const ROLES = [
@@ -61,10 +70,16 @@ const onDark = {
 export default function LandingPage() {
   return (
     <div className="flex min-h-dvh flex-col">
-      <PublicNav />
+      <TransparentNav />
 
       <main id="main" className="flex flex-1 flex-col">
-        {/* ─────────────────────────── Hero ─────────────────────────── */}
+        {/* ─────────────────────────── Hero ───────────────────────────
+            The nav is `fixed` (transparentAtTop), not sticky, on this page
+            only — it no longer occupies flow space, so this section starts
+            at the very top of the viewport and the nav floats over it,
+            matching the reference. The hero's own top padding is sized to
+            clear the nav's rendered height rather than the hero's previous
+            (smaller) value, which assumed an in-flow nav above it. */}
         <section className="relative overflow-hidden bg-bg" style={{ minHeight: 470 }}>
           <HeroField className="absolute inset-0 h-full w-full" />
           <div
@@ -76,7 +91,7 @@ export default function LandingPage() {
           />
 
           <div
-            className="absolute left-1/2 top-[68px] hidden h-px w-[calc(100%-36px)] max-w-[1180px] -translate-x-1/2 bg-divider sm:block"
+            className="absolute left-1/2 top-[96px] hidden h-px w-[calc(100%-36px)] max-w-[1180px] -translate-x-1/2 bg-divider sm:block"
             aria-hidden
           />
 
@@ -89,8 +104,8 @@ export default function LandingPage() {
             makes the overlap structurally impossible: each column gets its
             own track, and the art's column simply doesn't exist below `lg`.
           */}
-          <div className="relative mx-auto w-full max-w-[1180px] px-[18px] pb-16 pt-10 sm:px-6 sm:pt-[92px] lg:px-10 xl:grid xl:grid-cols-[1fr_auto] xl:items-center xl:gap-10">
-            <div className="max-w-[620px] lg:max-w-[720px]">
+          <div className="relative mx-auto w-full max-w-[1180px] px-[18px] pb-16 pt-[104px] sm:px-6 sm:pt-[140px] lg:px-10 xl:grid xl:grid-cols-[1fr_auto] xl:items-center xl:gap-10">
+            <div className="relative z-10 max-w-[620px] lg:max-w-[720px]">
               <div className="mb-4 text-[9px] font-semibold uppercase tracking-[0.16em] text-neutral-600 sm:hidden">
                 Built for Colleges · Conferences · Sports · Festivals
               </div>
@@ -118,36 +133,26 @@ export default function LandingPage() {
               </div>
             </div>
 
-            {/* Decorative orbit artwork — static CSS/SVG, no mousemove
-                tracking, no animation loop. A grid column of its own at
-                `xl`+ only: at `lg` (1024-1279px) the text column alone
-                already needs its full 720px to keep "Run Every Event." on
-                one line at 88px — the already-verified 2-line desktop
-                composition — so there isn't reliable extra room for a side
-                panel until xl. Hidden entirely below that rather than
-                risking overlap or overflow. */}
-            <div className="hidden xl:block" aria-hidden>
-              <div className="relative h-[280px] w-[260px]">
-                <div className="absolute inset-[9%] rounded-full bg-neutral-800/50" />
-                <div className="absolute inset-[16%] rounded-full bg-text shadow-[var(--shadow-offset-lg)]" />
-                <div
-                  className="absolute inset-[2%] rounded-full border border-divider"
-                  style={{ transform: "rotate(-28deg) scaleY(0.42)" }}
-                />
-                <div
-                  className="absolute inset-[-6%] rounded-full border border-divider"
-                  style={{ transform: "rotate(24deg) scaleY(0.56)" }}
-                />
-                <span className="absolute left-[10%] top-[64%] h-[6px] w-[6px] rounded-full bg-accent-fill" />
-                <span className="absolute bottom-[14%] right-[8%] h-[6px] w-[6px] rounded-full bg-text ring-2 ring-accent-fill" />
-                <div className="absolute -left-6 top-[34%] w-[150px] border border-[color:color-mix(in_srgb,var(--color-accent-fill)_35%,transparent)] bg-text p-2.5 text-bg shadow-[var(--shadow-offset-sm)]">
-                  <div className="text-[7px] font-semibold uppercase tracking-[0.14em] text-accent-fill">
-                    01 / Configure
-                  </div>
-                  <div className="mt-1 font-display text-[13px] leading-tight tracking-[-0.02em]">
-                    {LIFECYCLE[0].title}
-                  </div>
-                </div>
+            {/*
+              The reference's rotating orbit, present at every width — not
+              hidden on mobile/tablet. Below `xl` it uses the reference's
+              own technique for this exact problem (its `max-width:720px`
+              rule on `.minimal-hero-art`): position it absolutely, bleed
+              most of it off the right edge, scale it down, drop its
+              opacity, and sit it behind the text (`z-0` vs the text
+              column's `z-10`) — a background flourish that never competes
+              with the text column for layout width, so it can't touch
+              the hero-wrap tuning that already fixed "Run Every Event."
+              onto one line at every breakpoint. At `xl`+, `xl:static`
+              hands it back to the grid as a normal, fully-visible,
+              fully-interactive column — the reference's own treatment
+              once there's genuinely room beside the text.
+            */}
+            <div
+              className="pointer-events-none absolute -bottom-4 -right-10 z-0 origin-bottom-right opacity-[0.35] [--orbit-scale:0.3] sm:-right-5 sm:opacity-40 sm:[--orbit-scale:0.2] md:-right-5 md:opacity-50 md:[--orbit-scale:0.28] lg:-right-4 lg:opacity-65 lg:[--orbit-scale:0.4] xl:pointer-events-auto xl:static xl:opacity-100 xl:[--orbit-scale:0.56]"
+            >
+              <div className="pointer-events-auto">
+                <HeroOrbit features={ORBIT_FEATURES} />
               </div>
             </div>
           </div>
