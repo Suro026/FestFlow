@@ -68,16 +68,58 @@ export const KpiStrip = ({ className, ...props }: React.HTMLAttributes<HTMLDivEl
 );
 
 export interface KpiProps extends React.HTMLAttributes<HTMLDivElement> {
-  value: React.ReactNode;
+  /** A plain number counts up on mount/change; anything else (a string, "—", a formatted ReactNode) renders as-is. */
+  value: React.ReactNode | number;
   label: React.ReactNode;
 }
 
 export const Kpi = ({ value, label, className, ...props }: KpiProps) => (
   <div className={cn("kpi min-w-[128px]", className)} {...props}>
-    <div className="kpin">{value}</div>
+    <div className="kpin">{typeof value === "number" ? <CountUp value={value} /> : value}</div>
     <div className="kpil">{label}</div>
   </div>
 );
+
+/**
+ * Counts up to `value` once on mount and again whenever `value` changes
+ * (e.g. a live-polling dashboard) — the dashboard's own "statistics" moment
+ * from the design brief. Formats with the same `en-IN` grouping as
+ * `formatCount` so callers can pass a raw number straight from the API.
+ *
+ * `prefers-reduced-motion` is handled for free: the global rule in
+ * globals.css forces every `transition`/`animation` duration to ~0, which
+ * also collapses `requestAnimationFrame`-driven easing below to effectively
+ * one frame — but to be certain under that preference (rAF isn't CSS-gated),
+ * this reads the media query directly and jumps straight to the final value.
+ */
+const CountUp = ({ value }: { value: number }) => {
+  const [display, setDisplay] = React.useState(value);
+  const fromRef = React.useRef(value);
+
+  React.useEffect(() => {
+    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const from = fromRef.current;
+    if (reduceMotion || from === value || !Number.isFinite(value)) {
+      setDisplay(value);
+      fromRef.current = value;
+      return;
+    }
+    const duration = 600;
+    const start = performance.now();
+    let frame = 0;
+    const tick = (now: number) => {
+      const t = Math.min(1, (now - start) / duration);
+      const eased = 1 - (1 - t) ** 3;
+      setDisplay(Math.round(from + (value - from) * eased));
+      if (t < 1) frame = requestAnimationFrame(tick);
+      else fromRef.current = value;
+    };
+    frame = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frame);
+  }, [value]);
+
+  return <>{new Intl.NumberFormat("en-IN").format(display)}</>;
+};
 
 /* ───────────── progress bar ───────────── */
 
@@ -225,6 +267,88 @@ export const HeroField = ({ className, seed = 7 }: { className?: string; seed?: 
     </svg>
   );
 };
+
+/* ───────────── reveal / animated list ───────────── */
+
+export interface RevealProps extends React.HTMLAttributes<HTMLDivElement> {
+  /** Stagger offset in ms — pass `index * 45` from a list, capped by the caller. */
+  delay?: number;
+  /** "rise" (fade + 6px translateY, the default, for cards/sections) or "fade" (opacity only, for table rows — some engines animate `transform` on `tr` inconsistently). */
+  variant?: "rise" | "fade";
+}
+
+/**
+ * Fades an element in once on mount — the landing page's own entrance
+ * language (`--animate-rise`/`--animate-fade-in` in globals.css), reused for
+ * product-page section/card reveals. `prefers-reduced-motion` needs no
+ * handling here: the global rule in globals.css's `@layer base` already
+ * forces every animation's duration to ~0 for every element, unconditionally.
+ */
+export const Reveal = ({ delay = 0, variant = "rise", style, className, ...props }: RevealProps) => (
+  <div
+    className={cn(variant === "rise" ? "animate-rise" : "animate-fade-in", className)}
+    style={{ animationDelay: delay ? `${delay}ms` : undefined, animationFillMode: "backwards", ...style }}
+    {...props}
+  />
+);
+
+export interface AnimatedListProps extends Omit<React.HTMLAttributes<HTMLElement>, "children"> {
+  /** Stagger step in ms between each direct child. */
+  stagger?: number;
+  /** Caps the stagger so a long list finishes appearing quickly. */
+  maxDelay?: number;
+  variant?: "rise" | "fade";
+  /** The wrapper element — `"tbody"` for a `<table>`'s rows, `"div"` (default) for a card grid. */
+  as?: "div" | "tbody";
+  children?: React.ReactNode;
+}
+
+/**
+ * Staggers each direct child's entrance — for card grids and list rows
+ * (explore results, "my events", certificates, a staff/volunteer roster).
+ * Clones each child rather than wrapping it in an extra element, so it never
+ * changes a CSS Grid's item count; `as="tbody"` renders the wrapper itself as
+ * a `<tbody>` so it stays valid inside a `<table>`.
+ */
+export const AnimatedList = ({ stagger = 45, maxDelay = 360, variant = "rise", as = "div", className, children, ...props }: AnimatedListProps) => {
+  const kids = React.Children.map(children, (child, i) => {
+    if (!React.isValidElement<{ className?: string; style?: React.CSSProperties }>(child)) return child;
+    const delay = Math.min(i * stagger, maxDelay);
+    return React.cloneElement(child, {
+      className: cn(child.props.className, variant === "rise" ? "animate-rise" : "animate-fade-in"),
+      style: { animationDelay: `${delay}ms`, animationFillMode: "backwards", ...child.props.style },
+    });
+  });
+  const Wrapper = as;
+  return (
+    <Wrapper className={className} {...props}>
+      {kids}
+    </Wrapper>
+  );
+};
+
+/* ───────────── table ───────────── */
+
+export const TableWrap = ({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) => (
+  <div className={cn("table-wrap", className)} {...props} />
+);
+
+/**
+ * The `.table` shell every admin/platform list was hand-rolling directly
+ * (`<div className="table-wrap"><table className="table">...`) — same
+ * markup and classes, just one place to touch. Callers keep writing their
+ * own `<thead>`/`<tbody>` content; this only removes the repeated wrapper.
+ */
+export const Table = React.forwardRef<HTMLTableElement, React.TableHTMLAttributes<HTMLTableElement>>(
+  ({ className, children, ...props }, ref) => (
+    <TableWrap>
+      <table ref={ref} className={cn("table", className)} {...props}>
+        {children}
+      </table>
+    </TableWrap>
+  ),
+);
+Table.displayName = "Table";
 
 /* ───────────── skeleton ───────────── */
 

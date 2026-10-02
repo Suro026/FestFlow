@@ -4,7 +4,7 @@ import * as React from "react";
 import Link from "next/link";
 import { usePlatformStats } from "@/components/admin/platform-api";
 import { Button } from "@/components/ui/button";
-import { EmptyState, Kpi, KpiStrip, PageHeading, Skeleton, Tag } from "@/components/ui/primitives";
+import { AnimatedList, EmptyState, Kpi, KpiStrip, PageHeading, Skeleton, Table, Tag } from "@/components/ui/primitives";
 import { FEST_TYPE_LABELS, type FestType } from "@/core/models/fest";
 import { formatCount, formatDateRange, formatRelative } from "@/lib/utils";
 
@@ -64,13 +64,15 @@ export default function PlatformOverviewPage() {
       />
 
       <KpiStrip className="mb-7">
-        <Kpi value={formatCount(kpis.fests)} label="Fests" />
-        <Kpi value={formatCount(kpis.activeFests)} label="Active now" />
-        <Kpi value={formatCount(kpis.events)} label="Events" />
-        <Kpi value={formatCount(kpis.students)} label="Students" />
-        <Kpi value={formatCount(kpis.admins)} label="Admins" />
-        <Kpi value={formatCount(kpis.registrations)} label="Registrations" />
-        <Kpi value={formatCount(kpis.certificates)} label="Certificates" />
+        <AnimatedList stagger={35} className="flex">
+          <Kpi value={kpis.fests} label="Fests" />
+          <Kpi value={kpis.activeFests} label="Active now" />
+          <Kpi value={kpis.events} label="Events" />
+          <Kpi value={kpis.students} label="Students" />
+          <Kpi value={kpis.admins} label="Admins" />
+          <Kpi value={kpis.registrations} label="Registrations" />
+          <Kpi value={kpis.certificates} label="Certificates" />
+        </AnimatedList>
       </KpiStrip>
 
       <section className="mb-8" aria-labelledby="recent-fests">
@@ -88,22 +90,21 @@ export default function PlatformOverviewPage() {
             }
           />
         ) : (
-          <div className="table-wrap">
-            <table className="table">
-              <thead>
-                <tr>
-                  <th>Fest</th>
-                  <th>Kind</th>
-                  <th>Dates</th>
-                  <th>Events</th>
-                  <th>Registrations</th>
-                  <th>Status</th>
-                  <th />
-                </tr>
-              </thead>
-              <tbody>
-                {recentFests.map((fest) => (
-                  <tr key={fest.id}>
+          <Table>
+            <thead>
+              <tr>
+                <th>Fest</th>
+                <th>Kind</th>
+                <th>Dates</th>
+                <th>Events</th>
+                <th>Registrations</th>
+                <th>Status</th>
+                <th />
+              </tr>
+            </thead>
+            <AnimatedList as="tbody" variant="fade">
+              {recentFests.map((fest) => (
+                <tr key={fest.id}>
                     <td>
                       <Link href={`/admin/${fest.slug}/overview`} className="text-inherit no-underline hover:text-accent">
                         {fest.name}
@@ -129,10 +130,9 @@ export default function PlatformOverviewPage() {
                       </Link>
                     </td>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+              ))}
+            </AnimatedList>
+          </Table>
         )}
       </section>
 
@@ -144,39 +144,37 @@ export default function PlatformOverviewPage() {
           {recentAdmins.length === 0 ? (
             <EmptyState title="No admins yet" body="Admins are created here, never self-registered. They get an email with a temporary password and set their own on first sign-in." />
           ) : (
-            <div className="table-wrap">
-              <table className="table">
-                <thead>
-                  <tr>
-                    <th>Name</th>
-                    <th>Role</th>
-                    <th>Fests</th>
-                    <th>State</th>
+            <Table>
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Role</th>
+                  <th>Fests</th>
+                  <th>State</th>
+                </tr>
+              </thead>
+              <AnimatedList as="tbody" variant="fade">
+                {recentAdmins.map((admin) => (
+                  <tr key={admin.id}>
+                    <td>
+                      {admin.name || "—"}
+                      <div className="truncate text-[11.5px] text-neutral-500">{admin.email}</div>
+                    </td>
+                    <td className="whitespace-nowrap">{admin.role === "super_admin" ? "Super admin" : "Admin"}</td>
+                    <td>{admin.role === "super_admin" ? "All" : formatCount(admin.festIds.length)}</td>
+                    <td className="whitespace-nowrap">
+                      {admin.disabled ? (
+                        <Tag tone="neutral">Disabled</Tag>
+                      ) : admin.mustChangePassword ? (
+                        <Tag tone="outline">Invited</Tag>
+                      ) : (
+                        <Tag tone="accent">Active</Tag>
+                      )}
+                    </td>
                   </tr>
-                </thead>
-                <tbody>
-                  {recentAdmins.map((admin) => (
-                    <tr key={admin.id}>
-                      <td>
-                        {admin.name || "—"}
-                        <div className="truncate text-[11.5px] text-neutral-500">{admin.email}</div>
-                      </td>
-                      <td className="whitespace-nowrap">{admin.role === "super_admin" ? "Super admin" : "Admin"}</td>
-                      <td>{admin.role === "super_admin" ? "All" : formatCount(admin.festIds.length)}</td>
-                      <td className="whitespace-nowrap">
-                        {admin.disabled ? (
-                          <Tag tone="neutral">Disabled</Tag>
-                        ) : admin.mustChangePassword ? (
-                          <Tag tone="outline">Invited</Tag>
-                        ) : (
-                          <Tag tone="accent">Active</Tag>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                ))}
+              </AnimatedList>
+            </Table>
           )}
         </section>
 
@@ -187,34 +185,32 @@ export default function PlatformOverviewPage() {
           {recentRegistrations.length === 0 ? (
             <EmptyState title="Nothing yet" body="Entries appear here the moment a student confirms one, across every fest." />
           ) : (
-            <div className="table-wrap">
-              <table className="table">
-                <thead>
-                  <tr>
-                    <th>Student</th>
-                    <th>Event</th>
-                    <th>Seats</th>
-                    <th>When</th>
+            <Table>
+              <thead>
+                <tr>
+                  <th>Student</th>
+                  <th>Event</th>
+                  <th>Seats</th>
+                  <th>When</th>
+                </tr>
+              </thead>
+              <AnimatedList as="tbody" variant="fade">
+                {recentRegistrations.map((row) => (
+                  <tr key={row.id}>
+                    <td>
+                      {row.userName || "—"}
+                      <div className="truncate text-[11.5px] text-neutral-500">{row.userEmail}</div>
+                    </td>
+                    <td>
+                      {row.eventTitle}
+                      {row.status !== "confirmed" ? <div className="text-[11.5px] text-neutral-500">{row.status}</div> : null}
+                    </td>
+                    <td>{row.seats}</td>
+                    <td className="whitespace-nowrap text-neutral-400">{formatRelative(row.createdAt ? new Date(row.createdAt) : null)}</td>
                   </tr>
-                </thead>
-                <tbody>
-                  {recentRegistrations.map((row) => (
-                    <tr key={row.id}>
-                      <td>
-                        {row.userName || "—"}
-                        <div className="truncate text-[11.5px] text-neutral-500">{row.userEmail}</div>
-                      </td>
-                      <td>
-                        {row.eventTitle}
-                        {row.status !== "confirmed" ? <div className="text-[11.5px] text-neutral-500">{row.status}</div> : null}
-                      </td>
-                      <td>{row.seats}</td>
-                      <td className="whitespace-nowrap text-neutral-400">{formatRelative(row.createdAt ? new Date(row.createdAt) : null)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                ))}
+              </AnimatedList>
+            </Table>
           )}
         </section>
       </div>

@@ -11,6 +11,7 @@ import { EmptyState, Skeleton, Tag } from "@/components/ui/primitives";
 import { Button } from "@/components/ui/button";
 import { Brand } from "./brand";
 import { UserMenu } from "./user-menu";
+import { TapBar } from "./tap-bar";
 import { cn } from "@/lib/utils";
 
 /* ───────────── fest context ───────────── */
@@ -105,26 +106,13 @@ export const VolunteerShell = ({ children, hideTapBar }: { children: React.React
       <main id="main" className={cn("flex-1", !hideTapBar && "pb-[76px] sm:pb-0")}>{children}</main>
 
       {hideTapBar ? null : (
-        <nav className="tapbar fixed inset-x-0 bottom-0 z-40 sm:hidden" aria-label="Volunteer">
-          {links.map((l) => {
-            const Icon = l.icon;
-            const active = l.match(pathname);
-            return (
-              <Link key={l.href} href={l.href} className="tapitem" aria-current={active ? "page" : undefined}>
-                <span className="tapdot">
-                  <Icon size={19} weight={active ? "fill" : "regular"} />
-                </span>
-                {l.tap}
-              </Link>
-            );
-          })}
-          <Link href="/profile" className="tapitem" aria-current={pathname === "/profile" ? "page" : undefined}>
-            <span className="tapdot">
-              <UserIcon size={19} />
-            </span>
-            Profile
-          </Link>
-        </nav>
+        <TapBar
+          label="Volunteer"
+          items={[
+            ...links.map((l) => ({ href: l.href, label: l.tap, icon: l.icon, active: l.match(pathname) })),
+            { href: "/profile", label: "Profile", icon: UserIcon, active: pathname === "/profile" },
+          ]}
+        />
       )}
     </div>
   );

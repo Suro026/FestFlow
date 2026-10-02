@@ -12,7 +12,7 @@ import { useCreateStaff, useResendInvite, useStaff, useUpdateStaff, type InviteR
 import { Seg, Field, Input, RadioOption, CheckOption, Textarea } from "@/components/ui/field";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogActions, DialogContent } from "@/components/ui/overlays";
-import { EmptyState, Kick, Kpi, KpiStrip, MetaList, MetaRow, Note, PageHeading, Skeleton, Tag, Timeline, TimelineItem } from "@/components/ui/primitives";
+import { AnimatedList, EmptyState, Kick, Kpi, KpiStrip, MetaList, MetaRow, Note, PageHeading, Skeleton, Table, Tag, Timeline, TimelineItem } from "@/components/ui/primitives";
 import { SHIFT_DUTY_LABELS, shiftPhase, type Shift, type ShiftDuty } from "@/core/models/shift";
 import { calendarDateSchema, clockTimeSchema, emailSchema, phoneSchema, shortTextSchema } from "@/core/models/common";
 import { ApiClientError } from "@/data/api-client";
@@ -124,11 +124,13 @@ export default function VolunteersPage() {
       </AdminPage>
 
       <KpiStrip className="mx-auto w-full max-w-[1180px]">
-        <Kpi value={volunteers.size} label="Volunteers" />
-        <Kpi value={onNow.length} label="On shift now" />
-        <Kpi value={coverage.filter(([, c]) => c.have === 0).length} label="Posts unstaffed" />
-        <Kpi value={scansToday.toLocaleString("en-IN")} label="Scans today" />
-        <Kpi value={all.filter((s) => s.date === today && !s.cancelled).length} label="Shifts today" />
+        <AnimatedList stagger={35} className="flex">
+          <Kpi value={volunteers.size} label="Volunteers" />
+          <Kpi value={onNow.length} label="On shift now" />
+          <Kpi value={coverage.filter(([, c]) => c.have === 0).length} label="Posts unstaffed" />
+          <Kpi value={scansToday} label="Scans today" />
+          <Kpi value={all.filter((s) => s.date === today && !s.cancelled).length} label="Shifts today" />
+        </AnimatedList>
       </KpiStrip>
 
       <AdminPage className="grid gap-9 pb-9 pt-6 lg:grid-cols-[1fr_356px]">
@@ -153,21 +155,20 @@ export default function VolunteersPage() {
           ) : rows.length === 0 ? (
             <EmptyState title={all.length ? "Nothing matches" : "No shifts yet"} body={all.length ? "Try another filter." : "Create a volunteer on the right — the account and their first shift in one go."} />
           ) : (
-            <div className="table-wrap">
-              <table className="table">
-                <thead>
-                  <tr>
-                    <th>Volunteer</th>
-                    <th>Post & duty</th>
-                    <th>Shift</th>
-                    <th>Scans</th>
-                    <th>Events</th>
-                    <th>Status</th>
-                    <th></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {rows.map((s) => {
+            <Table>
+              <thead>
+                <tr>
+                  <th>Volunteer</th>
+                  <th>Post & duty</th>
+                  <th>Shift</th>
+                  <th>Scans</th>
+                  <th>Events</th>
+                  <th>Status</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <AnimatedList as="tbody" variant="fade">
+                {rows.map((s) => {
                     const phase = shiftPhase(s, now);
                     const st = staffById.get(s.userId);
                     const scans = scansBy.get(s.userId) ?? 0;
@@ -199,9 +200,8 @@ export default function VolunteersPage() {
                       </tr>
                     );
                   })}
-                </tbody>
-              </table>
-            </div>
+              </AnimatedList>
+            </Table>
           )}
 
           <div className="mt-[26px] grid gap-[22px] sm:grid-cols-2">

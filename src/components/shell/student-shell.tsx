@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import { Brand } from "./brand";
 import { UserMenu } from "./user-menu";
 import { NotificationBell } from "./notifications";
+import { TapBar } from "./tap-bar";
 
 /**
  * The student side.
@@ -67,20 +68,10 @@ export const StudentShell = ({ children, hideTapBar, navExtra, className }: Stud
       <main id="main" className={cn("flex-1", !hideTapBar && "pb-[76px] sm:pb-0", className)}>{children}</main>
 
       {hideTapBar ? null : (
-        <nav className="tapbar fixed inset-x-0 bottom-0 z-40 sm:hidden" aria-label="Primary">
-          {TAP_LINKS.map((link) => {
-            const Icon = link.icon;
-            const active = isActive(pathname, link.match);
-            return (
-              <Link key={link.href} href={link.href} className="tapitem" aria-current={active ? "page" : undefined}>
-                <span className="tapdot">
-                  <Icon size={19} weight={active ? "fill" : "regular"} />
-                </span>
-                {link.label}
-              </Link>
-            );
-          })}
-        </nav>
+        <TapBar
+          label="Primary"
+          items={TAP_LINKS.map((link) => ({ ...link, active: isActive(pathname, link.match) }))}
+        />
       )}
     </div>
   );

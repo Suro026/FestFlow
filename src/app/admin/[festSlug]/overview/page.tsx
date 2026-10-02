@@ -10,6 +10,7 @@ import { AnnounceDialog } from "@/components/admin/announce-dialog";
 import { hasAtLeast } from "@/core/models/user";
 import { Button } from "@/components/ui/button";
 import {
+  AnimatedList,
   Bar,
   EmptyState,
   Kick,
@@ -20,6 +21,7 @@ import {
   Note,
   PageHeading,
   Skeleton,
+  Table,
   Tag,
 } from "@/components/ui/primitives";
 import type { Event } from "@/core/models/event";
@@ -104,12 +106,14 @@ export default function OverviewPage() {
       </AdminPage>
 
       <KpiStrip className="mx-auto w-full max-w-[1180px]">
-        <Kpi value={formatCount(registrations)} label="Registrations" />
-        <Kpi value={formatCount(checkIns)} label="Verified check-ins" />
-        <Kpi value={formatPercent(checkIns, registrations)} label="Reg → check-in" />
-        <Kpi value={meals.data === undefined ? "—" : formatCount(meals.data)} label="Meals served" />
-        <Kpi value={certificates.data === undefined ? "—" : formatCount(certificates.data)} label="Certificates issued" />
-        <Kpi value={revenue > 0 ? `₹${formatCount(revenue)}` : "₹0"} label="Revenue" />
+        <AnimatedList stagger={35} className="flex">
+          <Kpi value={registrations} label="Registrations" />
+          <Kpi value={checkIns} label="Verified check-ins" />
+          <Kpi value={formatPercent(checkIns, registrations)} label="Reg → check-in" />
+          <Kpi value={meals.data === undefined ? "—" : meals.data} label="Meals served" />
+          <Kpi value={certificates.data === undefined ? "—" : certificates.data} label="Certificates issued" />
+          <Kpi value={revenue > 0 ? `₹${formatCount(revenue)}` : "₹0"} label="Revenue" />
+        </AnimatedList>
       </KpiStrip>
 
       <AdminPage className="grid gap-[34px] pb-9 pt-[26px] lg:grid-cols-[1fr_320px]">
@@ -146,25 +150,23 @@ export default function OverviewPage() {
               }
             />
           ) : (
-            <div className="table-wrap">
-              <table className="table">
-                <thead>
-                  <tr>
-                    <th>Event</th>
-                    <th>Start</th>
-                    <th>Capacity</th>
-                    <th>Registered</th>
-                    <th>Checked in</th>
-                    <th>Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {visible.map((event) => (
-                    <EventRow key={event.id} event={event} basePath={basePath} />
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <Table>
+              <thead>
+                <tr>
+                  <th>Event</th>
+                  <th>Start</th>
+                  <th>Capacity</th>
+                  <th>Registered</th>
+                  <th>Checked in</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <AnimatedList as="tbody" variant="fade">
+                {visible.map((event) => (
+                  <EventRow key={event.id} event={event} basePath={basePath} />
+                ))}
+              </AnimatedList>
+            </Table>
           )}
         </div>
 

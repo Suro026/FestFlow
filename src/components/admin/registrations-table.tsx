@@ -14,8 +14,8 @@ import { useFest } from "@/components/shell/admin-shell";
 import { useFestAudit } from "./hooks";
 import { Input } from "@/components/ui/field";
 import { Button } from "@/components/ui/button";
-import { AlertDialog, AlertDialogContent, Avatar, Dialog, DialogActions, DialogContent } from "@/components/ui/overlays";
-import { EmptyState, Kick, Kpi, KpiStrip, MetaList, MetaRow, Skeleton, Tag } from "@/components/ui/primitives";
+import { AlertDialog, AlertDialogContent, Avatar, Dialog, DialogActions, DialogContent, Menu, MenuContent, MenuItem, MenuTrigger } from "@/components/ui/overlays";
+import { AnimatedList, EmptyState, Kick, Kpi, KpiStrip, MetaList, MetaRow, Panel, Skeleton, Table, Tag } from "@/components/ui/primitives";
 import { formatCalendarDate, formatClock, formatRelative } from "@/lib/utils";
 
 /**
@@ -53,7 +53,6 @@ export const RegistrationsTable = ({ registrations, attendance, events, event, l
   const [collegeFilter, setCollegeFilter] = React.useState("");
   const [open, setOpen] = React.useState<Registration | null>(null);
   const [exportBusy, setExportBusy] = React.useState<"csv" | "xlsx" | "pdf" | null>(null);
-  const [showExportMenu, setShowExportMenu] = React.useState(false);
   const [override, setOverride] = React.useState("");
   const [overrideEvent, setOverrideEvent] = React.useState(event?.id ?? "");
   const [overriding, setOverriding] = React.useState(false);
@@ -101,7 +100,6 @@ export const RegistrationsTable = ({ registrations, attendance, events, event, l
    * screen.
    */
   const exportFile = async (format: "csv" | "xlsx" | "pdf") => {
-    setShowExportMenu(false);
     setExportBusy(format);
     try {
       const params = new URLSearchParams({ festId: fest.id, format });
@@ -176,12 +174,14 @@ export const RegistrationsTable = ({ registrations, attendance, events, event, l
   return (
     <>
       <KpiStrip className="mb-4">
-        <Kpi value={String(counts.total)} label="Total registered" />
-        <Kpi value={String(counts.confirmed)} label="Confirmed" />
-        <Kpi value={String(counts.draft)} label="Draft teams" />
-        <Kpi value={String(counts.waitlisted)} label="Waitlist" />
-        <Kpi value={String(counts.checked)} label="Checked in" />
-        <Kpi value={counts.capacityRemaining === null ? "∞" : String(counts.capacityRemaining)} label="Capacity remaining" />
+        <AnimatedList stagger={35} className="flex">
+          <Kpi value={counts.total} label="Total registered" />
+          <Kpi value={counts.confirmed} label="Confirmed" />
+          <Kpi value={counts.draft} label="Draft teams" />
+          <Kpi value={counts.waitlisted} label="Waitlist" />
+          <Kpi value={counts.checked} label="Checked in" />
+          <Kpi value={counts.capacityRemaining === null ? "∞" : counts.capacityRemaining} label="Capacity remaining" />
+        </AnimatedList>
       </KpiStrip>
 
       <div className="mb-3.5 flex flex-wrap items-center justify-between gap-3">
@@ -194,26 +194,20 @@ export const RegistrationsTable = ({ registrations, attendance, events, event, l
         <div className="flex flex-wrap gap-2">
           <Input type="search" placeholder="Search name, email or ticket" value={search} onChange={(e) => setSearch(e.target.value)} className="w-full sm:w-[210px]" aria-label="Search registrations" />
           <Input type="search" placeholder="Filter by college" value={collegeFilter} onChange={(e) => setCollegeFilter(e.target.value)} className="w-full sm:w-[170px]" aria-label="Filter by college" />
-          <div className="relative">
-            <Button variant="secondary" onClick={() => setShowExportMenu((v) => !v)} disabled={rows.length === 0}>
-              <DownloadSimple size={15} /> Export
-            </Button>
-            {showExportMenu ? (
-              <div className="absolute right-0 top-full z-10 mt-1 w-[160px] rounded-md bg-surface p-1 shadow-[var(--shadow-md)]">
-                {(["csv", "xlsx", "pdf"] as const).map((fmt) => (
-                  <button
-                    key={fmt}
-                    type="button"
-                    className="block w-full rounded-sm px-2.5 py-1.5 text-left text-[13px] hover:bg-bg/60 disabled:opacity-50"
-                    disabled={exportBusy !== null}
-                    onClick={() => void exportFile(fmt)}
-                  >
-                    {exportBusy === fmt ? "Preparing…" : fmt.toUpperCase()}
-                  </button>
-                ))}
-              </div>
-            ) : null}
-          </div>
+          <Menu>
+            <MenuTrigger asChild>
+              <Button variant="secondary" disabled={rows.length === 0}>
+                <DownloadSimple size={15} /> Export
+              </Button>
+            </MenuTrigger>
+            <MenuContent align="end" className="w-[160px]">
+              {(["csv", "xlsx", "pdf"] as const).map((fmt) => (
+                <MenuItem key={fmt} disabled={exportBusy !== null} onSelect={() => void exportFile(fmt)}>
+                  {exportBusy === fmt ? "Preparing…" : fmt.toUpperCase()}
+                </MenuItem>
+              ))}
+            </MenuContent>
+          </Menu>
         </div>
       </div>
       <div className="mb-3.5 text-[12px] text-neutral-500">One active registration per participant per event · export includes each fest's own registration questions</div>
@@ -223,26 +217,25 @@ export const RegistrationsTable = ({ registrations, attendance, events, event, l
       ) : rows.length === 0 ? (
         <EmptyState title={registrations?.length ? "Nothing matches" : "No registrations yet"} body={registrations?.length ? "Try another filter." : "Entries appear here the moment a student registers."} />
       ) : (
-        <div className="table-wrap">
-          <table className="table">
-            <thead>
-              <tr>
-                {event ? null : <th>Event</th>}
-                <th>Team</th>
-                <th>Leader</th>
-                <th>College</th>
-                <th>Phone</th>
-                <th>Members</th>
-                <th>Ticket (QR)</th>
-                <th>Payment</th>
-                <th>Registered</th>
-                <th>Attendance</th>
-                <th>Status</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((r) => {
+        <Table>
+          <thead>
+            <tr>
+              {event ? null : <th>Event</th>}
+              <th>Team</th>
+              <th>Leader</th>
+              <th>College</th>
+              <th>Phone</th>
+              <th>Members</th>
+              <th>Ticket (QR)</th>
+              <th>Payment</th>
+              <th>Registered</th>
+              <th>Attendance</th>
+              <th>Status</th>
+              <th></th>
+            </tr>
+          </thead>
+          <AnimatedList as="tbody" variant="fade">
+            {rows.map((r) => {
                 const att = attendance.get(r.id);
                 const college = r.answers?.college ?? r.members.find((m) => m.isLeader)?.college ?? r.members[0]?.college ?? "—";
                 const phone = r.answers?.phone ?? r.members.find((m) => m.isLeader)?.phone ?? r.members[0]?.phone ?? "—";
@@ -269,14 +262,13 @@ export const RegistrationsTable = ({ registrations, attendance, events, event, l
                   </tr>
                 );
               })}
-            </tbody>
-          </table>
-        </div>
+          </AnimatedList>
+        </Table>
       )}
 
       {isAdmin ? (
         <div className="mt-6 grid gap-6 lg:grid-cols-2" id="audit">
-          <div className="rounded-md p-[17px] shadow-[var(--shadow-sm)]">
+          <Panel className="p-[17px]">
             <Kick className="mb-2.5">Manual override</Kick>
             <div className="mb-3 text-[13.5px] text-neutral-300">
               Mark entry for a participant whose phone died. The override is written to the audit log against your account and shows as{" "}
@@ -298,8 +290,8 @@ export const RegistrationsTable = ({ registrations, attendance, events, event, l
                 Mark entry
               </Button>
             </div>
-          </div>
-          <div className="rounded-md p-[17px] shadow-[var(--shadow-sm)]">
+          </Panel>
+          <Panel className="p-[17px]">
             <Kick className="mb-2.5">Recent audit entries</Kick>
             {audit.loading ? (
               <Skeleton className="h-20" />
@@ -314,7 +306,7 @@ export const RegistrationsTable = ({ registrations, attendance, events, event, l
             ) : (
               <div className="text-[12.5px] text-neutral-500">No privileged actions yet.</div>
             )}
-          </div>
+          </Panel>
         </div>
       ) : null}
 

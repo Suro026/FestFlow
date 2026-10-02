@@ -7,7 +7,7 @@ import { ShareNetwork, DownloadSimple } from "@phosphor-icons/react";
 import { Page } from "@/components/shell/student-shell";
 import { useAuth, useRepositories } from "@/components/providers";
 import { bucketEntries, useMyEntries } from "@/components/student/use-my-entries";
-import { Artwork, EmptyState, Skeleton } from "@/components/ui/primitives";
+import { AnimatedList, Artwork, EmptyState, Skeleton } from "@/components/ui/primitives";
 import { Button } from "@/components/ui/button";
 import { CERTIFICATE_LABELS, type Certificate } from "@/core/models/certificate";
 import { formatCalendarDate } from "@/lib/utils";
@@ -43,20 +43,22 @@ export default function CertificatesPage() {
         </div>
       ) : (
         <div className="flex flex-col gap-3">
-          {(certificates.data ?? []).map((c, i) => (
-            <CertificateCard key={c.id} certificate={c} featured={i === 0} />
-          ))}
+          <AnimatedList stagger={50} maxDelay={300} className="flex flex-col gap-3">
+            {(certificates.data ?? []).map((c, i) => (
+              <CertificateCard key={c.id} certificate={c} featured={i === 0} />
+            ))}
 
-          {pending.map((e) => (
-            <div key={e.registration.id} className="panel p-3.5 opacity-70">
-              <div className="text-[14px] font-medium">{e.registration.eventTitle}</div>
-              <div className="mt-1 text-[11.5px] text-neutral-500">
-                {e.event && e.event.status === "completed"
-                  ? "Attendance confirmed · certificate being issued"
-                  : "Available after the event ends and entry is confirmed"}
+            {pending.map((e) => (
+              <div key={e.registration.id} className="panel p-3.5 opacity-70">
+                <div className="text-[14px] font-medium">{e.registration.eventTitle}</div>
+                <div className="mt-1 text-[11.5px] text-neutral-500">
+                  {e.event && e.event.status === "completed"
+                    ? "Attendance confirmed · certificate being issued"
+                    : "Available after the event ends and entry is confirmed"}
+                </div>
               </div>
-            </div>
-          ))}
+            ))}
+          </AnimatedList>
 
           {!certificates.data?.length && pending.length === 0 ? (
             <EmptyState

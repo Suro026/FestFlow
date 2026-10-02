@@ -240,8 +240,8 @@ export const FestFields = ({ form, lockSlug, festId }: { form: Form; lockSlug?: 
         error={err.socialImageUrl?.message}
         hint="1200×630 — what WhatsApp and X show when the link is shared"
       />
-      <Field label="Theme colour" htmlFor="f-theme" error={err.themeColor?.message} hint="Hex, e.g. #9184d9. Blank keeps the Plansphere accent.">
-        <Input id="f-theme" placeholder="#9184d9" className="font-mono text-[13px]" {...form.register("themeColor")} />
+      <Field label="Theme colour" htmlFor="f-theme" error={err.themeColor?.message} hint="Hex, e.g. #cbf6df. Blank keeps the Plansphere accent.">
+        <Input id="f-theme" placeholder="#cbf6df" className="font-mono text-[13px]" {...form.register("themeColor")} />
       </Field>
       <Field label="Visibility" htmlFor="f-vis" error={err.visibility?.message} hint="Unlisted is reachable by link but never listed.">
         <NativeSelect id="f-vis" {...form.register("visibility")}>

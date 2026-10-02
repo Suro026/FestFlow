@@ -9,7 +9,7 @@ import { bucketEntries, useMyEntries, type Entry } from "@/components/student/us
 import { useAuth, useRepositories } from "@/components/providers";
 import { Seg } from "@/components/ui/field";
 import { AlertDialog, AlertDialogContent, AlertDialogTrigger } from "@/components/ui/overlays";
-import { EmptyState, Kick, Skeleton, Tag } from "@/components/ui/primitives";
+import { AnimatedList, EmptyState, Kick, Skeleton, Tag } from "@/components/ui/primitives";
 import { Button } from "@/components/ui/button";
 import { CERTIFICATE_LABELS } from "@/core/models/certificate";
 import { formatCalendarDate } from "@/lib/utils";
@@ -62,37 +62,39 @@ export default function MyEventsPage() {
           certificates.isPending ? (
             <Skeleton className="mt-3 h-24" />
           ) : certificates.data?.length ? (
-            certificates.data.map((c) => (
-              <div key={c.id} className="rule-b py-[13px]">
-                <div className="text-[13.5px] font-medium">
-                  {c.eventTitle} — {CERTIFICATE_LABELS[c.type].replace("Certificate of ", "").toLowerCase()}
-                </div>
-                <div className="my-1 mb-2.5 text-[11.5px] text-neutral-500">
-                  Issued {formatCalendarDate(c.issuedAt.toISOString().slice(0, 10))} · ID {c.certificateNumber} · publicly verifiable
-                </div>
-                <div className="flex gap-2">
-                  {c.fileUrl ? (
-                    <a href={c.fileUrl} className="btn btn-primary btn-sm" target="_blank" rel="noreferrer">
-                      Download PDF
-                    </a>
-                  ) : (
-                    <Button variant="primary" size="sm" disabled>
-                      PDF on its way
+            <AnimatedList stagger={35} maxDelay={280} variant="fade">
+              {certificates.data.map((c) => (
+                <div key={c.id} className="rule-b py-[13px]">
+                  <div className="text-[13.5px] font-medium">
+                    {c.eventTitle} — {CERTIFICATE_LABELS[c.type].replace("Certificate of ", "").toLowerCase()}
+                  </div>
+                  <div className="my-1 mb-2.5 text-[11.5px] text-neutral-500">
+                    Issued {formatCalendarDate(c.issuedAt.toISOString().slice(0, 10))} · ID {c.certificateNumber} · publicly verifiable
+                  </div>
+                  <div className="flex gap-2">
+                    {c.fileUrl ? (
+                      <a href={c.fileUrl} className="btn btn-primary btn-sm" target="_blank" rel="noreferrer">
+                        Download PDF
+                      </a>
+                    ) : (
+                      <Button variant="primary" size="sm" disabled>
+                        PDF on its way
+                      </Button>
+                    )}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={async () => {
+                        await navigator.clipboard.writeText(`${window.location.origin}/verify/${c.certificateNumber}`);
+                        toast.success("Verify link copied");
+                      }}
+                    >
+                      Copy verify link
                     </Button>
-                  )}
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={async () => {
-                      await navigator.clipboard.writeText(`${window.location.origin}/verify/${c.certificateNumber}`);
-                      toast.success("Verify link copied");
-                    }}
-                  >
-                    Copy verify link
-                  </Button>
+                  </div>
                 </div>
-              </div>
-            ))
+              ))}
+            </AnimatedList>
           ) : (
             <EmptyState
               className="mt-3"
@@ -123,7 +125,9 @@ export default function MyEventsPage() {
             }
           />
         ) : (
-          list.map((entry) => <EntryRow key={entry.registration.id} entry={entry} onChanged={() => refetch()} />)
+          <AnimatedList stagger={35} maxDelay={280} variant="fade">
+            {list.map((entry) => <EntryRow key={entry.registration.id} entry={entry} onChanged={() => refetch()} />)}
+          </AnimatedList>
         )}
       </div>
 

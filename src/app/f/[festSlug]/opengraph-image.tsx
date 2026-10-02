@@ -30,26 +30,26 @@ export default async function FestOpenGraphImage({ params }: { params: Promise<{
           flexDirection: "column",
           justifyContent: "space-between",
           padding: 72,
-          background: "#161826",
-          color: "#e9e9ed",
-          fontFamily: "Inter, system-ui, sans-serif",
+          background: "#101010",
+          color: "#f3f1ea",
+          fontFamily: "'DM Sans', system-ui, sans-serif",
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: 14, fontSize: 24, color: "#9397ab" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 14, fontSize: 24, color: "#9a9992" }}>
           <img src={`data:image/png;base64,${iconMark}`} width={40} height={40} alt="" />
           Plansphere · plansphere.in
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
           <div style={{ fontSize: name.length > 18 ? 76 : 100, fontWeight: 600, lineHeight: 1, letterSpacing: -3 }}>{name}</div>
-          <div style={{ fontSize: 30, color: "#cfd3e5" }}>{sub}</div>
+          <div style={{ fontSize: 30, color: "#d8d6d0" }}>{sub}</div>
         </div>
         <div style={{ display: "flex", gap: 14, alignItems: "center" }}>
           {stats.map((t) => (
-            <div key={t} style={{ border: "2px solid #9184d9", color: "#d2cefd", borderRadius: 999, padding: "10px 22px", fontSize: 24 }}>
+            <div key={t} style={{ border: "2px solid #cbf6df", color: "#cbf6df", borderRadius: 999, padding: "10px 22px", fontSize: 24 }}>
               {t}
             </div>
           ))}
-          <div style={{ marginLeft: "auto", fontSize: 24, color: "#9397ab" }}>Register with one pass →</div>
+          <div style={{ marginLeft: "auto", fontSize: 24, color: "#9a9992" }}>Register with one pass →</div>
         </div>
       </div>
     ),

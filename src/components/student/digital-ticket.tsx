@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { DownloadSimple, Printer, Wallet } from "@phosphor-icons/react";
 import type { Registration } from "@/core/models/registration";
 import type { Attendance, FoodCollection } from "@/core/models/attendance";
-import { Kick, Tag } from "@/components/ui/primitives";
+import { Kick, Reveal, Tag } from "@/components/ui/primitives";
 import { Button } from "@/components/ui/button";
 import { formatClock } from "@/lib/utils";
 import { WALLET_SUPPORT } from "@/core/services/wallet";
@@ -68,12 +68,12 @@ export const DigitalTicket = ({
       ctx.fillStyle = "#ffffff";
       ctx.fillRect(0, 0, canvas.width, canvas.height);
       ctx.drawImage(img, 64, 48, size - 128, size - 128);
-      ctx.fillStyle = "#161826";
+      ctx.fillStyle = "#101010";
       ctx.font = "600 44px ui-monospace, Menlo, monospace";
       ctx.textAlign = "center";
       ctx.fillText(registration.ticketCode, size / 2, size + 40);
       ctx.font = "400 28px system-ui, sans-serif";
-      ctx.fillStyle = "#595d6c";
+      ctx.fillStyle = "#666663";
       ctx.fillText(`${registration.eventTitle} · ${festName}`, size / 2, size + 100);
       URL.revokeObjectURL(url);
       const a = document.createElement("a");
@@ -86,7 +86,7 @@ export const DigitalTicket = ({
   };
 
   return (
-    <div className="ticket-print overflow-hidden rounded-lg shadow-md">
+    <Reveal className="ticket-print overflow-hidden rounded-lg shadow-md">
       <div className="px-[18px] pb-3.5 pt-4">
         <Kick className="mb-[5px]">
           {festName}
@@ -172,6 +172,6 @@ export const DigitalTicket = ({
           </p>
         </div>
       ) : null}
-    </div>
+    </Reveal>
   );
 };

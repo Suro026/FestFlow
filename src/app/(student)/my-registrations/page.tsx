@@ -8,7 +8,7 @@ import { Page } from "@/components/shell/student-shell";
 import { useMyEntries, type Entry } from "@/components/student/use-my-entries";
 import { useAuth, useRepositories } from "@/components/providers";
 import { Seg } from "@/components/ui/field";
-import { EmptyState, MetaList, MetaRow, Skeleton, Tag } from "@/components/ui/primitives";
+import { AnimatedList, EmptyState, MetaList, MetaRow, Skeleton, Tag } from "@/components/ui/primitives";
 import { Button } from "@/components/ui/button";
 import { acceptedCount } from "@/core/models/registration";
 import { formatCalendarDate } from "@/lib/utils";
@@ -141,9 +141,11 @@ export default function MyRegistrationsPage() {
             }
           />
         ) : (
-          list.map((entry) => (
-            <RegistrationCard key={entry.registration.id} entry={entry} certificate={certificateByEvent.get(entry.registration.eventId)} />
-          ))
+          <AnimatedList stagger={45} maxDelay={320} className="flex flex-col gap-3">
+            {list.map((entry) => (
+              <RegistrationCard key={entry.registration.id} entry={entry} certificate={certificateByEvent.get(entry.registration.eventId)} />
+            ))}
+          </AnimatedList>
         )}
       </div>
     </Page>

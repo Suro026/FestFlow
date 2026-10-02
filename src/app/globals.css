@@ -209,6 +209,7 @@
 
   --animate-fade-in: fade-in 180ms ease-out;
   --animate-rise: rise 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  --animate-pop: pop 280ms cubic-bezier(0.2, 0.8, 0.2, 1);
 
   @keyframes fade-in {
     from { opacity: 0; }
@@ -217,6 +218,12 @@
   @keyframes rise {
     from { opacity: 0; transform: translateY(6px); }
     to { opacity: 1; transform: translateY(0); }
+  }
+  /* A small scale+fade pop for a result icon/badge — the scanner's
+     success/error moment and similar "something just happened" states. */
+  @keyframes pop {
+    from { opacity: 0; transform: scale(0.75); }
+    to { opacity: 1; transform: scale(1); }
   }
 }
 

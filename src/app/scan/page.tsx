@@ -26,7 +26,7 @@ import { listToday, type HistoryEntry, type RosterEntry } from "@/lib/offline/db
 import { Seg, Input } from "@/components/ui/field";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogActions, DialogContent } from "@/components/ui/overlays";
-import { EmptyState, MetaList, MetaRow, Skeleton, StatusBanner, Tag } from "@/components/ui/primitives";
+import { EmptyState, MetaList, MetaRow, Reveal, Skeleton, StatusBanner, Tag } from "@/components/ui/primitives";
 import type { MealType, ScanOutcome } from "@/core/models/attendance";
 import { formatCalendarDate, formatClock, formatClockSeconds, formatRelative } from "@/lib/utils";
 
@@ -340,10 +340,10 @@ const Scanner = () => {
       return (
         <Shell title={event.title} sub={`${gate ?? (mode === "meal" ? "Food counter" : "Gate")} · ${scannerName}`} mode={mode} bare>
           <div className="flex flex-1 flex-col justify-center px-[22px] shadow-[inset_0_0_0_3px_var(--color-accent)]">
-            <div className="mb-5 grid h-16 w-16 place-items-center rounded-full text-accent shadow-[inset_0_0_0_2px_var(--color-accent)]">
+            <div className="animate-pop mb-5 grid h-16 w-16 place-items-center rounded-full text-accent shadow-[inset_0_0_0_2px_var(--color-accent)]">
               <Check size={30} weight="bold" />
             </div>
-            <div className="text-[34px] font-medium leading-[1.05] tracking-[-0.025em]">{mode === "meal" ? `${mealLabel} served` : "Checked in"}</div>
+            <Reveal delay={80} className="text-[34px] font-medium leading-[1.05] tracking-[-0.025em]">{mode === "meal" ? `${mealLabel} served` : "Checked in"}</Reveal>
             <div className="mt-3 text-[15px] text-neutral-300">
               {outcome.marked && outcome.marked.length < outcome.registration.memberCount
                 ? (outcome.members ?? []).filter((m) => outcome.marked?.includes(m.key)).map((m) => m.name).join(", ")
@@ -397,7 +397,7 @@ const Scanner = () => {
       return (
         <Shell title={event.title} sub={`${gate ?? "Gate"} · ${scannerName}`} mode={mode} bare>
           <div className="flex flex-1 flex-col justify-center px-[22px] shadow-[inset_0_0_0_3px_var(--color-neutral-700)]">
-            <div className="mb-5 grid h-16 w-16 place-items-center rounded-full text-neutral-300 shadow-[inset_0_0_0_2px_var(--color-neutral-500)]">
+            <div className="animate-pop mb-5 grid h-16 w-16 place-items-center rounded-full text-neutral-300 shadow-[inset_0_0_0_2px_var(--color-neutral-500)]">
               <WarningCircle size={30} />
             </div>
             <div className="text-[34px] font-medium leading-[1.05] tracking-[-0.025em]">
@@ -435,7 +435,7 @@ const Scanner = () => {
     return (
       <Shell title={event.title} sub={`${gate ?? "Gate"} · ${scannerName}`} mode={mode} bare>
         <div className="flex flex-1 flex-col justify-center px-[22px] shadow-[inset_0_0_0_3px_var(--color-neutral-700)]">
-          <div className="mb-5 grid h-16 w-16 place-items-center rounded-full text-neutral-300 shadow-[inset_0_0_0_2px_var(--color-neutral-500)]">
+          <div className="animate-pop mb-5 grid h-16 w-16 place-items-center rounded-full text-neutral-300 shadow-[inset_0_0_0_2px_var(--color-neutral-500)]">
             <WarningCircle size={30} />
           </div>
           <div className="text-[34px] font-medium leading-[1.05] tracking-[-0.025em]">{title}</div>

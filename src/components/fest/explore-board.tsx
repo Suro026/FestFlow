@@ -5,7 +5,7 @@ import Link from "next/link";
 import { CaretRight } from "@phosphor-icons/react";
 import type { Fest } from "@/core/models/fest";
 import { Field, Input, RadioOption, Seg } from "@/components/ui/field";
-import { Artwork, EmptyState, Kick, Tag } from "@/components/ui/primitives";
+import { AnimatedList, Artwork, EmptyState, Kick, Tag } from "@/components/ui/primitives";
 import { Button } from "@/components/ui/button";
 import { FestCard, festPhase } from "./fest-card";
 import { formatDateRange } from "@/lib/utils";
@@ -192,7 +192,7 @@ export const ExploreBoard = ({ items }: { items: FestWithStats[] }) => {
           ) : (
             <>
               {/* Phone + list view: rows */}
-              <div className={view === "list" ? "block" : "block md:hidden"}>
+              <AnimatedList stagger={30} maxDelay={240} variant="fade" className={view === "list" ? "block" : "block md:hidden"}>
                 {filtered.map(({ fest, events, registered }) => {
                   const phase = festPhase(fest, today);
                   return (
@@ -220,17 +220,17 @@ export const ExploreBoard = ({ items }: { items: FestWithStats[] }) => {
                     </Link>
                   );
                 })}
-              </div>
+              </AnimatedList>
 
               {/* Desktop grid */}
               {view === "grid" ? (
-                <div className="hidden grid-cols-2 gap-x-[18px] gap-y-8 md:grid lg:grid-cols-3">
+                <AnimatedList stagger={40} maxDelay={320} className="hidden grid-cols-2 gap-x-[18px] gap-y-8 md:grid lg:grid-cols-3">
                   {filtered.map(({ fest, events, registered }) => (
                     <div key={fest.id} className="transition-transform duration-200 hover:-translate-y-1">
                       <FestCard fest={fest} variant="full" stats={{ events, registered }} />
                     </div>
                   ))}
-                </div>
+                </AnimatedList>
               ) : null}
             </>
           )}
