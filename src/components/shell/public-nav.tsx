@@ -8,16 +8,13 @@ import { WordmarkOrb } from "./wordmark-orb";
  * The header for pages seen before sign-in: landing, explorer, public verify.
  * Same `.nav` as the student side; the difference is only which links show.
  *
- * This file deliberately has no knowledge of the homepage's scroll-aware
- * nav (`TransparentNav` in `./scroll-nav`) — a plain top-level `import` of
- * a Client Component gets bundled into every page that imports the module
- * it sits in, whether or not that page ever renders it, since Next.js
- * builds the client chunk graph statically. The homepage imports
- * `TransparentNav` directly instead of going through `PublicNav`, so the
- * other ~15 pages that use this file carry none of that weight. Verified:
- * routing a `transparentAtTop` prop through this component (even via
- * `next/dynamic`) still added ~0.75 kB to every one of those pages; having
- * the homepage import it directly removed that entirely.
+ * This file deliberately has no knowledge of the homepage's own nav. `/`
+ * uses the reference-ported `LandingExperience` (`src/app/_landing/`)
+ * instead of `PublicNav` — a plain top-level `import` of a Client Component
+ * gets bundled into every page that imports the module it sits in, whether
+ * or not that page ever renders it, since Next.js builds the client chunk
+ * graph statically. Keeping the homepage's nav out of this file means the
+ * other ~15 pages that use `PublicNav` carry none of that weight.
  */
 export const PublicNav = ({ active }: { active?: "fests" | "colleges" | "verify" | "live" }) => (
   <header className="sticky top-0 z-40 border-b border-divider bg-bg/85 backdrop-blur-md">
