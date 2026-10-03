@@ -92,6 +92,26 @@ export default withSentryConfig(nextConfig, {
   authToken: process.env.SENTRY_AUTH_TOKEN,
   widenClientFileUpload: true,
   disableLogger: true,
+  /**
+   * `autoInstrumentAppDirectory` defaults to true: Sentry's webpack plugin
+   * wraps every `app/` Server Component (every page.tsx/layout.tsx) in its
+   * own error-monitoring layer at build time. With no
+   * NEXT_PUBLIC_SENTRY_DSN configured in this deployment (confirmed via
+   * /api/health — "errors are only in Vercel logs"), that wrapper currently
+   * has nowhere to send anything anyway, so turning it off loses no real
+   * monitoring today. Disabled because it is the prime suspect for a
+   * production-only crash on every dynamic `/f/[festSlug]` Server Component
+   * page — "An error occurred in the Server Components render" — that
+   * never reproduced locally under next dev, a genuine `next start`
+   * production server, or a from-scratch `npm ci` install matching
+   * Vercel's own build command, across several independent redeploys of
+   * already-verified-correct application code. `autoInstrumentServerFunctions`
+   * (API routes, data fetching) and `autoInstrumentMiddleware` are left at
+   * their defaults — only the App Router component wrapper is disabled.
+   */
+  webpack: {
+    autoInstrumentAppDirectory: false,
+  },
   // Errors only on the client: tracing and replay are compiled out, which
   // takes the browser SDK from ~340 kB to a fraction of that.
   bundleSizeOptimizations: {
