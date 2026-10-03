@@ -44,26 +44,66 @@ export interface StudentShellProps {
   className?: string;
 }
 
+/**
+ * The desktop header alone, no children prop — a self-contained client
+ * component exactly like `PublicNav`/`PublicAuthControls`. Extracted so a
+ * Server Component page can render it as a flat sibling instead of wrapping
+ * its own (often client) content as `children` of a nav component — see
+ * `StudentTapBar` below for why that distinction turned out to matter.
+ */
+export const StudentNav = ({ navExtra }: { navExtra?: React.ReactNode }) => {
+  const pathname = usePathname();
+  return (
+    <header className="hidden sm:block">
+      <nav className="nav mx-auto w-full max-w-[1180px] gap-[26px] px-6 py-4 lg:px-10" aria-label="Primary">
+        <Brand href="/" />
+        {TOP_LINKS.map((link) => (
+          <Link key={link.href} href={link.href} aria-current={isActive(pathname, link.match) ? "page" : undefined}>
+            {link.label}
+          </Link>
+        ))}
+        {navExtra}
+        <div className="ml-3 flex items-center gap-1.5">
+          <NotificationBell />
+          <UserMenu variant="student" />
+        </div>
+      </nav>
+    </header>
+  );
+};
+
+/** The phone tap bar alone, no children prop — the student-side counterpart to `StudentNav`. */
+export const StudentTapBar = () => {
+  const pathname = usePathname();
+  return (
+    <TapBar label="Primary" items={TAP_LINKS.map((link) => ({ ...link, active: isActive(pathname, link.match) }))} />
+  );
+};
+
+/**
+ * `/f/[festSlug]` and `/f/[festSlug]/e/[eventSlug]` stopped using this
+ * wrapper (see their own files for why — a production-only Server Component
+ * render crash on Vercel, never reproduced in `next dev` or `next start`,
+ * traced to exactly this component being the one place in the app where a
+ * genuine Server Component page passes its own rich, further-client-nested
+ * content as `children` of this client nav wrapper). `StudentNav`/
+ * `StudentTapBar` above exist so a Server Component page can get the same
+ * nav instead, as flat siblings — the same shape `/explore`'s working
+ * `PublicNav` already uses. This export is kept, unchanged in behavior, for
+ * every other consumer: all of them are reached through
+ * `(student)/layout.tsx`, which is itself a Server Component passing
+ * children through `RequireRole` into this same wrapper — structurally the
+ * same risk, just never isolated or fixed here, because every page behind
+ * it requires sign-in and so couldn't be verified against production
+ * without credentials this session. If any signed-in student screen is
+ * later found to hit the same crash, this is the first place to look.
+ */
 export const StudentShell = ({ children, hideTapBar, navExtra, className }: StudentShellProps) => {
   const pathname = usePathname();
 
   return (
     <div className="flex min-h-dvh flex-col">
-      <header className="hidden sm:block">
-        <nav className="nav mx-auto w-full max-w-[1180px] gap-[26px] px-6 py-4 lg:px-10" aria-label="Primary">
-          <Brand href="/" />
-          {TOP_LINKS.map((link) => (
-            <Link key={link.href} href={link.href} aria-current={isActive(pathname, link.match) ? "page" : undefined}>
-              {link.label}
-            </Link>
-          ))}
-          {navExtra}
-          <div className="ml-3 flex items-center gap-1.5">
-            <NotificationBell />
-            <UserMenu variant="student" />
-          </div>
-        </nav>
-      </header>
+      <StudentNav navExtra={navExtra} />
 
       <main id="main" className={cn("flex-1", !hideTapBar && "pb-[76px] sm:pb-0", className)}>{children}</main>
 

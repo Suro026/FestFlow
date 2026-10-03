@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { repositories } from "@/data/repositories";
 import { absoluteUrl } from "@/lib/site";
-import { StudentShell, Page } from "@/components/shell/student-shell";
+import { StudentNav, StudentTapBar, Page } from "@/components/shell/student-shell";
 import { EventLineup, PassCta } from "@/components/event/event-lineup";
 import { festPhase } from "@/components/fest/fest-card";
 import { Artwork, Kick, Kpi, KpiStrip, Tag } from "@/components/ui/primitives";
@@ -53,7 +53,9 @@ export default async function FestPage({ params }: { params: Promise<Params> }) 
   const dayCount = Math.max(1, Math.round((new Date(fest.endDate).getTime() - new Date(fest.startDate).getTime()) / 86400000) + 1);
 
   return (
-    <StudentShell>
+    <div className="flex min-h-dvh flex-col">
+      <StudentNav />
+      <main id="main" className="flex-1 pb-[76px] sm:pb-0">
       {/* ── Phone hero: the cover card ── */}
       <div className="sm:hidden">
         <div className="flex items-center justify-between px-5 pb-3 pt-2">
@@ -126,6 +128,8 @@ export default async function FestPage({ params }: { params: Promise<Params> }) 
       <Page className="pb-10 pt-[30px] sm:pr-6 lg:pr-10 pr-0">
         <EventLineup events={events} festSlug={fest.slug} />
       </Page>
-    </StudentShell>
+      </main>
+      <StudentTapBar />
+    </div>
   );
 }

@@ -6,7 +6,7 @@ import { absoluteUrl } from "@/lib/site";
 import type { Fest } from "@/core/models/fest";
 import type { Event } from "@/core/models/event";
 import { categoryLabel } from "@/core/models/event";
-import { StudentShell, Page } from "@/components/shell/student-shell";
+import { StudentNav, StudentTapBar, Page } from "@/components/shell/student-shell";
 import { RegisterPanel } from "@/components/event/register-panel";
 import { Artwork, Kick, MetaList, MetaRow, Tag } from "@/components/ui/primitives";
 import { formatCalendarDate, formatTeamSize } from "@/lib/utils";
@@ -76,7 +76,9 @@ export default async function EventPage({ params }: { params: Promise<Params> })
   const when = `${new Intl.DateTimeFormat("en-GB", { weekday: "short" }).format(new Date(`${event.date}T00:00:00`))} ${formatCalendarDate(event.date)} · ${event.startTime}${event.endTime ? ` – ${event.endTime}` : ""}`;
 
   return (
-    <StudentShell>
+    <div className="flex min-h-dvh flex-col">
+      <StudentNav />
+      <main id="main" className="flex-1 pb-[76px] sm:pb-0">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(eventJsonLd(fest, event)) }} />
       <Page className="pb-[150px] pt-1.5 sm:pt-[30px] lg:pb-11">
         <div className="grid gap-11 lg:grid-cols-[1fr_372px]">
@@ -169,6 +171,8 @@ export default async function EventPage({ params }: { params: Promise<Params> })
           <RegisterPanel event={event} fest={fest} />
         </div>
       </Page>
-    </StudentShell>
+      </main>
+      <StudentTapBar />
+    </div>
   );
 }
