@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { DM_Sans, Space_Grotesk } from "next/font/google";
 import { Providers } from "@/components/providers";
 import { ConsentProvider } from "@/components/consent";
+import { CountUpController } from "@/components/ui/count-up";
 import { SITE, SITE_URL } from "@/lib/site";
 import "./globals.css";
 
@@ -128,6 +129,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         <Providers>
           <ConsentProvider>{children}</ConsentProvider>
         </Providers>
+        <CountUpController />
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       </body>
     </html>

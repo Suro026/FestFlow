@@ -1,8 +1,6 @@
 import * as React from "react";
 import { Check } from "@phosphor-icons/react/dist/ssr";
 import { cn } from "@/lib/utils";
-// cache-bust: forces a fresh recompile of this module (see count-up.tsx).
-import { CountUp } from "./count-up";
 
 /**
  * The small, stateless building blocks the design canvas is made of.
@@ -75,9 +73,20 @@ export interface KpiProps extends React.HTMLAttributes<HTMLDivElement> {
   label: React.ReactNode;
 }
 
+/**
+ * Renders a plain number's real, final, `en-IN`-grouped value directly — no
+ * hooks, no client component, nothing that can fail to render in a Server
+ * Component (this is what every consumer actually sees, including with
+ * JavaScript disabled). `data-countup` is a pure enhancement hook: the
+ * root-level `CountUpController` (mounted once in layout.tsx, the same way
+ * `Providers` is) finds it after hydration and animates from 0 up to this
+ * same value — see count-up.tsx for why it lives there instead of inline.
+ */
 export const Kpi = ({ value, label, className, ...props }: KpiProps) => (
   <div className={cn("kpi min-w-[128px]", className)} {...props}>
-    <div className="kpin">{typeof value === "number" ? <CountUp value={value} /> : value}</div>
+    <div className="kpin" {...(typeof value === "number" ? { "data-countup": value } : {})}>
+      {typeof value === "number" ? new Intl.NumberFormat("en-IN").format(value) : value}
+    </div>
     <div className="kpil">{label}</div>
   </div>
 );
