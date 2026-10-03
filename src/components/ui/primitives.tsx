@@ -1,6 +1,7 @@
 import * as React from "react";
 import { Check } from "@phosphor-icons/react/dist/ssr";
 import { cn } from "@/lib/utils";
+// cache-bust: forces a fresh recompile of this module (see count-up.tsx).
 import { CountUp } from "./count-up";
 
 /**

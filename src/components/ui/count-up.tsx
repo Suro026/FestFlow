@@ -1,5 +1,7 @@
 "use client";
 
+// cache-bust: forces a fresh recompile of this module and its RSC
+// client-reference entry, to rule out a stale incremental-build cache.
 import * as React from "react";
 
 /**
